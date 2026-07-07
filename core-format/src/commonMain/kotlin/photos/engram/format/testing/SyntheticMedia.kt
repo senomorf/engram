@@ -16,7 +16,12 @@ object SyntheticMedia {
         segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
         segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
         segment(b, 0xDA, byteArrayOf(1, 1, 0, 0, 63, 0))
-        b.append(0x00).append(entropyByte).append(0xFF).append(0x00).append(0x37)
+        b
+            .append(0x00)
+            .append(entropyByte)
+            .append(0xFF)
+            .append(0x00)
+            .append(0x37)
         b.append(0xFF).append(0xD9)
         return b.toByteArray()
     }
@@ -53,8 +58,19 @@ object SyntheticMedia {
                 PngChunk(
                     "IDAT",
                     byteArrayOf(
-                        0x78, 0x01, 0x01, 0x02, 0x00, 0xFD.toByte(), 0xFF.toByte(),
-                        0x00, 0x00, 0x00, 0x02, 0x00, 0x01,
+                        0x78,
+                        0x01,
+                        0x01,
+                        0x02,
+                        0x00,
+                        0xFD.toByte(),
+                        0xFF.toByte(),
+                        0x00,
+                        0x00,
+                        0x00,
+                        0x02,
+                        0x00,
+                        0x01,
                     ),
                 ),
                 PngChunk("IEND", ByteArray(0)),
@@ -101,13 +117,25 @@ object SyntheticMedia {
     private fun mpfPayload(): ByteArray {
         val b = ByteArrayBuilder()
         b.append("MPF".encodeToByteArray()).append(0)
-        b.append(0x49).append(0x49).append(0x2A).append(0x00)
-        b.append(0x08).append(0x00).append(0x00).append(0x00)
+        b
+            .append(0x49)
+            .append(0x49)
+            .append(0x2A)
+            .append(0x00)
+        b
+            .append(0x08)
+            .append(0x00)
+            .append(0x00)
+            .append(0x00)
         b.append(0x03).append(0x00)
         ifdEntryLe(b, 0xB000, 7, 4, 0x30303130) // ascii "0100"
         ifdEntryLe(b, 0xB001, 4, 1, 2)
         ifdEntryLe(b, 0xB002, 7, 32, ENTRIES_REL.toLong())
-        b.append(0).append(0).append(0).append(0)
+        b
+            .append(0)
+            .append(0)
+            .append(0)
+            .append(0)
         repeat(32) { b.append(0) } // two MP entries, patched by the caller
         return b.toByteArray()
     }
@@ -129,7 +157,11 @@ object SyntheticMedia {
         b: ByteArrayBuilder,
         v: Long,
     ) {
-        b.append(v.toInt()).append((v ushr 8).toInt()).append((v ushr 16).toInt()).append((v ushr 24).toInt())
+        b
+            .append(v.toInt())
+            .append((v ushr 8).toInt())
+            .append((v ushr 16).toInt())
+            .append((v ushr 24).toInt())
     }
 
     private fun patchU32le(

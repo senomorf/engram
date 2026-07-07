@@ -25,7 +25,12 @@ internal fun selftest() {
     val jpeg = JpegEmbedder(xmp).embed(SyntheticMedia.jpegWithMpfSecondary(), listOf(noteRec, audioRec), note)
     checkSelf("jpeg records", RecordStream.scan(jpeg).count { it.decoded.crcOk } == 2)
     checkSelf("jpeg mpf intact", MpfInspector.inspect(jpeg).valid)
-    val packet = JpegCodec.parse(jpeg).filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket()
+    val packet =
+        JpegCodec
+            .parse(jpeg)
+            .filterIsInstance<Segment>()
+            .first { it.isXmpApp1() }
+            .xmpPacket()
     checkSelf("jpeg dual-write", xmp.read(packet).description == note)
 
     val png = PngEmbedder(xmp).embed(SyntheticMedia.png1x1(), listOf(noteRec), note)

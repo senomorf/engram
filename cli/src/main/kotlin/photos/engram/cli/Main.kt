@@ -52,7 +52,9 @@ fun cliMain(args: Array<String>): Int =
         1
     }
 
-internal class Args(private val raw: Array<String>) {
+internal class Args(
+    private val raw: Array<String>,
+) {
     fun opt(name: String): String? {
         val i = raw.indexOf("--$name")
         return if (i >= 0 && i + 1 < raw.size) raw[i + 1] else null

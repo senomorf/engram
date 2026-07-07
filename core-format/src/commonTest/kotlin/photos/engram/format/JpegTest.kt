@@ -74,7 +74,12 @@ class JpegTest {
             )
         val hits = RecordStream.scan(second).filter { it.decoded.crcOk }
         assertEquals(2, hits.size)
-        val packet = JpegCodec.parse(second).filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket()
+        val packet =
+            JpegCodec
+                .parse(second)
+                .filterIsInstance<Segment>()
+                .first { it.isXmpApp1() }
+                .xmpPacket()
         val s = FakeXmpEngine().read(packet)
         assertEquals(2, s.recordCount)
         assertEquals("two", s.description)

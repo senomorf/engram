@@ -26,7 +26,13 @@ class RecordsTest {
         val hits = RecordStream.decodeSequence(bytes)
         assertEquals(2, hits.size)
         assertTrue(hits.all { it.decoded.crcOk })
-        assertEquals("hello", hits[0].decoded.record!!.payload.decodeToString())
+        assertEquals(
+            "hello",
+            hits[0]
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+        )
         assertEquals(1720000000000, hits[0].decoded.record!!.tsMillis)
         val audio = AudioPayload.decode(hits[1].decoded.record!!.payload)!!
         assertEquals("audio/ogg", audio.first)

@@ -9,9 +9,15 @@ import photos.engram.format.u32be
 import photos.engram.format.xmp.XmpEngine
 import photos.engram.format.xmp.XmpUpdate
 
-class PngFormatException(message: String) : Exception(message)
+class PngFormatException(
+    message: String,
+) : Exception(message)
 
-class PngChunk(val type: String, val data: ByteArray, val crcOk: Boolean = true) {
+class PngChunk(
+    val type: String,
+    val data: ByteArray,
+    val crcOk: Boolean = true,
+) {
     fun encode(): ByteArray {
         val t = type.encodeToByteArray()
         require(t.size == 4) { "chunk type must be 4 bytes" }
@@ -24,7 +30,10 @@ class PngChunk(val type: String, val data: ByteArray, val crcOk: Boolean = true)
     }
 }
 
-class PngFile(val chunks: List<PngChunk>, val trailer: ByteArray)
+class PngFile(
+    val chunks: List<PngChunk>,
+    val trailer: ByteArray,
+)
 
 object PngCodec {
     val SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
@@ -94,7 +103,9 @@ object PngCodec {
         file.chunks.filter { it.type == ENGRAM_CHUNK }.mapNotNull { EngramRecord.decodeAt(it.data, 0) }
 }
 
-class PngEmbedder(private val xmp: XmpEngine) {
+class PngEmbedder(
+    private val xmp: XmpEngine,
+) {
     fun embed(
         source: ByteArray,
         newRecords: List<EngramRecord>,

@@ -7,7 +7,9 @@ import photos.engram.format.records.RecordStream
 import photos.engram.format.u32be
 import photos.engram.format.u64be
 
-class Mp4FormatException(message: String) : Exception(message)
+class Mp4FormatException(
+    message: String,
+) : Exception(message)
 
 class BoxInfo(
     val offset: Long,

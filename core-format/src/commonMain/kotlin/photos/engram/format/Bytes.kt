@@ -17,7 +17,9 @@ fun ByteArray.startsWith(
     return true
 }
 
-class ByteArrayBuilder(initialCapacity: Int = 64) {
+class ByteArrayBuilder(
+    initialCapacity: Int = 64,
+) {
     private var buf = ByteArray(maxOf(initialCapacity, 16))
     var size = 0
         private set

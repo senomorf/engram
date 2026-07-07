@@ -8,7 +8,9 @@ import photos.engram.format.u32be
 import photos.engram.format.u64be
 import photos.engram.format.u8
 
-enum class RecordKind(val code: Int) {
+enum class RecordKind(
+    val code: Int,
+) {
     Note(1),
     Audio(2),
     Enrichment(3),
@@ -26,7 +28,11 @@ enum class RecordKind(val code: Int) {
  * payloadLen u32be | payload | crc32 u32be over everything before it.
  * Records are self-delimiting so a carver can recover them from damaged files.
  */
-class EngramRecord(val kind: RecordKind, val tsMillis: Long, val payload: ByteArray) {
+class EngramRecord(
+    val kind: RecordKind,
+    val tsMillis: Long,
+    val payload: ByteArray,
+) {
     fun encode(): ByteArray {
         val b = ByteArrayBuilder(HEADER_LEN + payload.size + 4)
         b.append(MAGIC)
@@ -67,9 +73,17 @@ class EngramRecord(val kind: RecordKind, val tsMillis: Long, val payload: ByteAr
     }
 }
 
-class DecodedRecord(val record: EngramRecord?, val kindCode: Int, val byteLength: Int, val crcOk: Boolean)
+class DecodedRecord(
+    val record: EngramRecord?,
+    val kindCode: Int,
+    val byteLength: Int,
+    val crcOk: Boolean,
+)
 
-class RecordHit(val offset: Int, val decoded: DecodedRecord)
+class RecordHit(
+    val offset: Int,
+    val decoded: DecodedRecord,
+)
 
 object RecordStream {
     fun encode(records: List<EngramRecord>): ByteArray {
@@ -123,7 +137,11 @@ object AudioPayload {
     ): ByteArray {
         val m = mime.encodeToByteArray()
         require(m.size <= 0xFFFF) { "mime too long" }
-        return ByteArrayBuilder(2 + m.size + data.size).appendU16be(m.size).append(m).append(data).toByteArray()
+        return ByteArrayBuilder(2 + m.size + data.size)
+            .appendU16be(m.size)
+            .append(m)
+            .append(data)
+            .toByteArray()
     }
 
     fun decode(payload: ByteArray): Pair<String, ByteArray>? {

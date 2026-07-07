@@ -5,7 +5,9 @@ import photos.engram.format.records.RecordStream
 import photos.engram.format.xmp.XmpEngine
 import photos.engram.format.xmp.XmpUpdate
 
-class JpegEmbedder(private val xmp: XmpEngine) {
+class JpegEmbedder(
+    private val xmp: XmpEngine,
+) {
     fun embed(
         source: ByteArray,
         newRecords: List<EngramRecord>,
@@ -14,7 +16,8 @@ class JpegEmbedder(private val xmp: XmpEngine) {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val parts = JpegCodec.parse(source).toMutableList()
         val existing =
-            parts.filterIsInstance<TrailerData>()
+            parts
+                .filterIsInstance<TrailerData>()
                 .flatMap { RecordStream.scan(it.raw) }
                 .filter { it.decoded.crcOk }
         val added = RecordStream.encode(newRecords)

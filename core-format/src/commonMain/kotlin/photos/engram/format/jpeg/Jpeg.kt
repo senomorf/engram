@@ -4,16 +4,24 @@ import photos.engram.format.startsWith
 import photos.engram.format.u16be
 import photos.engram.format.u8
 
-class JpegFormatException(message: String) : Exception(message)
+class JpegFormatException(
+    message: String,
+) : Exception(message)
 
 /** Parts hold the exact original bytes; serialize(parse(x)) is byte-identical. */
-sealed class JpegPart(val raw: ByteArray)
+sealed class JpegPart(
+    val raw: ByteArray,
+)
 
-class MarkerOnly(raw: ByteArray) : JpegPart(raw) {
+class MarkerOnly(
+    raw: ByteArray,
+) : JpegPart(raw) {
     val marker: Int get() = raw.u8(1)
 }
 
-class Segment(raw: ByteArray) : JpegPart(raw) {
+class Segment(
+    raw: ByteArray,
+) : JpegPart(raw) {
     val marker: Int get() = raw.u8(1)
     val payload: ByteArray get() = raw.copyOfRange(4, raw.size)
 
@@ -37,11 +45,17 @@ class Segment(raw: ByteArray) : JpegPart(raw) {
     }
 }
 
-class Entropy(raw: ByteArray) : JpegPart(raw)
+class Entropy(
+    raw: ByteArray,
+) : JpegPart(raw)
 
-class Filler(raw: ByteArray) : JpegPart(raw)
+class Filler(
+    raw: ByteArray,
+) : JpegPart(raw)
 
-class TrailerData(raw: ByteArray) : JpegPart(raw)
+class TrailerData(
+    raw: ByteArray,
+) : JpegPart(raw)
 
 object JpegCodec {
     const val SOI = 0xD8

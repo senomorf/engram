@@ -25,7 +25,14 @@ class Mp4Test {
         val hits = Mp4Codec.readRecords(out)
         assertEquals(1, hits.size)
         assertTrue(hits.single().decoded.crcOk)
-        assertEquals("clip", hits.single().decoded.record!!.payload.decodeToString())
+        assertEquals(
+            "clip",
+            hits
+                .single()
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+        )
     }
 
     @Test

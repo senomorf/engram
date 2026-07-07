@@ -117,7 +117,8 @@ private fun printRecords(
             when (r?.kind) {
                 RecordKind.Note -> "\"${r.payload.decodeToString().take(60)}\""
                 RecordKind.Audio ->
-                    AudioPayload.decode(r.payload)
+                    AudioPayload
+                        .decode(r.payload)
                         ?.let { "${it.first}, ${it.second.size} audio bytes" } ?: "malformed audio payload"
                 else -> "${r?.payload?.size ?: 0} payload bytes"
             }

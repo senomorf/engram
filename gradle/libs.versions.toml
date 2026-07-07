@@ -1,8 +1,8 @@
 [versions]
-kotlin = "2.2.21"
+kotlin = "2.3.20"
 xmpcore = "6.1.11"
 detekt = "1.23.8"
-ktlint-gradle = "12.1.2"
+ktlint-gradle = "14.2.0"
 
 [libraries]
 xmpcore = { module = "com.adobe.xmp:xmpcore", version.ref = "xmpcore" }

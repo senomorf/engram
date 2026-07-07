@@ -29,17 +29,26 @@ class CliRoundTripTest {
             cliMain(
                 arrayOf(
                     "generate",
-                    "--in", src.path,
-                    "--out", out.path,
-                    "--note", "integration note",
-                    "--audio", audio.path,
+                    "--in",
+                    src.path,
+                    "--out",
+                    out.path,
+                    "--note",
+                    "integration note",
+                    "--audio",
+                    audio.path,
                 ),
             ),
         )
         val bytes = out.readBytes()
         assertEquals(2, RecordStream.scan(bytes).count { it.decoded.crcOk })
         assertTrue(MpfInspector.inspect(bytes).valid)
-        val packet = JpegCodec.parse(bytes).filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket()
+        val packet =
+            JpegCodec
+                .parse(bytes)
+                .filterIsInstance<Segment>()
+                .first { it.isXmpApp1() }
+                .xmpPacket()
         assertEquals("integration note", XmpCoreEngine().read(packet).description)
         assertEquals(0, cliMain(arrayOf("inspect", "--in", out.path)))
     }
