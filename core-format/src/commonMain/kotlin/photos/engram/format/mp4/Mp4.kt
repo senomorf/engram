@@ -1,6 +1,7 @@
 package photos.engram.format.mp4
 
 import photos.engram.format.ByteArrayBuilder
+import photos.engram.format.hexToBytes
 import photos.engram.format.records.EngramRecord
 import photos.engram.format.records.RecordHit
 import photos.engram.format.records.RecordStream
@@ -21,7 +22,8 @@ class BoxInfo(
 )
 
 object Mp4Codec {
-    val ENGRAM_UUID = "ENGRAM-PHOTOS-01".encodeToByteArray()
+    // fixed UUID 7a0b5c4d-9e2f-4a31-8b6d-0c3e5f719246, allocated for engram records
+    val ENGRAM_UUID = "7a0b5c4d9e2f4a318b6d0c3e5f719246".hexToBytes()
 
     /** [header] is the first up-to-32 bytes at the box start. */
     fun parseHeader(
@@ -89,6 +91,10 @@ object Mp4Codec {
         boxes.forEachIndexed { idx, b ->
             if (b.sizeFieldWasZero && idx != boxes.lastIndex) {
                 throw Mp4FormatException("size-zero box before end of file not supported")
+            }
+            // removing a non-tail box would shift mdat and break moov chunk offsets
+            if (isEngramBox(b) && idx != boxes.lastIndex) {
+                throw Mp4FormatException("existing engram box not at end of file, refusing to rewrite")
             }
         }
         val old = ByteArrayBuilder()

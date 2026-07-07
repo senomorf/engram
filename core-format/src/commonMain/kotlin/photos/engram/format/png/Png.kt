@@ -99,8 +99,13 @@ object PngCodec {
         return d.copyOfRange(i, d.size).decodeToString()
     }
 
+    // a record must span the chunk exactly: trailing bytes mean corruption
     fun engramRecords(file: PngFile): List<DecodedRecord> =
-        file.chunks.filter { it.type == ENGRAM_CHUNK }.mapNotNull { EngramRecord.decodeAt(it.data, 0) }
+        file.chunks
+            .filter { it.type == ENGRAM_CHUNK }
+            .mapNotNull { c -> EngramRecord.decodeAt(c.data, 0)?.takeIf { it.byteLength == c.data.size } }
+
+    fun engramChunkCount(file: PngFile): Int = file.chunks.count { it.type == ENGRAM_CHUNK }
 }
 
 class PngEmbedder(
@@ -123,8 +128,15 @@ class PngEmbedder(
                 recordCount = existing.size + newRecords.size,
             )
         val xmpIdx = chunks.indexOfFirst { PngCodec.xmpPacket(it) != null }
-        val packet = xmp.apply(chunks.getOrNull(xmpIdx)?.let { PngCodec.xmpPacket(it) }, update)
-        val chunk = PngCodec.xmpChunk(packet)
+        // iTXt has no segment size limit, so the packet never needs an ExtendedXMP split
+        val result =
+            xmp.apply(
+                existingStandard = chunks.getOrNull(xmpIdx)?.let { PngCodec.xmpPacket(it) },
+                existingExtended = null,
+                update = update,
+                standardLimitBytes = Int.MAX_VALUE,
+            )
+        val chunk = PngCodec.xmpChunk(result.standardPacket)
         if (xmpIdx >= 0) {
             chunks[xmpIdx] = chunk
         } else {
