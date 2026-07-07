@@ -3,6 +3,7 @@ package photos.engram.format.records
 import photos.engram.format.ByteArrayBuilder
 import photos.engram.format.Crc32
 import photos.engram.format.startsWith
+import photos.engram.format.toHex
 import photos.engram.format.u16be
 import photos.engram.format.u32be
 import photos.engram.format.u64be
@@ -24,22 +25,38 @@ enum class RecordKind(
 
 /**
  * Wire frame, spec v0:
- * magic "EGRM" (4) | version u8 | kind u8 | flags u16be | tsMillis u64be |
- * payloadLen u32be | payload | crc32 u32be over everything before it.
+ * magic "EGRM" (4) | version u8 | kind u8 | flags u16be | id (16) |
+ * tsMillis u64be | writerLen u8 | writer utf8 | payloadLen u32be | payload |
+ * crc32 u32be over everything before it.
  * Records are self-delimiting so a carver can recover them from damaged files.
+ * The id makes every record globally addressable (export, dedup, expectations);
+ * the writer id keeps a future multi-writer history reconstructable.
  */
 class EngramRecord(
     val kind: RecordKind,
     val tsMillis: Long,
     val payload: ByteArray,
+    val id: ByteArray = ByteArray(ID_LENGTH),
+    val writer: String = "",
 ) {
+    init {
+        require(id.size == ID_LENGTH) { "record id must be $ID_LENGTH bytes" }
+        require(writer.encodeToByteArray().size <= MAX_WRITER_BYTES) { "writer id too long" }
+    }
+
+    val idHex: String get() = id.toHex()
+
     fun encode(): ByteArray {
-        val b = ByteArrayBuilder(HEADER_LEN + payload.size + 4)
+        val writerBytes = writer.encodeToByteArray()
+        val b = ByteArrayBuilder(HEADER_LEN + writerBytes.size + payload.size + 4)
         b.append(MAGIC)
         b.append(WIRE_VERSION)
         b.append(kind.code)
         b.appendU16be(0)
+        b.append(id)
         b.appendU64be(tsMillis)
+        b.append(writerBytes.size)
+        b.append(writerBytes)
         b.appendU32be(payload.size.toLong())
         b.append(payload)
         val body = b.toByteArray()
@@ -49,26 +66,46 @@ class EngramRecord(
     companion object {
         val MAGIC = "EGRM".encodeToByteArray()
         const val WIRE_VERSION = 1
-        const val HEADER_LEN = 4 + 1 + 1 + 2 + 8 + 4
+        const val ID_LENGTH = 16
+        const val MAX_WRITER_BYTES = 255
+
+        // fixed fields through writerLen
+        private const val FIXED_LEN = 4 + 1 + 1 + 2 + ID_LENGTH + 8 + 1
+
+        /** Header length for an empty writer, including the payload length field. */
+        const val HEADER_LEN = FIXED_LEN + 4
 
         fun decodeAt(
             bytes: ByteArray,
             at: Int,
+            limit: Int = bytes.size,
         ): DecodedRecord? {
+            val end = minOf(limit, bytes.size)
             if (!bytes.startsWith(MAGIC, at)) return null
-            if (at + HEADER_LEN + 4 > bytes.size) return null
+            if (at + FIXED_LEN > end) return null
             if (bytes.u8(at + 4) != WIRE_VERSION) return null
             val kindCode = bytes.u8(at + 5)
-            val ts = bytes.u64be(at + 8)
-            val len = bytes.u32be(at + 16)
-            if (len > Int.MAX_VALUE.toLong() || at + HEADER_LEN + len + 4 > bytes.size) return null
-            val end = at + HEADER_LEN + len.toInt()
-            val crcOk = bytes.u32be(end) == Crc32.of(bytes, at, end)
+            val id = bytes.copyOfRange(at + 8, at + 24)
+            val ts = bytes.u64be(at + 24)
+            val writerLen = bytes.u8(at + 32)
+            val writerEnd = at + FIXED_LEN + writerLen
+            if (writerEnd + 4 > end) return null
+            val payloadLen = bytes.u32be(writerEnd)
+            if (payloadLen > Int.MAX_VALUE.toLong()) return null
+            val payloadEnd = writerEnd + 4 + payloadLen.toInt()
+            if (payloadEnd + 4 > end) return null
+            val crcOk = bytes.u32be(payloadEnd) == Crc32.of(bytes, at, payloadEnd)
             val record =
                 RecordKind.of(kindCode)?.let {
-                    EngramRecord(it, ts, bytes.copyOfRange(at + HEADER_LEN, end))
+                    EngramRecord(
+                        kind = it,
+                        tsMillis = ts,
+                        payload = bytes.copyOfRange(writerEnd + 4, payloadEnd),
+                        id = id,
+                        writer = bytes.copyOfRange(at + FIXED_LEN, writerEnd).decodeToString(),
+                    )
                 }
-            return DecodedRecord(record, kindCode, HEADER_LEN + len.toInt() + 4, crcOk)
+            return DecodedRecord(record, kindCode, payloadEnd + 4 - at, crcOk)
         }
     }
 }
@@ -92,7 +129,7 @@ object RecordStream {
         return b.toByteArray()
     }
 
-    /** Strict: records must sit back to back starting at [from]. */
+    /** Strict: records must sit back to back starting at [from] and end within [until]. */
     fun decodeSequence(
         bytes: ByteArray,
         from: Int = 0,
@@ -101,7 +138,7 @@ object RecordStream {
         val hits = mutableListOf<RecordHit>()
         var i = from
         while (i < until) {
-            val d = EngramRecord.decodeAt(bytes, i) ?: break
+            val d = EngramRecord.decodeAt(bytes, i, until) ?: break
             hits += RecordHit(i, d)
             i += d.byteLength
         }
