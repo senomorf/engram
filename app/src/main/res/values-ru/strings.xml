@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_tagline">Заметки и голос, записанные в саму фотографию.</string>
+    <string name="count_total">фото</string>
+    <string name="count_annotated">с воспоминаниями</string>
+    <string name="count_waiting">ждут</string>
+    <string name="open_queue">Добавить воспоминания</string>
+    <string name="queue_title">Ждут воспоминания: %1$d</string>
+    <string name="queue_empty">Очередь пуста. Самое время снять что-то стоящее.</string>
+    <string name="queue_permission_rationale">Engram нужен доступ к фото и видео, чтобы найти те, что ждут воспоминания. Всё остаётся на этом устройстве.</string>
+    <string name="grant_access">Разрешить доступ</string>
 </resources>

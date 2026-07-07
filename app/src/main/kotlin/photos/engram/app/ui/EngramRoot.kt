@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
  */
 sealed interface Screen {
     data object Home : Screen
+
+    data object Queue : Screen
 }
 
 class Navigator internal constructor(
@@ -36,6 +38,7 @@ fun EngramRoot() {
     val navigator = remember { Navigator(stack) }
     BackHandler(enabled = stack.size > 1) { navigator.pop() }
     when (stack.last()) {
-        is Screen.Home -> HomeScreen()
+        is Screen.Home -> HomeScreen(onOpenQueue = { navigator.push(Screen.Queue) })
+        is Screen.Queue -> QueueScreen()
     }
 }

@@ -2,4 +2,12 @@
 <resources>
     <string name="app_name" translatable="false">Engram</string>
     <string name="home_tagline">Notes and voice, written into the photo itself.</string>
+    <string name="count_total">photos</string>
+    <string name="count_annotated">with memories</string>
+    <string name="count_waiting">waiting</string>
+    <string name="open_queue">Add memories</string>
+    <string name="queue_title">Waiting for a memory: %1$d</string>
+    <string name="queue_empty">Nothing is waiting. Go take a photo worth remembering.</string>
+    <string name="queue_permission_rationale">Engram needs access to your photos and videos to find the ones waiting for a memory. Everything stays on this device.</string>
+    <string name="grant_access">Allow access</string>
 </resources>

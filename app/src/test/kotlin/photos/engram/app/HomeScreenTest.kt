@@ -18,7 +18,7 @@ class HomeScreenTest {
     fun showsAppNameAndTagline() {
         compose.setContent {
             EngramTheme {
-                HomeScreen()
+                HomeScreen(onOpenQueue = {})
             }
         }
         compose.onNodeWithText("Engram").assertExists()
