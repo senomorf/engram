@@ -1,0 +1,14 @@
+[versions]
+kotlin = "2.2.21"
+xmpcore = "6.1.11"
+detekt = "1.23.8"
+ktlint-gradle = "12.1.2"
+
+[libraries]
+xmpcore = { module = "com.adobe.xmp:xmpcore", version.ref = "xmpcore" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }

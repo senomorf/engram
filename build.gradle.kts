@@ -1,6 +1,8 @@
 plugins {
-    kotlin("multiplatform") version "2.2.21" apply false
-    kotlin("jvm") version "2.2.21" apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.ktlint) apply false
 }
 
 allprojects {
