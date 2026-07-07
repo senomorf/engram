@@ -8,7 +8,6 @@ import java.io.RandomAccessFile
 
 /** Streaming variant for real videos; keeps only box headers and our records in memory. */
 object Mp4Files {
-
     fun topLevel(file: File): List<BoxInfo> {
         RandomAccessFile(file, "r").use { raf ->
             val len = raf.length()
@@ -28,7 +27,11 @@ object Mp4Files {
         }
     }
 
-    fun appendRecords(input: File, output: File, newRecords: List<EngramRecord>) {
+    fun appendRecords(
+        input: File,
+        output: File,
+        newRecords: List<EngramRecord>,
+    ) {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         require(input.canonicalPath != output.canonicalPath) { "output must differ from input" }
         val boxes = topLevel(input)

@@ -8,7 +8,10 @@ fun ByteArray.u32be(at: Int): Long = (u16be(at).toLong() shl 16) or u16be(at + 2
 
 fun ByteArray.u64be(at: Int): Long = (u32be(at) shl 32) or u32be(at + 4)
 
-fun ByteArray.startsWith(prefix: ByteArray, at: Int = 0): Boolean {
+fun ByteArray.startsWith(
+    prefix: ByteArray,
+    at: Int = 0,
+): Boolean {
     if (at < 0 || at + prefix.size > size) return false
     for (i in prefix.indices) if (this[at + i] != prefix[i]) return false
     return true
@@ -32,7 +35,11 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
         return this
     }
 
-    fun append(bytes: ByteArray, from: Int = 0, until: Int = bytes.size): ByteArrayBuilder {
+    fun append(
+        bytes: ByteArray,
+        from: Int = 0,
+        until: Int = bytes.size,
+    ): ByteArrayBuilder {
         ensure(until - from)
         bytes.copyInto(buf, size, from, until)
         size += until - from

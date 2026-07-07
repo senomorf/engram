@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class Crc32Test {
-
     @Test
     fun knownVector() {
         assertEquals(0xCBF43926L, Crc32.of("123456789".encodeToByteArray()))

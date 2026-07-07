@@ -6,14 +6,17 @@ import photos.engram.format.xmp.XmpUpdate
 
 /** Line-based stand-in: exercises container plumbing without xmpcore. */
 class FakeXmpEngine : XmpEngine {
-
-    override fun apply(existingPacket: String?, update: XmpUpdate): String {
-        val preserved = existingPacket
-            ?.lineSequence()
-            ?.filterNot { it.startsWith("desc=") || it.startsWith("len=") || it.startsWith("cnt=") }
-            ?.filter { it.isNotBlank() }
-            ?.joinToString("\n")
-            .orEmpty()
+    override fun apply(
+        existingPacket: String?,
+        update: XmpUpdate,
+    ): String {
+        val preserved =
+            existingPacket
+                ?.lineSequence()
+                ?.filterNot { it.startsWith("desc=") || it.startsWith("len=") || it.startsWith("cnt=") }
+                ?.filter { it.isNotBlank() }
+                ?.joinToString("\n")
+                .orEmpty()
         return buildString {
             if (preserved.isNotBlank()) appendLine(preserved)
             appendLine("desc=${update.mirrorDescription.orEmpty()}")

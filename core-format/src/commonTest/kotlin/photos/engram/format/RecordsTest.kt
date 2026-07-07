@@ -10,11 +10,15 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RecordsTest {
-
-    private fun sample() = listOf(
-        EngramRecord(RecordKind.Note, 1720000000000, "hello".encodeToByteArray()),
-        EngramRecord(RecordKind.Audio, 1720000000001, AudioPayload.encode("audio/ogg", ByteArray(32) { it.toByte() })),
-    )
+    private fun sample() =
+        listOf(
+            EngramRecord(RecordKind.Note, 1720000000000, "hello".encodeToByteArray()),
+            EngramRecord(
+                RecordKind.Audio,
+                1720000000001,
+                AudioPayload.encode("audio/ogg", ByteArray(32) { it.toByte() }),
+            ),
+        )
 
     @Test
     fun roundTrip() {

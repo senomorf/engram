@@ -9,7 +9,6 @@ import photos.engram.format.png.PngCodec
  * decoders. Real Pixel/OEM corpus files live in lab/corpus (never committed).
  */
 object SyntheticMedia {
-
     fun jpegPlain(entropyByte: Int = 0x12): ByteArray {
         val b = ByteArrayBuilder()
         b.append(0xFF).append(0xD8)
@@ -48,17 +47,18 @@ object SyntheticMedia {
     }
 
     fun png1x1(): ByteArray {
-        val chunks = listOf(
-            PngChunk("IHDR", byteArrayOf(0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0, 0, 0)),
-            PngChunk(
-                "IDAT",
-                byteArrayOf(
-                    0x78, 0x01, 0x01, 0x02, 0x00, 0xFD.toByte(), 0xFF.toByte(),
-                    0x00, 0x00, 0x00, 0x02, 0x00, 0x01,
+        val chunks =
+            listOf(
+                PngChunk("IHDR", byteArrayOf(0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0, 0, 0)),
+                PngChunk(
+                    "IDAT",
+                    byteArrayOf(
+                        0x78, 0x01, 0x01, 0x02, 0x00, 0xFD.toByte(), 0xFF.toByte(),
+                        0x00, 0x00, 0x00, 0x02, 0x00, 0x01,
+                    ),
                 ),
-            ),
-            PngChunk("IEND", ByteArray(0)),
-        )
+                PngChunk("IEND", ByteArray(0)),
+            )
         val b = ByteArrayBuilder()
         b.append(PngCodec.SIGNATURE)
         chunks.forEach { b.append(it.encode()) }
@@ -88,7 +88,11 @@ object SyntheticMedia {
         return b.toByteArray()
     }
 
-    private fun segment(b: ByteArrayBuilder, marker: Int, payload: ByteArray) {
+    private fun segment(
+        b: ByteArrayBuilder,
+        marker: Int,
+        payload: ByteArray,
+    ) {
         b.append(0xFF).append(marker)
         b.appendU16be(payload.size + 2)
         b.append(payload)
@@ -108,18 +112,31 @@ object SyntheticMedia {
         return b.toByteArray()
     }
 
-    private fun ifdEntryLe(b: ByteArrayBuilder, tag: Int, type: Int, count: Long, value: Long) {
+    private fun ifdEntryLe(
+        b: ByteArrayBuilder,
+        tag: Int,
+        type: Int,
+        count: Long,
+        value: Long,
+    ) {
         b.append(tag).append(tag ushr 8)
         b.append(type).append(type ushr 8)
         appendU32le(b, count)
         appendU32le(b, value)
     }
 
-    private fun appendU32le(b: ByteArrayBuilder, v: Long) {
+    private fun appendU32le(
+        b: ByteArrayBuilder,
+        v: Long,
+    ) {
         b.append(v.toInt()).append((v ushr 8).toInt()).append((v ushr 16).toInt()).append((v ushr 24).toInt())
     }
 
-    private fun patchU32le(bytes: ByteArray, at: Int, v: Long) {
+    private fun patchU32le(
+        bytes: ByteArray,
+        at: Int,
+        v: Long,
+    ) {
         bytes[at] = v.toByte()
         bytes[at + 1] = (v ushr 8).toByte()
         bytes[at + 2] = (v ushr 16).toByte()

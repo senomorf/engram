@@ -6,19 +6,24 @@ import photos.engram.format.xmp.XmpEngine
 import photos.engram.format.xmp.XmpUpdate
 
 class JpegEmbedder(private val xmp: XmpEngine) {
-
-    fun embed(source: ByteArray, newRecords: List<EngramRecord>, mirrorDescription: String?): ByteArray {
+    fun embed(
+        source: ByteArray,
+        newRecords: List<EngramRecord>,
+        mirrorDescription: String?,
+    ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val parts = JpegCodec.parse(source).toMutableList()
-        val existing = parts.filterIsInstance<TrailerData>()
-            .flatMap { RecordStream.scan(it.raw) }
-            .filter { it.decoded.crcOk }
+        val existing =
+            parts.filterIsInstance<TrailerData>()
+                .flatMap { RecordStream.scan(it.raw) }
+                .filter { it.decoded.crcOk }
         val added = RecordStream.encode(newRecords)
-        val update = XmpUpdate(
-            mirrorDescription = mirrorDescription,
-            payloadLength = existing.sumOf { it.decoded.byteLength.toLong() } + added.size,
-            recordCount = existing.size + newRecords.size,
-        )
+        val update =
+            XmpUpdate(
+                mirrorDescription = mirrorDescription,
+                payloadLength = existing.sumOf { it.decoded.byteLength.toLong() } + added.size,
+                recordCount = existing.size + newRecords.size,
+            )
         val xmpIdx = parts.indexOfFirst { it is Segment && it.isXmpApp1() }
         val existingPacket = (parts.getOrNull(xmpIdx) as? Segment)?.xmpPacket()
         val packet = xmp.apply(existingPacket, update)

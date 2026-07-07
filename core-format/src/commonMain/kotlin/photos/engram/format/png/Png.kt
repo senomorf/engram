@@ -12,7 +12,6 @@ import photos.engram.format.xmp.XmpUpdate
 class PngFormatException(message: String) : Exception(message)
 
 class PngChunk(val type: String, val data: ByteArray, val crcOk: Boolean = true) {
-
     fun encode(): ByteArray {
         val t = type.encodeToByteArray()
         require(t.size == 4) { "chunk type must be 4 bytes" }
@@ -28,7 +27,6 @@ class PngChunk(val type: String, val data: ByteArray, val crcOk: Boolean = true)
 class PngFile(val chunks: List<PngChunk>, val trailer: ByteArray)
 
 object PngCodec {
-
     val SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
 
     // ancillary, private, safe-to-copy: editors that follow the spec carry it along
@@ -97,18 +95,22 @@ object PngCodec {
 }
 
 class PngEmbedder(private val xmp: XmpEngine) {
-
-    fun embed(source: ByteArray, newRecords: List<EngramRecord>, mirrorDescription: String?): ByteArray {
+    fun embed(
+        source: ByteArray,
+        newRecords: List<EngramRecord>,
+        mirrorDescription: String?,
+    ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val file = PngCodec.parse(source)
         val chunks = file.chunks.toMutableList()
         val existing = PngCodec.engramRecords(file).filter { it.crcOk }
         val newBytes = newRecords.map { it.encode() }
-        val update = XmpUpdate(
-            mirrorDescription = mirrorDescription,
-            payloadLength = existing.sumOf { it.byteLength.toLong() } + newBytes.sumOf { it.size.toLong() },
-            recordCount = existing.size + newRecords.size,
-        )
+        val update =
+            XmpUpdate(
+                mirrorDescription = mirrorDescription,
+                payloadLength = existing.sumOf { it.byteLength.toLong() } + newBytes.sumOf { it.size.toLong() },
+                recordCount = existing.size + newRecords.size,
+            )
         val xmpIdx = chunks.indexOfFirst { PngCodec.xmpPacket(it) != null }
         val packet = xmp.apply(chunks.getOrNull(xmpIdx)?.let { PngCodec.xmpPacket(it) }, update)
         val chunk = PngCodec.xmpChunk(packet)

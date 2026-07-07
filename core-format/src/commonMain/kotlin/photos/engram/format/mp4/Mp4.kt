@@ -19,11 +19,14 @@ class BoxInfo(
 )
 
 object Mp4Codec {
-
     val ENGRAM_UUID = "ENGRAM-PHOTOS-01".encodeToByteArray()
 
     /** [header] is the first up-to-32 bytes at the box start. */
-    fun parseHeader(header: ByteArray, offset: Long, fileRemaining: Long): BoxInfo {
+    fun parseHeader(
+        header: ByteArray,
+        offset: Long,
+        fileRemaining: Long,
+    ): BoxInfo {
         if (header.size < 8) throw Mp4FormatException("truncated box header at $offset")
         val size32 = header.u32be(0)
         val type = header.copyOfRange(4, 8).decodeToString()
@@ -72,11 +75,13 @@ object Mp4Codec {
         return b.toByteArray()
     }
 
-    fun isEngramBox(info: BoxInfo): Boolean =
-        info.type == "uuid" && info.userType?.contentEquals(ENGRAM_UUID) == true
+    fun isEngramBox(info: BoxInfo): Boolean = info.type == "uuid" && info.userType?.contentEquals(ENGRAM_UUID) == true
 
     /** In-memory embed for modest files; large videos go through jvm Mp4Files. */
-    fun embed(bytes: ByteArray, newRecords: List<EngramRecord>): ByteArray {
+    fun embed(
+        bytes: ByteArray,
+        newRecords: List<EngramRecord>,
+    ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val boxes = topLevel(bytes)
         boxes.forEachIndexed { idx, b ->

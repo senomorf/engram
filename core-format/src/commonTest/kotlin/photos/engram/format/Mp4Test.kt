@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class Mp4Test {
-
     @Test
     fun topLevelBoxes() {
         val boxes = Mp4Codec.topLevel(SyntheticMedia.mp4Minimal())
@@ -18,10 +17,11 @@ class Mp4Test {
 
     @Test
     fun embedAndRead() {
-        val out = Mp4Codec.embed(
-            SyntheticMedia.mp4Minimal(),
-            listOf(EngramRecord(RecordKind.Note, 9, "clip".encodeToByteArray())),
-        )
+        val out =
+            Mp4Codec.embed(
+                SyntheticMedia.mp4Minimal(),
+                listOf(EngramRecord(RecordKind.Note, 9, "clip".encodeToByteArray())),
+            )
         val hits = Mp4Codec.readRecords(out)
         assertEquals(1, hits.size)
         assertTrue(hits.single().decoded.crcOk)
@@ -30,14 +30,16 @@ class Mp4Test {
 
     @Test
     fun embedMergesExistingBox() {
-        val once = Mp4Codec.embed(
-            SyntheticMedia.mp4Minimal(),
-            listOf(EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())),
-        )
-        val twice = Mp4Codec.embed(
-            once,
-            listOf(EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray())),
-        )
+        val once =
+            Mp4Codec.embed(
+                SyntheticMedia.mp4Minimal(),
+                listOf(EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())),
+            )
+        val twice =
+            Mp4Codec.embed(
+                once,
+                listOf(EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray())),
+            )
         val boxes = Mp4Codec.topLevel(twice)
         assertEquals(1, boxes.count { Mp4Codec.isEngramBox(it) })
         assertEquals(2, Mp4Codec.readRecords(twice).size)

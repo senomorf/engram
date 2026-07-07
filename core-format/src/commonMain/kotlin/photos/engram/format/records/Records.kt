@@ -9,7 +9,11 @@ import photos.engram.format.u64be
 import photos.engram.format.u8
 
 enum class RecordKind(val code: Int) {
-    Note(1), Audio(2), Enrichment(3), Transcript(4);
+    Note(1),
+    Audio(2),
+    Enrichment(3),
+    Transcript(4),
+    ;
 
     companion object {
         fun of(code: Int): RecordKind? = entries.firstOrNull { it.code == code }
@@ -23,7 +27,6 @@ enum class RecordKind(val code: Int) {
  * Records are self-delimiting so a carver can recover them from damaged files.
  */
 class EngramRecord(val kind: RecordKind, val tsMillis: Long, val payload: ByteArray) {
-
     fun encode(): ByteArray {
         val b = ByteArrayBuilder(HEADER_LEN + payload.size + 4)
         b.append(MAGIC)
@@ -42,7 +45,10 @@ class EngramRecord(val kind: RecordKind, val tsMillis: Long, val payload: ByteAr
         const val WIRE_VERSION = 1
         const val HEADER_LEN = 4 + 1 + 1 + 2 + 8 + 4
 
-        fun decodeAt(bytes: ByteArray, at: Int): DecodedRecord? {
+        fun decodeAt(
+            bytes: ByteArray,
+            at: Int,
+        ): DecodedRecord? {
             if (!bytes.startsWith(MAGIC, at)) return null
             if (at + HEADER_LEN + 4 > bytes.size) return null
             if (bytes.u8(at + 4) != WIRE_VERSION) return null
@@ -52,9 +58,10 @@ class EngramRecord(val kind: RecordKind, val tsMillis: Long, val payload: ByteAr
             if (len > Int.MAX_VALUE.toLong() || at + HEADER_LEN + len + 4 > bytes.size) return null
             val end = at + HEADER_LEN + len.toInt()
             val crcOk = bytes.u32be(end) == Crc32.of(bytes, at, end)
-            val record = RecordKind.of(kindCode)?.let {
-                EngramRecord(it, ts, bytes.copyOfRange(at + HEADER_LEN, end))
-            }
+            val record =
+                RecordKind.of(kindCode)?.let {
+                    EngramRecord(it, ts, bytes.copyOfRange(at + HEADER_LEN, end))
+                }
             return DecodedRecord(record, kindCode, HEADER_LEN + len.toInt() + 4, crcOk)
         }
     }
@@ -65,7 +72,6 @@ class DecodedRecord(val record: EngramRecord?, val kindCode: Int, val byteLength
 class RecordHit(val offset: Int, val decoded: DecodedRecord)
 
 object RecordStream {
-
     fun encode(records: List<EngramRecord>): ByteArray {
         val b = ByteArrayBuilder()
         records.forEach { b.append(it.encode()) }
@@ -73,7 +79,11 @@ object RecordStream {
     }
 
     /** Strict: records must sit back to back starting at [from]. */
-    fun decodeSequence(bytes: ByteArray, from: Int = 0, until: Int = bytes.size): List<RecordHit> {
+    fun decodeSequence(
+        bytes: ByteArray,
+        from: Int = 0,
+        until: Int = bytes.size,
+    ): List<RecordHit> {
         val hits = mutableListOf<RecordHit>()
         var i = from
         while (i < until) {
@@ -85,7 +95,10 @@ object RecordStream {
     }
 
     /** Carve: tolerates foreign bytes between records (other vendors' trailers etc). */
-    fun scan(bytes: ByteArray, from: Int = 0): List<RecordHit> {
+    fun scan(
+        bytes: ByteArray,
+        from: Int = 0,
+    ): List<RecordHit> {
         val hits = mutableListOf<RecordHit>()
         var i = from
         while (i + EngramRecord.HEADER_LEN <= bytes.size) {
@@ -104,8 +117,10 @@ object RecordStream {
 }
 
 object AudioPayload {
-
-    fun encode(mime: String, data: ByteArray): ByteArray {
+    fun encode(
+        mime: String,
+        data: ByteArray,
+    ): ByteArray {
         val m = mime.encodeToByteArray()
         require(m.size <= 0xFFFF) { "mime too long" }
         return ByteArrayBuilder(2 + m.size + data.size).appendU16be(m.size).append(m).append(data).toByteArray()

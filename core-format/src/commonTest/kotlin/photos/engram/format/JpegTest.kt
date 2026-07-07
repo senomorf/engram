@@ -19,7 +19,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class JpegTest {
-
     @Test
     fun parseRoundTripIsByteIdentical() {
         for (fixture in listOf(SyntheticMedia.jpegPlain(), SyntheticMedia.jpegWithMpfSecondary())) {
@@ -38,10 +37,11 @@ class JpegTest {
     @Test
     fun embedPreservesMpfAndAddsRecords() {
         val src = SyntheticMedia.jpegWithMpfSecondary()
-        val records = listOf(
-            EngramRecord(RecordKind.Note, 5, "sunrise".encodeToByteArray()),
-            EngramRecord(RecordKind.Audio, 6, AudioPayload.encode("audio/ogg", ByteArray(128) { 1 })),
-        )
+        val records =
+            listOf(
+                EngramRecord(RecordKind.Note, 5, "sunrise".encodeToByteArray()),
+                EngramRecord(RecordKind.Audio, 6, AudioPayload.encode("audio/ogg", ByteArray(128) { 1 })),
+            )
         val out = JpegEmbedder(FakeXmpEngine()).embed(src, records, "sunrise")
         assertTrue(MpfInspector.inspect(out).valid, MpfInspector.inspect(out).problems.toString())
         val parts = JpegCodec.parse(out)
@@ -50,25 +50,28 @@ class JpegTest {
         assertTrue(xmpIdx in 1 until mpfIdx, "xmp at $xmpIdx must precede mpf at $mpfIdx")
         val hits = parts.filterIsInstance<TrailerData>().flatMap { RecordStream.scan(it.raw) }
         assertEquals(2, hits.count { it.decoded.crcOk })
-        val summary = FakeXmpEngine().read(
-            parts.filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket(),
-        )
+        val summary =
+            FakeXmpEngine().read(
+                parts.filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket(),
+            )
         assertEquals("sunrise", summary.description)
         assertEquals(2, summary.recordCount)
     }
 
     @Test
     fun secondEmbedAccumulates() {
-        val first = JpegEmbedder(FakeXmpEngine()).embed(
-            SyntheticMedia.jpegPlain(),
-            listOf(EngramRecord(RecordKind.Note, 1, "one".encodeToByteArray())),
-            "one",
-        )
-        val second = JpegEmbedder(FakeXmpEngine()).embed(
-            first,
-            listOf(EngramRecord(RecordKind.Note, 2, "two".encodeToByteArray())),
-            "two",
-        )
+        val first =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.jpegPlain(),
+                listOf(EngramRecord(RecordKind.Note, 1, "one".encodeToByteArray())),
+                "one",
+            )
+        val second =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                first,
+                listOf(EngramRecord(RecordKind.Note, 2, "two".encodeToByteArray())),
+                "two",
+            )
         val hits = RecordStream.scan(second).filter { it.decoded.crcOk }
         assertEquals(2, hits.size)
         val packet = JpegCodec.parse(second).filterIsInstance<Segment>().first { it.isXmpApp1() }.xmpPacket()
@@ -80,11 +83,12 @@ class JpegTest {
 
     @Test
     fun recordsLandAfterMpfSecondaryImage() {
-        val out = JpegEmbedder(FakeXmpEngine()).embed(
-            SyntheticMedia.jpegWithMpfSecondary(),
-            listOf(EngramRecord(RecordKind.Note, 1, "x".encodeToByteArray())),
-            null,
-        )
+        val out =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.jpegWithMpfSecondary(),
+                listOf(EngramRecord(RecordKind.Note, 1, "x".encodeToByteArray())),
+                null,
+            )
         val secondaryAt = MpfInspector.inspect(out).images[1].absoluteOffset!!
         val hit = RecordStream.scan(out).single()
         assertTrue(hit.offset > secondaryAt.toInt(), "records must not displace the gain map")

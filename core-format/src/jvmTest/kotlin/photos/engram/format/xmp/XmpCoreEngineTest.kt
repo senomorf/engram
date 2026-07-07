@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class XmpCoreEngineTest {
-
     private val engine = XmpCoreEngine()
 
     @Test
@@ -22,7 +21,8 @@ class XmpCoreEngineTest {
 
     @Test
     fun foreignPropertiesSurviveMerge() {
-        val foreign = """
+        val foreign =
+            """
             <x:xmpmeta xmlns:x="adobe:ns:meta/">
               <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
                 <rdf:Description rdf:about=""
@@ -30,7 +30,7 @@ class XmpCoreEngineTest {
                     hdrgm:Version="1.0"/>
               </rdf:RDF>
             </x:xmpmeta>
-        """.trimIndent()
+            """.trimIndent()
         val merged = engine.apply(foreign, XmpUpdate("kept", 10, 1))
         assertTrue(merged.contains("hdr-gain-map"), "camera hdr metadata must survive our merge")
         val s = engine.read(merged)

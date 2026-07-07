@@ -22,7 +22,10 @@ class XmpSummary(
 
 interface XmpEngine {
     /** Merges engram properties into an existing packet, preserving foreign properties. */
-    fun apply(existingPacket: String?, update: XmpUpdate): String
+    fun apply(
+        existingPacket: String?,
+        update: XmpUpdate,
+    ): String
 
     fun read(packet: String): XmpSummary
 }

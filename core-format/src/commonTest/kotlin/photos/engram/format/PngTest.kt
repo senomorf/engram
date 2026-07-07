@@ -11,7 +11,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PngTest {
-
     @Test
     fun parseRoundTrip() {
         val src = SyntheticMedia.png1x1()
@@ -20,11 +19,12 @@ class PngTest {
 
     @Test
     fun embedAddsXmpAndRecords() {
-        val out = PngEmbedder(FakeXmpEngine()).embed(
-            SyntheticMedia.png1x1(),
-            listOf(EngramRecord(RecordKind.Note, 3, "screen".encodeToByteArray())),
-            "screen",
-        )
+        val out =
+            PngEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.png1x1(),
+                listOf(EngramRecord(RecordKind.Note, 3, "screen".encodeToByteArray())),
+                "screen",
+            )
         val file = PngCodec.parse(out)
         assertTrue(file.chunks.all { it.crcOk })
         assertEquals(listOf("IHDR", "iTXt", "IDAT", "egRm", "IEND"), file.chunks.map { it.type })
@@ -38,16 +38,18 @@ class PngTest {
     @Test
     fun secondEmbedAccumulates() {
         val embedder = PngEmbedder(FakeXmpEngine())
-        val once = embedder.embed(
-            SyntheticMedia.png1x1(),
-            listOf(EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())),
-            "a",
-        )
-        val twice = embedder.embed(
-            once,
-            listOf(EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray())),
-            "b",
-        )
+        val once =
+            embedder.embed(
+                SyntheticMedia.png1x1(),
+                listOf(EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())),
+                "a",
+            )
+        val twice =
+            embedder.embed(
+                once,
+                listOf(EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray())),
+                "b",
+            )
         val file = PngCodec.parse(twice)
         assertEquals(2, PngCodec.engramRecords(file).count { it.crcOk })
         val summary = FakeXmpEngine().read(file.chunks.firstNotNullOf { PngCodec.xmpPacket(it) })
