@@ -7,6 +7,9 @@ plugins {
 kotlin {
     jvmToolchain(21)
     jvm()
+    // portability tripwire (design doc sec 10): commonMain must stay compilable
+    // for iOS even though no app consumes it yet
+    iosArm64()
     sourceSets {
         val commonTest by getting {
             dependencies {
