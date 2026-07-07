@@ -1,4 +1,10 @@
 # Overrides on top of detekt defaults (buildUponDefaultConfig = true).
+#
+# Division of labor, do not blur it:
+# - ktlint owns formatting and layout (via .editorconfig, ktlint_official style)
+# - detekt owns code smells, complexity and bug patterns
+# detekt's formatting-adjacent rules stay off here to avoid double-reporting.
+#
 # Byte-format parsing code legitimately uses numeric literals, multiple
 # returns and dense branching; thresholds reflect that instead of littering
 # sources with suppressions.
@@ -22,6 +28,8 @@ exceptions:
 style:
   MagicNumber:
     active: false
+  MaxLineLength:
+    active: false # ktlint enforces line length from .editorconfig
   ReturnCount:
     max: 8
   ThrowsCount:
