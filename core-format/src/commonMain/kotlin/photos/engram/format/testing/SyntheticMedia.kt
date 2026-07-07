@@ -1,6 +1,7 @@
 package photos.engram.format.testing
 
 import photos.engram.format.ByteArrayBuilder
+import photos.engram.format.jpeg.XMP_APP1_HEADER
 import photos.engram.format.png.PngChunk
 import photos.engram.format.png.PngCodec
 
@@ -8,40 +9,89 @@ import photos.engram.format.png.PngCodec
  * Tiny handcrafted files: structurally valid for parsers, not meant for image
  * decoders. Real Pixel/OEM corpus files live in lab/corpus (never committed).
  */
+@Suppress("TooManyFunctions") // fixture catalog: one small builder per file shape
 object SyntheticMedia {
     fun jpegPlain(entropyByte: Int = 0x12): ByteArray {
         val b = ByteArrayBuilder()
-        b.append(0xFF).append(0xD8)
+        soi(b)
         segment(b, 0xE0, jfifPayload())
         segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
         segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
-        segment(b, 0xDA, byteArrayOf(1, 1, 0, 0, 63, 0))
-        b
-            .append(0x00)
-            .append(entropyByte)
-            .append(0xFF)
-            .append(0x00)
-            .append(0x37)
-        b.append(0xFF).append(0xD9)
+        sosWithEntropy(b, entropyByte)
+        eoi(b)
+        return b.toByteArray()
+    }
+
+    fun jpegWithXmp(packet: String): ByteArray {
+        val b = ByteArrayBuilder()
+        soi(b)
+        segment(b, 0xE0, jfifPayload())
+        segment(b, 0xE1, XMP_APP1_HEADER + packet.encodeToByteArray())
+        segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
+        segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
+        sosWithEntropy(b, 0x12)
+        eoi(b)
+        return b.toByteArray()
+    }
+
+    /** Multi-scan file: SOS, entropy, DHT, second SOS, entropy (progressive shape). */
+    fun jpegProgressive(): ByteArray {
+        val b = ByteArrayBuilder()
+        soi(b)
+        segment(b, 0xE0, jfifPayload())
+        segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
+        segment(b, 0xC2, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
+        sosWithEntropy(b, 0x21)
+        segment(b, 0xC4, byteArrayOf(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5))
+        sosWithEntropy(b, 0x22)
+        eoi(b)
+        return b.toByteArray()
+    }
+
+    /** DNL segment after the scan, before EOI. */
+    fun jpegWithDnl(): ByteArray {
+        val b = ByteArrayBuilder()
+        soi(b)
+        segment(b, 0xE0, jfifPayload())
+        segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
+        segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
+        sosWithEntropy(b, 0x23)
+        segment(b, 0xDC, byteArrayOf(0, 1))
+        eoi(b)
+        return b.toByteArray()
+    }
+
+    /** Extra 0xFF fill bytes between segments and before EOI. */
+    fun jpegWithFillBytes(): ByteArray {
+        val b = ByteArrayBuilder()
+        soi(b)
+        segment(b, 0xE0, jfifPayload())
+        b.append(0xFF).append(0xFF)
+        segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
+        segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
+        sosWithEntropy(b, 0x24)
+        b.append(0xFF).append(0xFF).append(0xFF)
+        eoi(b)
         return b.toByteArray()
     }
 
     /**
      * Primary jpeg with an MPF APP2 pointing at an appended secondary jpeg,
-     * shaped like Ultra HDR primary + gain map.
+     * shaped like Ultra HDR primary + gain map. Optional [xmpAfterMpf] places
+     * an XMP APP1 in the forbidden position after the MPF segment.
      */
-    fun jpegWithMpfSecondary(): ByteArray {
+    fun jpegWithMpfSecondary(xmpAfterMpf: String? = null): ByteArray {
         val secondary = jpegPlain(entropyByte = 0x21)
         val b = ByteArrayBuilder()
-        b.append(0xFF).append(0xD8)
+        soi(b)
         segment(b, 0xE0, jfifPayload())
         val mpfPayloadPos = b.size + 4
         segment(b, 0xE2, mpfPayload())
+        xmpAfterMpf?.let { segment(b, 0xE1, XMP_APP1_HEADER + it.encodeToByteArray()) }
         segment(b, 0xDB, ByteArray(65) { if (it == 0) 0 else 1 })
         segment(b, 0xC0, byteArrayOf(8, 0, 1, 0, 1, 1, 1, 0x11, 0))
-        segment(b, 0xDA, byteArrayOf(1, 1, 0, 0, 63, 0))
-        b.append(0x00).append(0x12)
-        b.append(0xFF).append(0xD9)
+        sosWithEntropy(b, 0x12)
+        eoi(b)
         val primary = b.toByteArray()
         val file = primary + secondary
         val tiffBase = mpfPayloadPos + 4
@@ -91,7 +141,52 @@ object SyntheticMedia {
         return b.toByteArray()
     }
 
+    /** mdat carried in a largesize (64-bit) box. */
+    fun mp4WithLargesizeMdat(): ByteArray {
+        val b = ByteArrayBuilder()
+        b.appendU32be(20).append("ftyp".encodeToByteArray())
+        b.append("isom".encodeToByteArray()).appendU32be(0).append("isom".encodeToByteArray())
+        b.appendU32be(1).append("mdat".encodeToByteArray()).appendU64be(16 + 8L)
+        b.append(ByteArray(8) { 0x5A })
+        return b.toByteArray()
+    }
+
+    /** Camera-like layout: mdat first, moov last (caption-writable). */
+    fun mp4MoovLast(): ByteArray {
+        val b = ByteArrayBuilder()
+        b.appendU32be(20).append("ftyp".encodeToByteArray())
+        b.append("isom".encodeToByteArray()).appendU32be(0).append("isom".encodeToByteArray())
+        b.appendU32be(16).append("mdat".encodeToByteArray()).append(ByteArray(8) { 0x5A })
+        val mvhd = ByteArray(12) { 0x01 }
+        val moovBody = ByteArrayBuilder()
+        moovBody.appendU32be(8L + mvhd.size).append("mvhd".encodeToByteArray()).append(mvhd)
+        val moov = moovBody.toByteArray()
+        b.appendU32be(8L + moov.size).append("moov".encodeToByteArray()).append(moov)
+        return b.toByteArray()
+    }
+
     private const val ENTRIES_REL = 50
+
+    private fun soi(b: ByteArrayBuilder) {
+        b.append(0xFF).append(0xD8)
+    }
+
+    private fun eoi(b: ByteArrayBuilder) {
+        b.append(0xFF).append(0xD9)
+    }
+
+    private fun sosWithEntropy(
+        b: ByteArrayBuilder,
+        entropyByte: Int,
+    ) {
+        segment(b, 0xDA, byteArrayOf(1, 1, 0, 0, 63, 0))
+        b
+            .append(0x00)
+            .append(entropyByte)
+            .append(0xFF)
+            .append(0x00)
+            .append(0x37)
+    }
 
     private fun jfifPayload(): ByteArray {
         val b = ByteArrayBuilder()
@@ -109,6 +204,7 @@ object SyntheticMedia {
         marker: Int,
         payload: ByteArray,
     ) {
+        require(payload.size + 2 <= 0xFFFF) { "fixture segment payload too large: ${payload.size}" }
         b.append(0xFF).append(marker)
         b.appendU16be(payload.size + 2)
         b.append(payload)

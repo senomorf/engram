@@ -15,6 +15,13 @@ class JpegEmbedder(
     ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val parts = JpegCodec.parse(source).toMutableList()
+        val xmpIdxBefore = parts.indexOfFirst { it is Segment && it.isXmpApp1() }
+        val mpfIdxBefore = parts.indexOfFirst { it is Segment && it.isMpfApp2() }
+        val existingStandard = (parts.getOrNull(xmpIdxBefore) as? Segment)?.xmpPacket()
+        guardMotionPhoto(existingStandard)
+        guardSegmentOrder(parts, xmpIdxBefore, mpfIdxBefore)
+        val existingExtended = ExtendedXmp.collect(parts)
+
         val existing =
             parts
                 .filterIsInstance<TrailerData>()
@@ -27,27 +34,39 @@ class JpegEmbedder(
                 payloadLength = existing.sumOf { it.decoded.byteLength.toLong() } + added.size,
                 recordCount = existing.size + newRecords.size,
             )
-        val xmpIdx = parts.indexOfFirst { it is Segment && it.isXmpApp1() }
-        val existingPacket = (parts.getOrNull(xmpIdx) as? Segment)?.xmpPacket()
-        val packet = xmp.apply(existingPacket, update)
-        val xmpPayload = XMP_APP1_HEADER + packet.encodeToByteArray()
-        if (xmpPayload.size > Segment.MAX_PAYLOAD) {
-            throw JpegFormatException("xmp packet needs ExtendedXMP, not implemented in v0 (size ${xmpPayload.size})")
+        val result =
+            xmp.apply(
+                existingStandard = existingStandard,
+                existingExtended = existingExtended?.packet,
+                update = update,
+                standardLimitBytes = Segment.MAX_PAYLOAD - XMP_APP1_HEADER.size,
+            )
+        val stdPayload = XMP_APP1_HEADER + result.standardPacket.encodeToByteArray()
+        if (stdPayload.size > Segment.MAX_PAYLOAD) {
+            throw JpegFormatException("standard xmp packet exceeds a single APP1 segment after split")
         }
-        val seg = Segment.of(JpegCodec.APP1, xmpPayload)
-        if (xmpIdx >= 0) {
-            parts[xmpIdx] = seg
+        val stdSeg = Segment.of(JpegCodec.APP1, stdPayload)
+        val extSegs = result.extendedPacket?.let { ExtendedXmp.buildSegments(it) }.orEmpty()
+
+        parts.removeAll { it is Segment && it.isExtendedXmpApp1() }
+        var stdIdx = parts.indexOfFirst { it is Segment && it.isXmpApp1() }
+        if (stdIdx >= 0) {
+            parts[stdIdx] = stdSeg
         } else {
             // stay inside the leading APP0/APP1 run: growth before the MPF APP2
             // shifts the MPF header and the trailing images by the same delta,
             // so the relative offsets MPF stores remain correct
-            var at = 1
-            while (at < parts.size) {
-                val p = parts[at]
-                if (p is Segment && (p.marker == JpegCodec.APP0 || p.marker == JpegCodec.APP1)) at++ else break
+            stdIdx = 1
+            while (stdIdx < parts.size) {
+                val p = parts[stdIdx]
+                if (p is Segment && (p.marker == JpegCodec.APP0 || p.marker == JpegCodec.APP1)) stdIdx++ else break
             }
-            parts.add(at, seg)
+            parts.add(stdIdx, stdSeg)
         }
+        parts.addAll(stdIdx + 1, extSegs)
+
+        if (mirrorDescription != null) upsertIptc(parts, stdIdx + 1 + extSegs.size, mirrorDescription)
+
         parts.add(TrailerData(added))
         val out = JpegCodec.serialize(parts)
         val before = MpfInspector.inspect(source)
@@ -56,5 +75,49 @@ class JpegEmbedder(
             throw JpegFormatException("writer broke MPF offsets: ${after.problems}")
         }
         return out
+    }
+
+    private fun guardMotionPhoto(existingStandard: String?) {
+        if (existingStandard == null) return
+        if (existingStandard.contains("MotionPhoto") || existingStandard.contains("MicroVideo")) {
+            throw JpegFormatException(
+                "motion photo detected: trailer coexistence rules are unverified (plan 0.5 landmine 2), refusing to write",
+            )
+        }
+    }
+
+    private fun guardSegmentOrder(
+        parts: List<JpegPart>,
+        xmpIdx: Int,
+        mpfIdx: Int,
+    ) {
+        if (mpfIdx < 0) return
+        if (xmpIdx > mpfIdx) {
+            throw JpegFormatException(
+                "xmp segment sits after MPF: rewriting it would shift MPF-referenced images, refusing to write",
+            )
+        }
+        parts.forEachIndexed { i, p ->
+            if (i <= mpfIdx || p !is Segment) return@forEachIndexed
+            if (p.isExtendedXmpApp1() || Iptc.isIptcApp13(p)) {
+                throw JpegFormatException(
+                    "metadata segment after MPF: rewriting it would shift MPF-referenced images, refusing to write",
+                )
+            }
+        }
+    }
+
+    private fun upsertIptc(
+        parts: MutableList<JpegPart>,
+        insertAt: Int,
+        caption: String,
+    ) {
+        val idx = parts.indexOfFirst { it is Segment && Iptc.isIptcApp13(it) }
+        val payload = Iptc.upsertCaption((parts.getOrNull(idx) as? Segment)?.payload, caption)
+        if (payload.size > Segment.MAX_PAYLOAD) {
+            throw JpegFormatException("APP13 payload too large after caption upsert")
+        }
+        val seg = Segment.of(Iptc.APP13_MARKER, payload)
+        if (idx >= 0) parts[idx] = seg else parts.add(insertAt, seg)
     }
 }

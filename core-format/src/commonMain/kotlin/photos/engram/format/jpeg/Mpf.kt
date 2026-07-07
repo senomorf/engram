@@ -24,8 +24,15 @@ class MpfReport(
  * every write is validated against this inspector.
  */
 object MpfInspector {
+    private const val TAG_VERSION = 0xB000
+    private const val TAG_NUMBER_OF_IMAGES = 0xB001
+    private const val TAG_MP_ENTRY = 0xB002
+    private const val TYPE_LONG = 4
+    private const val TYPE_UNDEFINED = 7
+    private const val MP_ENTRY_SIZE = 16
+
     // dense guard-clause validator by design; scattering the offset math would hurt review
-    @Suppress("CyclomaticComplexMethod", "ReturnCount")
+    @Suppress("CyclomaticComplexMethod", "ReturnCount", "LongMethod")
     fun inspect(bytes: ByteArray): MpfReport {
         val parts =
             try {
@@ -96,18 +103,39 @@ object MpfInspector {
         val count = u16(ifd)
         var entriesRel = -1L
         var entryCount = 0
+        var declaredImages = -1L
         for (k in 0 until count) {
             val e = ifd + 2 + k * 12L
             if (!inPayload(e, 12)) return fail("ifd entry out of bounds")
-            if (u16(e) == 0xB002) {
-                entryCount = (u32(e + 4) / 16).toInt()
-                entriesRel = u32(e + 8)
+            when (u16(e)) {
+                TAG_NUMBER_OF_IMAGES -> {
+                    if (u16(e + 2) != TYPE_LONG) problems += "NumberOfImages has wrong type"
+                    declaredImages = u32(e + 8)
+                }
+                TAG_MP_ENTRY -> {
+                    if (u16(e + 2) != TYPE_UNDEFINED) problems += "MP entry tag has wrong type"
+                    val cnt = u32(e + 4)
+                    if (cnt % MP_ENTRY_SIZE !=
+                        0L
+                    ) {
+                        problems += "MP entry byte count $cnt not a multiple of $MP_ENTRY_SIZE"
+                    }
+                    entryCount = (cnt / MP_ENTRY_SIZE).toInt()
+                    entriesRel = u32(e + 8)
+                }
+                TAG_VERSION -> Unit
             }
         }
         if (entriesRel < 0) return fail("no MP entry tag")
+        if (entryCount == 0) return fail("MP entry tag declares zero images")
+        if (declaredImages < 0) {
+            problems += "NumberOfImages tag missing"
+        } else if (declaredImages != entryCount.toLong()) {
+            problems += "NumberOfImages $declaredImages disagrees with MP entry count $entryCount"
+        }
         for (k in 0 until entryCount) {
-            val b = entriesRel + 16L * k
-            if (!inPayload(b, 16)) return fail("mp entry out of bounds")
+            val b = entriesRel + MP_ENTRY_SIZE.toLong() * k
+            if (!inPayload(b, MP_ENTRY_SIZE)) return fail("mp entry out of bounds")
             val size = u32(b + 4)
             val off = u32(b + 8)
             val abs = if (k == 0) null else tiffBaseFilePos + off
