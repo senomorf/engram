@@ -25,6 +25,10 @@ exceptions:
   SwallowedException:
     active: false
 
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+
 style:
   MagicNumber:
     active: false
