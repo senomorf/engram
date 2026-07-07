@@ -6,9 +6,11 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 ## Commands
 
 - verify everything: `./gradlew build` (compiles, unit + integration tests, ktlint, detekt)
+- iOS portability tripwire: `./gradlew :core-format:compileKotlinIosArm64` (also in CI)
 - autofix formatting: `./gradlew ktlintFormat` (run after editing Kotlin, before commit)
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
 - inspect a media file: `./gradlew :cli:run --args="inspect --in <file>"`
+- survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
 
 ## Rules
 

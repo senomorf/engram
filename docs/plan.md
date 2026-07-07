@@ -14,14 +14,17 @@ OS and service behavior.
 JVM Kotlin CLI, pure Kotlin core (no android.*). Not throwaway: it becomes
 :core-format and the reference CLI.
 
-- `generate`: given JPEG/PNG/MP4, write (a) standard fields: XMP dc:description,
-  EXIF UserComment, IPTC caption; (b) large payload via ExtendedXMP (JPEG) or
-  iTXt (PNG); (c) binary audio record (magic EGRM + length + CRC32) as JPEG
-  post-EOI trailer, PNG private safe-to-copy chunk, MP4 custom top-level box;
-  repair MPF offsets when present.
-- `verify`: given a file, report which planted payloads survived (exact /
-  partial / gone) plus structural report: segment or chunk or box map, trailer
-  map, MPF offset validity, Motion Photo directory validity.
+- `generate` (implemented): writes (a) standard caption mirrors: XMP
+  dc:description, IPTC 2:120, MP4 comment atom for moov-last files (EXIF
+  UserComment deliberately deferred: rewriting camera IFDs risks corrupting
+  maker notes, see design D9); (b) ExtendedXMP split when the packet outgrows
+  one APP1; (c) binary records (magic EGRM, id, writer, CRC32) as JPEG post-EOI
+  trailer, PNG egRm chunk, MP4 uuid box; MPF-dangerous layouts and Motion
+  Photos are refused rather than risked. Writes an .engram-expect sidecar.
+- `verify` (implemented): judges a file against the sidecar: exact / degraded
+  (caption mirrors survive, records gone) / gone / corrupted per payload, plus
+  MPF validity, ExtendedXMP integrity and motion markers; human or --json
+  output; exit codes 0 intact, 3 degraded, 4 damaged for matrix automation.
 - Corpus: plain JPEG; Pixel 9 Ultra HDR JPEG (default camera output); Pixel 9
   Motion Photo; Pixel 9 screenshot (PNG); plain MP4; one camera photo and one
   screenshot from EACH family/friend device model (Samsung SEF trailers and
@@ -84,7 +87,8 @@ To pin down in the outline:
   EOF-relative MicroVideoOffset problem.
 - PNG binding: XMP iTXt; private ancillary safe-to-copy chunks for binary
   records; chunk naming per PNG rules.
-- MP4 binding: one custom top-level box; no moov rewrite in v1.
+- MP4 binding: one custom uuid box at the tail; moov rewrite only for the
+  caption mirror and only when moov is the trailing box.
 - Engram Archive export schema (manifest + per-item JSON + audio blobs).
 - Audio: Opus in Ogg default, AAC-LC alternative, codec field open (D6).
 
@@ -94,7 +98,8 @@ To pin down in the outline:
    offsets that our insertions shift. Unrepaired, photos silently lose HDR.
 2. Motion Photo coexistence (default-on for Pixels): appending after Google's
    video trailer vs updating the XMP Container directory; what does Google
-   Photos playback tolerate?
+   Photos playback tolerate? Until this verdict lands, the writer detects
+   Motion Photos and refuses to embed.
 3. Google Photos hash-change duplicate on in-place rewrite of a backed-up photo.
 4. Storage saver recompression: assumed to kill trailers; confirm; check PNG
    conversion too; product must warn.

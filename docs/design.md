@@ -58,8 +58,13 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 - D8 Identity: name Engram; domain engram.photos (owner registers [P0]);
   XMP namespace https://ns.engram.photos/1.0/ frozen before the first real
   photo is written; package prefix photos.engram; binary record magic EGRM.
-- D9 Dual-write: latest note text mirrored to XMP dc:description, EXIF
-  UserComment, IPTC caption, so mainstream galleries display it natively.
+- D9 Dual-write: latest note text mirrored to standard caption fields so
+  mainstream galleries display it natively. Implemented today: XMP
+  dc:description, IPTC 2:120 caption (APP13), MP4 comment atom (moov-last
+  layouts only). Deliberately deferred: EXIF UserComment, because inserting a
+  tag into existing camera EXIF shifts IFD offsets and corrupts maker notes
+  whose internal pointers no generic rewriter can fix; revisit only with a
+  maker-note-safe writer.
 - D10 Offline-first: no telemetry, no accounts. Network use is limited to
   best-effort enrichment (weather, geocoding) and is user-toggleable.
 - D11 Sources: camera buckets + Screenshots bucket. Screenshots on by default,
@@ -122,13 +127,20 @@ Logical model, container-agnostic:
 
 Container bindings:
 
-- JPEG: structured data in XMP APP1 (+ ExtendedXMP when large); binary records
-  appended after EOI. Writer MUST repair MPF (APP2) offsets (Ultra HDR gain
-  maps are the default Pixel output) and MUST follow Motion Photo coexistence
-  rules [P0].
+- JPEG: structured data in XMP APP1, split into ExtendedXMP segments when
+  large (implemented, md5 guid per Adobe spec); binary records appended after
+  EOI. MPF safety (Ultra HDR gain maps are the default Pixel output): all
+  insertions stay before the MPF APP2 so stored relative offsets keep meaning,
+  every write is re-validated by MpfInspector, and layouts that would require
+  offset rewriting are refused rather than risked. Motion Photos: the writer
+  refuses to touch them until coexistence rules are device-verified [P0,
+  landmine 2]; unparseable existing XMP aborts the write (fail closed).
 - PNG (screenshots): XMP in the standard iTXt chunk; binary records in private
   ancillary safe-to-copy chunks.
-- MP4/MOV: one custom top-level box holding all Engram records; moov untouched.
+- MP4/MOV: one custom uuid box (fixed UUID 7a0b5c4d-9e2f-4a31-8b6d-0c3e5f719246)
+  holding all Engram records, appended at the tail. Caption mirror rewrites
+  moov/udta/meta/ilst only when moov is the trailing box; moov-first layouts
+  are declined because growing moov would break stco/co64 chunk offsets.
 - HEIF/HEIC: deferred (roadmap); record model must not assume a JPEG-like tail.
 
 Engram Archive (export format, also v1 feature per D14):
@@ -221,9 +233,14 @@ iOS is pushed far back (roadmap) but stays cheap to keep possible:
 
 ## 12. Backup guidance (user-facing)
 
-- Recommended: Google Photos Original quality, or Syncthing or NAS, or both.
+Every claim in this section is UNVERIFIED until the Phase 0 matrix rows land
+(especially rows 2 to 4 and 10); nothing here ships as product guidance before
+that.
+
+- Expected recommendation: Google Photos Original quality, or Syncthing or NAS,
+  or both (pending matrix rows 2 and 2b).
 - In-app warning: Storage saver mode and most messengers destroy embedded
-  memories (final wording after the Phase 0 matrix).
+  memories (expected; final wording after the Phase 0 matrix).
 - The backup verifier (D14) exists so this stops being theory: verify one file
   from your own backup path and see the survival report.
 

@@ -18,3 +18,8 @@ change lands under Unreleased at merge time.
 - Survivability lab templates (lab/corpus, lab/survivability-matrix.md).
 - Tooling: Gradle 9.6.1 wrapper, Kotlin 2.3.20, version catalog, ktlint +
   detekt, integration test suite, GitHub Actions CI, dependabot, dev container.
+- Adversarial review round 1 (Codex) outcomes: record frame carries id and
+  writer; XMP merge fails closed and supports ExtendedXMP split/reassembly;
+  writer refuses Motion Photos and MPF-unsafe layouts; IPTC and MP4 caption
+  mirrors; real verify command with .engram-expect sidecars and --json;
+  MP4/PNG/MPF parsing hardened; iosArm64 klib tripwire in CI.
