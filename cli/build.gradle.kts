@@ -8,6 +8,10 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    // integrationTest is its own compilation; associate it so internals are visible
+    target.compilations.matching { it.name == "integrationTest" }.configureEach {
+        associateWith(target.compilations.getByName("main"))
+    }
 }
 
 dependencies {

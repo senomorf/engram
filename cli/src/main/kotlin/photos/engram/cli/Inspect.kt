@@ -1,8 +1,11 @@
 package photos.engram.cli
 
 import photos.engram.format.jpeg.Entropy
+import photos.engram.format.jpeg.ExtendedXmp
 import photos.engram.format.jpeg.Filler
+import photos.engram.format.jpeg.Iptc
 import photos.engram.format.jpeg.JpegCodec
+import photos.engram.format.jpeg.JpegFormatException
 import photos.engram.format.jpeg.MarkerOnly
 import photos.engram.format.jpeg.MpfInspector
 import photos.engram.format.jpeg.Segment
@@ -16,7 +19,6 @@ import photos.engram.format.mp4.Mp4Codec
 import photos.engram.format.mp4.Mp4Files
 import photos.engram.format.png.PngCodec
 import photos.engram.format.records.AudioPayload
-import photos.engram.format.records.EngramRecord
 import photos.engram.format.records.RecordHit
 import photos.engram.format.records.RecordKind
 import photos.engram.format.records.RecordStream
@@ -47,6 +49,16 @@ private fun markerName(m: Int): String =
         else -> "0x" + m.toString(16).uppercase()
     }
 
+private fun segmentTag(p: Segment): String =
+    when {
+        p.isXmpApp1() -> " xmp"
+        p.isExtendedXmpApp1() -> " extended-xmp"
+        p.isExifApp1() -> " exif"
+        p.isMpfApp2() -> " mpf"
+        Iptc.isIptcApp13(p) -> " iptc"
+        else -> ""
+    }
+
 private fun inspectJpeg(bytes: ByteArray) {
     val parts = JpegCodec.parse(bytes)
     println("container: jpeg, ${bytes.size} bytes")
@@ -55,15 +67,7 @@ private fun inspectJpeg(bytes: ByteArray) {
     for (p in parts) {
         when (p) {
             is Segment -> {
-                val tag =
-                    when {
-                        p.isXmpApp1() -> " xmp"
-                        p.isExtendedXmpApp1() -> " extended-xmp"
-                        p.isExifApp1() -> " exif"
-                        p.isMpfApp2() -> " mpf"
-                        else -> ""
-                    }
-                println("  @$pos ${markerName(p.marker)} len=${p.raw.size}$tag")
+                println("  @$pos ${markerName(p.marker)} len=${p.raw.size}${segmentTag(p)}")
                 if (p.isXmpApp1()) packet = p.xmpPacket()
             }
             is MarkerOnly -> println("  @$pos ${markerName(p.marker)}")
@@ -74,6 +78,17 @@ private fun inspectJpeg(bytes: ByteArray) {
         pos += p.raw.size
     }
     printXmp(packet)
+    val extended =
+        try {
+            ExtendedXmp.collect(parts)?.let { "ok, guid ${it.guid}" } ?: "absent"
+        } catch (e: JpegFormatException) {
+            "BROKEN: ${e.message}"
+        }
+    println("extended xmp: $extended")
+    parts
+        .filterIsInstance<Segment>()
+        .firstOrNull { Iptc.isIptcApp13(it) }
+        ?.let { println("iptc caption: ${Iptc.readCaption(it.payload) ?: "(unreadable)"}") }
     printRecords("trailer", parts.filterIsInstance<TrailerData>().flatMap { RecordStream.scan(it.raw) })
     println("carve scan over whole file: ${RecordStream.scan(bytes).size} record(s)")
     val mpf = MpfInspector.inspect(bytes)
@@ -102,6 +117,7 @@ private fun printXmp(packet: String?) {
     } else {
         println("  engram: no properties")
     }
+    s.extendedXmpGuid?.let { println("  xmpNote:HasExtendedXMP: $it") }
 }
 
 private fun printRecords(
@@ -122,7 +138,8 @@ private fun printRecords(
                         ?.let { "${it.first}, ${it.second.size} audio bytes" } ?: "malformed audio payload"
                 else -> "${r?.payload?.size ?: 0} payload bytes"
             }
-        println("  @${h.offset} $kind ts=${r?.tsMillis ?: "?"} crc=${if (d.crcOk) "ok" else "BAD"} $detail")
+        val identity = r?.let { " id=${it.idHex.take(8)} by=${it.writer}" }.orEmpty()
+        println("  @${h.offset} $kind ts=${r?.tsMillis ?: "?"} crc=${if (d.crcOk) "ok" else "BAD"}$identity $detail")
     }
 }
 
@@ -136,11 +153,12 @@ private fun inspectPng(bytes: ByteArray) {
     }
     if (file.trailer.isNotEmpty()) println("  trailing junk after IEND: ${file.trailer.size} bytes")
     printXmp(packet)
-    val hits =
-        file.chunks
-            .filter { it.type == PngCodec.ENGRAM_CHUNK }
-            .mapNotNull { c -> EngramRecord.decodeAt(c.data, 0)?.let { RecordHit(0, it) } }
-    printRecords("egRm chunks", hits)
+    val records = PngCodec.engramRecords(file)
+    val chunkCount = PngCodec.engramChunkCount(file)
+    if (chunkCount != records.size) {
+        println("WARNING: $chunkCount egRm chunk(s) but only ${records.size} decode as exact records")
+    }
+    printRecords("egRm chunks", records.mapIndexed { i, d -> RecordHit(i, d) })
 }
 
 private fun inspectMp4(file: File) {
