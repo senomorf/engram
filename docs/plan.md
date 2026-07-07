@@ -1,139 +1,82 @@
-# Current plan: Phase 0, verify before building
+# Current plan: Phase 0 lab (track A) + v1 implementation (track B)
 
 Rolling plan document: always describes the phase in progress and is rewritten
 at phase turnover (history lives in git). Docs map: docs/README.md.
 
-Goal: convert the load-bearing assumptions into test results before implementation
-starts. No product code. Only the format harness (which seeds the real engine),
-one throwaway Android spike, the transcription spike, and the spec outline. All
-platform claims date to Jan 2026 knowledge and must be re-verified against current
-OS and service behavior.
+Decision (2026-07-08): tracks run in parallel. Track B is designed to be
+completable by coding agents without owner intervention; every step that
+genuinely needs the owner is tagged [OWNER]. The one architectural rework risk
+accepted: matrix row 10 (Google Photos duplicate-on-rewrite) may change the
+write-back strategy; the strategy sits behind an interface, so the blast
+radius is one module.
 
-## 0.1 Format harness: corpus generator + verifier (build first)
+Assumptions in force (confirmed 2026-07-08): namespace stays
+https://ns.engram.photos/1.0/ with engram.photos registration pending [OWNER];
+device tests use disposable copies until the domain is owned; enrichment
+defaults to keyless providers (Open-Meteo weather, platform Geocoder places);
+minSdk 33 pending family device list (design A1).
 
-JVM Kotlin CLI, pure Kotlin core (no android.*). Not throwaway: it becomes
-:core-format and the reference CLI.
+## Track A: verification lab (owner-gated, checklists ready)
 
-- `generate` (implemented): writes (a) standard caption mirrors: XMP
-  dc:description, IPTC 2:120, MP4 comment atom for moov-last files (EXIF
-  UserComment deliberately deferred: rewriting camera IFDs risks corrupting
-  maker notes, see design D9); (b) ExtendedXMP split when the packet outgrows
-  one APP1; (c) binary records (magic EGRM, id, writer, CRC32) as JPEG post-EOI
-  trailer, PNG egRm chunk, MP4 uuid box; MPF-dangerous layouts and Motion
-  Photos are refused rather than risked. Writes an .engram-expect sidecar.
-- `verify` (implemented): judges a file against the sidecar: exact / degraded
-  (caption mirrors survive, records gone) / gone / corrupted per payload, plus
-  MPF validity, ExtendedXMP integrity and motion markers; human or --json
-  output; exit codes 0 intact, 3 degraded, 4 damaged for matrix automation.
-- Corpus: plain JPEG; Pixel 9 Ultra HDR JPEG (default camera output); Pixel 9
-  Motion Photo; Pixel 9 screenshot (PNG); plain MP4; one camera photo and one
-  screenshot from EACH family/friend device model (Samsung SEF trailers and
-  OEM screenshot formats vary); one HEIC sample (shelved, generator may skip).
-- Golden-file unit tests from day one; byte-exact expectations.
-- Audio payloads in tests: Ogg Opus (app default) and AAC m4a (alternative).
+- A1 [OWNER] Corpus drop into lab/corpus/ per its README (10 minutes of adb).
+  Unblocks: CorpusSmokeTest, landmine verdicts 1 and 2.
+- A2 [OWNER] Survivability matrix rows 1 to 11 (lab/survivability-matrix.md):
+  run corpus files through each path on the Pixel, then
+  `engram verify --json` against the sidecars; paste verdicts.
+- A3 Write-back spike app: agent builds it (part of track B milestone M4);
+  [OWNER] runs it on the Pixel and reports the row 10 and row 11 verdicts plus
+  consent UX and write latency.
+- A4 [OWNER] Russian transcription spike (design D15 gate): agent ships a
+  debug screen in M3 that records and transcribes ten natural notes; owner
+  speaks them and judges quality. Fallback already designed: audio-only v1.
+- A5 Landmine register verdicts (previous section 0.5 list, unchanged) get
+  recorded in lab/survivability-matrix.md as they land.
 
-## 0.2 Survivability matrix
+## Track B: v1 implementation milestones (agent-completable)
 
-For each path: run corpus through, then `verify`. Cells: survived / transformed /
-stripped, per payload kind (std caption, ExtendedXMP or iTXt, binary records,
-MPF intact, Motion still plays).
+Definition of done for every milestone: `./gradlew build` green (tests, both
+linters, iOS tripwire), CHANGELOG updated, docs touched per docs/README.md.
+UI milestones additionally produce an emulator screenshot as evidence.
 
-Paths, Pixel 9 + accounts we control:
+- M0 Spec draft: write spec/engram-spec-v0.md from the implemented reality
+  (record frame with id and writer, bindings, ExtendedXMP, caption mirrors,
+  expectation sidecar format). Private until stable (D18).
+- M1 Android scaffold: :app module (Compose, minSdk 33, package
+  photos.engram.app), local Android SDK + emulator bootstrap for autonomous
+  UI verification, CI extended to assemble a debug APK artifact.
+- M2 Ingest and index: Room database (items, records cache, pending queue),
+  MediaStore ingest for camera + screenshots buckets (D11), periodic reconcile
+  worker, index rebuild action (D3). Robolectric tests.
+- M3 Annotate flow: queue pager UI, text input, hold-to-record voice
+  (MediaRecorder, Ogg/Opus per D6), playback, crash-safe drafts, plus the
+  transcription debug screen for A4.
+- M4 Write-back: strategy interface, MediaStore.createWriteRequest batch
+  consent, transactional backup-write-verify-restore built on :core-format,
+  strip-detection against the last-seen records cache, one-tap re-embed.
+  Also: the A3 spike is this module's debug entry point.
+- M5 Digest and nudge: evening digest notification (user-set hour), optional
+  post-burst nudge (default off, A2), settings screen for both (D12).
+- M6 Browse, search, backfill: timeline of annotated media, note history,
+  audio playback, full-text search over notes and transcripts, backfill flow
+  for any older media.
+- M7 Enrichment: Open-Meteo + Geocoder workers deriving from EXIF GPS and
+  timestamps, provenance-tagged enrichment records, network toggle (D10),
+  written alongside the next user-initiated write session (design sec 8).
+- M8 Export and verifier: Engram Archive export to a SAF location, in-app
+  backup verifier reusing the cli extraction logic, size-cap warnings (D13),
+  RU + EN strings (D20), onboarding screens incl. the backup-honesty page.
+- M9 Release prep [OWNER for accounts]: Play internal testing packaging,
+  family install links, device QA script. Owner: Play Console account,
+  installing on family devices.
 
-1. Control: local copy, Files app copy, Syncthing round trip (expect identical)
-2. Google Photos backup, Original quality: download via web UI and via Takeout
-3. Google Photos backup, Storage saver: download (also: does PNG get converted?)
-4. Google Photos in-app editor: trivial crop, save (both save modes if offered)
-5. Pixel Markup editor: save
-6. WhatsApp: send as photo; send as document
-7. Telegram: send as photo; send as file
-8. Signal: send as photo
-9. Gmail: attach and send
-10. After our in-place rewrite of an already-backed-up photo: does Google Photos
-    re-upload it as a duplicate (hash change), replace, or ignore?
-11. Motion Photo after our write: does motion playback still work in Google
-    Photos?
+Milestone order is dependency-driven: M2 before M3 before M4; M5 to M8 can
+interleave after M4. Matrix verdicts (track A) may inject work into M4/M8
+wording and behavior; nothing else depends on them.
 
-Deliverable: the matrix, committed as design doc appendix A. Ground truth for
-every survivability claim the product makes, and the source of the in-app
-backup warning wording.
+## Exit criteria for v1 (definition of done, design sec 2)
 
-## 0.3 Write-back spike on Pixel 9 (throwaway app allowed)
-
-Minimal Android app:
-
-- Pick newest camera photo, request write consent (MediaStore.createWriteRequest),
-  rewrite in place via fd using backup-then-write-then-verify pattern (no atomic
-  rename exists for media we do not own; partial write must never destroy a
-  photo).
-- Answer: consent dialog frequency (once per batch?), write latency on ~12MP
-  Ultra HDR files, Google Photos sync behavior afterwards (feeds matrix row 10),
-  Ultra HDR rendering after MPF fixup, Motion playback after trailer coexistence
-  (row 11), Screenshots bucket detectability via MediaStore on Pixel and on
-  family devices (assumptions A6, A8).
-
-## 0.4 Spec v0 outline (private until stable)
-
-Logical model per design doc section 6: append-only record log (note, audio,
-enrichment), id + kind + schema version + timestamp + writer id + CRC32 per
-record, dual-write rule, current-memory view over history.
-
-To pin down in the outline:
-
-- Identity: XMP namespace https://ns.engram.photos/1.0/ (after registration),
-  record magic EGRM, size budget defaults (soft cap ~10MB, D13).
-- JPEG binding: XMP APP1 + ExtendedXMP; binary records after EOI; MPF (APP2)
-  offset repair; Motion Photo coexistence rules, including the legacy
-  EOF-relative MicroVideoOffset problem.
-- PNG binding: XMP iTXt; private ancillary safe-to-copy chunks for binary
-  records; chunk naming per PNG rules.
-- MP4 binding: one custom uuid box at the tail; moov rewrite only for the
-  caption mirror and only when moov is the trailing box.
-- Engram Archive export schema (manifest + per-item JSON + audio blobs).
-- Audio: Opus in Ogg default, AAC-LC alternative, codec field open (D6).
-
-## 0.5 Landmines register (each gets a verdict in Phase 0)
-
-1. Ultra HDR (JPEG_R) is the DEFAULT Pixel 9 output; gain map located via MPF
-   offsets that our insertions shift. Unrepaired, photos silently lose HDR.
-2. Motion Photo coexistence (default-on for Pixels): appending after Google's
-   video trailer vs updating the XMP Container directory; what does Google
-   Photos playback tolerate? Until this verdict lands, the writer detects
-   Motion Photos and refuses to embed.
-3. Google Photos hash-change duplicate on in-place rewrite of a backed-up photo.
-4. Storage saver recompression: assumed to kill trailers; confirm; check PNG
-   conversion too; product must warn.
-5. No atomic replace through MediaStore write requests: transactional pattern
-   required, crash-tested.
-6. ExtendedXMP support in the wild is spotty: dual-write of standard fields is
-   the compatibility floor; verify Google Photos and Apple Photos display them.
-7. Play Console: personal accounts need a closed test (12 testers, 14 days)
-   before production access (verify current rule; v2 concern). Internal testing
-   track for v1: no such gate, install by link.
-8. Google Photos Library API (since March 2025): app can only access items it
-   created. No "repair cloud copies" feature can exist; do not design one.
-9. Screenshots bucket names and formats vary by OEM (PNG on Pixel, JPEG option
-   elsewhere); verify per family device (A6, A8).
-10. PNG chunk survival through editors and Google Photos is untested territory;
-    matrix covers it (screenshots are edited rarely, but verify anyway).
-
-## 0.6 Russian transcription spike (gates D15)
-
-On Pixel 9: on-device SpeechRecognizer with ru-RU. Measure availability of the
-on-device model, accuracy on natural family-style speech (10 sample notes),
-latency. Verdict options: transcripts in v1; transcripts deferred to v1.x
-(audio-only v1); or bundled-model alternative goes on the roadmap. Audio is
-recorded and stored in every scenario, so no data is lost by deferring.
-
-## Exit criteria
-
-- Survivability matrix filled for rows 1 to 11.
-- Spike answers: consent UX, GP duplicate behavior, Ultra HDR intact, Motion
-  intact, Screenshots bucket detection.
-- Transcription verdict recorded in design doc (D15 resolved).
-- engram.photos registered; namespace URI frozen; package prefix photos.engram
-  confirmed.
-- Family/friends device list collected; A1 (Android 13+), A6, A8 verified.
-- Spec v0 outline reviewed and frozen enough to start :core-format.
-
-Then: implementation planning against design doc v1.
+- Track A: matrix rows 1 to 11 filled; landmine verdicts recorded; A1/A6/A8
+  device facts confirmed; transcription verdict recorded (D15).
+- Track B: M0 to M8 complete and green; M9 installed on the family's phones.
+- engram.photos registered and namespace confirmed [OWNER].
+- Owner and family annotating real photos happily.
