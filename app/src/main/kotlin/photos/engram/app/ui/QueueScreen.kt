@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +44,7 @@ private val mediaPermissions =
     arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
 
 @Composable
-fun QueueScreen() {
+fun QueueScreen(onAnnotate: (List<Long>, Int) -> Unit) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(hasMediaPermissions(context)) }
     if (!granted) {
@@ -77,25 +77,32 @@ fun QueueScreen() {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.queue_empty))
                     }
-                else -> QueueGrid(items)
+                else -> QueueGrid(items, onAnnotate)
             }
         }
     }
 }
 
 @Composable
-private fun QueueGrid(items: List<MediaItemEntity>) {
+private fun QueueGrid(
+    items: List<MediaItemEntity>,
+    onAnnotate: (List<Long>, Int) -> Unit,
+) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         verticalArrangement = Arrangement.spacedBy(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(items, key = { it.mediaId }) { item ->
+        items(items.size, key = { items[it].mediaId }) { index ->
             AsyncImage(
-                model = item.uri,
+                model = items[index].uri,
                 contentDescription = null,
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clickable { onAnnotate(items.map { it.mediaId }, index) },
             )
         }
     }

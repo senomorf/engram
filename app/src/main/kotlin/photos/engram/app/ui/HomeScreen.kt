@@ -11,6 +11,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,7 +27,10 @@ import photos.engram.app.R
 import photos.engram.app.appContainer
 
 @Composable
-fun HomeScreen(onOpenQueue: () -> Unit) {
+fun HomeScreen(
+    onOpenQueue: () -> Unit,
+    onOpenLab: () -> Unit = {},
+) {
     val context = LocalContext.current
     val vm: HomeViewModel =
         viewModel(
@@ -70,6 +74,12 @@ fun HomeScreen(onOpenQueue: () -> Unit) {
                 modifier = Modifier.padding(top = 24.dp),
             ) {
                 Text(stringResource(R.string.open_queue))
+            }
+            TextButton(
+                onClick = onOpenLab,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.open_lab))
             }
         }
     }

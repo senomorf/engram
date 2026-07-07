@@ -19,6 +19,10 @@ complexity:
   LongParameterList:
     functionThreshold: 8
 
+empty-blocks:
+  EmptyFunctionBlock:
+    ignoreOverridden: true # listener interfaces force no-op overrides
+
 exceptions:
   TooGenericExceptionCaught:
     active: false

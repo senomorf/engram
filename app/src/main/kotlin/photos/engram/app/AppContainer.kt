@@ -1,6 +1,8 @@
 package photos.engram.app
 
 import android.content.Context
+import photos.engram.app.audio.MediaVoiceRecorder
+import photos.engram.app.audio.VoiceRecorderFactory
 import photos.engram.app.data.db.EngramDb
 import photos.engram.app.data.media.ContentAccess
 import photos.engram.app.data.media.MediaSource
@@ -19,6 +21,10 @@ class AppContainer(
     val db: EngramDb = EngramDb.build(context),
     val access: ContentAccess = ResolverContentAccess(context.contentResolver),
     val source: MediaSource = MediaStoreSource(context.contentResolver),
+    val recorderFactory: VoiceRecorderFactory =
+        object : VoiceRecorderFactory {
+            override fun create() = MediaVoiceRecorder(context.applicationContext)
+        },
 ) {
     val scanner: RecordScanner = RecordScanner(access)
     val reconciler: Reconciler =

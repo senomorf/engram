@@ -10,4 +10,18 @@
     <string name="queue_empty">Nothing is waiting. Go take a photo worth remembering.</string>
     <string name="queue_permission_rationale">Engram needs access to your photos and videos to find the ones waiting for a memory. Everything stays on this device.</string>
     <string name="grant_access">Allow access</string>
+    <string name="annotate_progress">%1$d of %2$d</string>
+    <string name="annotate_skip">Skip</string>
+    <string name="annotate_note_hint">What made this moment matter?</string>
+    <string name="annotate_hold_to_record">Hold to record voice</string>
+    <string name="annotate_recording">Recording…</string>
+    <string name="annotate_play">Play voice note</string>
+    <string name="annotate_stop">Stop</string>
+    <string name="annotate_delete_audio">Delete</string>
+    <string name="annotate_done">Done</string>
+    <string name="open_lab">Transcription lab</string>
+    <string name="lab_title">Speech to text lab</string>
+    <string name="lab_on_device_yes">On-device recognition: available</string>
+    <string name="lab_on_device_no">On-device recognition: NOT available, network recognizer in use</string>
+    <string name="lab_speak">Speak (ru-RU)</string>
 </resources>

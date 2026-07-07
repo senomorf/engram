@@ -9,4 +9,18 @@
     <string name="queue_empty">Очередь пуста. Самое время снять что-то стоящее.</string>
     <string name="queue_permission_rationale">Engram нужен доступ к фото и видео, чтобы найти те, что ждут воспоминания. Всё остаётся на этом устройстве.</string>
     <string name="grant_access">Разрешить доступ</string>
+    <string name="annotate_progress">%1$d из %2$d</string>
+    <string name="annotate_skip">Пропустить</string>
+    <string name="annotate_note_hint">Чем дорог этот момент?</string>
+    <string name="annotate_hold_to_record">Удерживайте для записи голоса</string>
+    <string name="annotate_recording">Запись…</string>
+    <string name="annotate_play">Прослушать</string>
+    <string name="annotate_stop">Стоп</string>
+    <string name="annotate_delete_audio">Удалить</string>
+    <string name="annotate_done">Готово</string>
+    <string name="open_lab">Лаборатория распознавания</string>
+    <string name="lab_title">Лаборатория речи в текст</string>
+    <string name="lab_on_device_yes">Распознавание на устройстве: доступно</string>
+    <string name="lab_on_device_no">Распознавание на устройстве: НЕДОСТУПНО, используется сетевое</string>
+    <string name="lab_speak">Говорите (ru-RU)</string>
 </resources>
