@@ -1,0 +1,20 @@
+# Changelog
+
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions will
+follow [SemVer](https://semver.org/) once releases exist. Every user-visible
+change lands under Unreleased at merge time.
+
+## [Unreleased]
+
+### Added
+
+- Design document (docs/design.md), rolling plan (docs/plan.md), roadmap
+  (docs/roadmap.md), docs map (docs/README.md).
+- Engram record wire format v0: self-delimiting CRC-protected records (note,
+  audio, enrichment, transcript kinds).
+- Container bindings: JPEG (XMP merge, ExtendedXMP detection, post-EOI records,
+  MPF offset validation), PNG (iTXt XMP, egRm chunks), MP4 (custom uuid box).
+- Lab CLI: generate, inspect/verify, selftest.
+- Survivability lab templates (lab/corpus, lab/survivability-matrix.md).
+- Tooling: Gradle 9.6.1 wrapper, Kotlin 2.3.20, version catalog, ktlint +
+  detekt, integration test suite, GitHub Actions CI, dependabot, dev container.
