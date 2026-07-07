@@ -20,7 +20,10 @@ class Segment(raw: ByteArray) : JpegPart(raw) {
     companion object {
         const val MAX_PAYLOAD = 65533
 
-        fun of(marker: Int, payload: ByteArray): Segment {
+        fun of(
+            marker: Int,
+            payload: ByteArray,
+        ): Segment {
             require(payload.size <= MAX_PAYLOAD) { "segment payload too large: ${payload.size}" }
             val raw = ByteArray(4 + payload.size)
             raw[0] = 0xFF.toByte()
@@ -41,7 +44,6 @@ class Filler(raw: ByteArray) : JpegPart(raw)
 class TrailerData(raw: ByteArray) : JpegPart(raw)
 
 object JpegCodec {
-
     const val SOI = 0xD8
     const val EOI = 0xD9
     const val SOS = 0xDA
@@ -74,28 +76,36 @@ object JpegCodec {
                 else -> {
                     if (i + 4 > bytes.size) throw JpegFormatException("truncated segment header at offset $i")
                     val len = bytes.u16be(i + 2)
-                    if (len < 2 || i + 2 + len > bytes.size) throw JpegFormatException("bad segment length at offset $i")
+                    if (len < 2 || i + 2 + len > bytes.size) {
+                        throw JpegFormatException(
+                            "bad segment length at offset $i",
+                        )
+                    }
                     parts += Segment(bytes.copyOfRange(i, i + 2 + len))
                     i += 2 + len
                     if (marker == SOS) {
-                        val start = i
-                        var j = i
-                        while (true) {
-                            if (j + 1 >= bytes.size) throw JpegFormatException("entropy data truncated")
-                            if (bytes.u8(j) == 0xFF) {
-                                val next = bytes.u8(j + 1)
-                                if (next == 0x00 || next in 0xD0..0xD7) {
-                                    j += 2
-                                    continue
-                                }
-                                break
-                            }
-                            j++
-                        }
-                        if (j > start) parts += Entropy(bytes.copyOfRange(start, j))
-                        i = j
+                        val end = entropyEnd(bytes, i)
+                        if (end > i) parts += Entropy(bytes.copyOfRange(i, end))
+                        i = end
                     }
                 }
+            }
+        }
+    }
+
+    /** Skips entropy-coded data: stuffed 0xFF00 and RST markers stay inside the scan. */
+    private fun entropyEnd(
+        bytes: ByteArray,
+        start: Int,
+    ): Int {
+        var j = start
+        while (true) {
+            if (j + 1 >= bytes.size) throw JpegFormatException("entropy data truncated")
+            if (bytes.u8(j) != 0xFF) {
+                j++
+            } else {
+                val next = bytes.u8(j + 1)
+                if (next == 0x00 || next in 0xD0..0xD7) j += 2 else return j
             }
         }
     }
@@ -117,8 +127,11 @@ val EXIF_APP1_HEADER = "Exif\u0000\u0000".encodeToByteArray()
 val MPF_APP2_HEADER = "MPF\u0000".encodeToByteArray()
 
 fun Segment.isXmpApp1(): Boolean = marker == JpegCodec.APP1 && payload.startsWith(XMP_APP1_HEADER)
+
 fun Segment.isExtendedXmpApp1(): Boolean = marker == JpegCodec.APP1 && payload.startsWith(EXTENDED_XMP_APP1_HEADER)
+
 fun Segment.isExifApp1(): Boolean = marker == JpegCodec.APP1 && payload.startsWith(EXIF_APP1_HEADER)
+
 fun Segment.isMpfApp2(): Boolean = marker == JpegCodec.APP2 && payload.startsWith(MPF_APP2_HEADER)
 
 fun Segment.xmpPacket(): String = payload.copyOfRange(XMP_APP1_HEADER.size, payload.size).decodeToString()

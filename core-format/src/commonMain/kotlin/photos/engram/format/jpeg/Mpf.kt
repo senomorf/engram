@@ -24,13 +24,15 @@ class MpfReport(
  * every write is validated against this inspector.
  */
 object MpfInspector {
-
+    // dense guard-clause validator by design; scattering the offset math would hurt review
+    @Suppress("CyclomaticComplexMethod", "ReturnCount")
     fun inspect(bytes: ByteArray): MpfReport {
-        val parts = try {
-            JpegCodec.parse(bytes)
-        } catch (e: JpegFormatException) {
-            return MpfReport(false, emptyList(), listOf("unparseable jpeg: ${e.message}"))
-        }
+        val parts =
+            try {
+                JpegCodec.parse(bytes)
+            } catch (e: JpegFormatException) {
+                return MpfReport(false, emptyList(), listOf("unparseable jpeg: ${e.message}"))
+            }
         var pos = 0L
         var segPos = -1L
         var mpf: Segment? = null
@@ -55,18 +57,25 @@ object MpfInspector {
         }
 
         if (payload.size < tiff + 8) return fail("mpf payload too short")
-        val little = when {
-            payload.u8(tiff) == 0x49 && payload.u8(tiff + 1) == 0x49 -> true
-            payload.u8(tiff) == 0x4D && payload.u8(tiff + 1) == 0x4D -> false
-            else -> return fail("bad tiff endian marker")
-        }
+        val little =
+            when {
+                payload.u8(tiff) == 0x49 && payload.u8(tiff + 1) == 0x49 -> true
+                payload.u8(tiff) == 0x4D && payload.u8(tiff + 1) == 0x4D -> false
+                else -> return fail("bad tiff endian marker")
+            }
 
-        fun inPayload(rel: Long, len: Int) = rel >= 0 && tiff + rel + len <= payload.size
+        fun inPayload(
+            rel: Long,
+            len: Int,
+        ) = rel >= 0 && tiff + rel + len <= payload.size
 
         fun u16(rel: Long): Int {
             val a = tiff + rel.toInt()
-            return if (little) payload.u8(a) or (payload.u8(a + 1) shl 8)
-            else (payload.u8(a) shl 8) or payload.u8(a + 1)
+            return if (little) {
+                payload.u8(a) or (payload.u8(a + 1) shl 8)
+            } else {
+                (payload.u8(a) shl 8) or payload.u8(a + 1)
+            }
         }
 
         fun u32(rel: Long): Long {
