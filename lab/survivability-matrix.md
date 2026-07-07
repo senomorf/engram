@@ -22,7 +22,7 @@ Verdicts per cell: ok / transformed / gone, notes inline.
 | 10 | GPhotos behavior after in-place rewrite of a backed-up photo | | | | | |
 | 11 | Motion Photo playback after our write | | | | | |
 
-Landmine verdicts (phase0-plan.md section 0.5) get recorded below as they land:
+Landmine verdicts (docs/plan.md section 0.5) get recorded below as they land:
 
 1. Ultra HDR MPF repair:
 2. Motion Photo coexistence:

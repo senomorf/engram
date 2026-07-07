@@ -2,7 +2,7 @@
 
 Status: decisions locked via Q&A rounds, 2026-07-06 to 2026-07-08. This is the
 finished plan without implementation details. Items contingent on Phase 0
-verification are marked [P0] (see docs/phase0-plan.md). Future versions live in
+verification are marked [P0] (see docs/plan.md). Future versions live in
 docs/roadmap.md. Repo keeps the working name photomemo; product and format are
 called Engram.
 

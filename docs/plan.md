@@ -1,4 +1,7 @@
-# Engram Phase 0: verify before building
+# Current plan: Phase 0, verify before building
+
+Rolling plan document: always describes the phase in progress and is rewritten
+at phase turnover (history lives in git). Docs map: docs/README.md.
 
 Goal: convert the load-bearing assumptions into test results before implementation
 starts. No product code. Only the format harness (which seeds the real engine),
