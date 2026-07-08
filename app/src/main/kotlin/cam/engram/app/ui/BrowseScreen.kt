@@ -17,14 +17,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
 
@@ -33,9 +31,9 @@ fun BrowseScreen(
     onOpen: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val container = currentAppContainer()
     val vm: BrowseViewModel =
-        viewModel(factory = viewModelFactory { initializer { BrowseViewModel(context.appContainer()) } })
+        viewModel(factory = viewModelFactory { initializer { BrowseViewModel(container) } })
     val timeline by vm.timeline.collectAsState()
     val query by vm.query.collectAsState()
     val results by vm.results.collectAsState()

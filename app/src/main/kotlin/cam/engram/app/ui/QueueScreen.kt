@@ -38,7 +38,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
 
@@ -56,11 +55,12 @@ fun QueueScreen(
         PermissionGate(onGranted = { granted = true })
         return
     }
+    val container = currentAppContainer()
     val vm: QueueViewModel =
         viewModel(
             factory =
                 viewModelFactory {
-                    initializer { QueueViewModel(context.appContainer()) }
+                    initializer { QueueViewModel(container) }
                 },
         )
     LaunchedEffect(Unit) { vm.refresh() }
@@ -74,8 +74,7 @@ fun QueueScreen(
         }
     LaunchedEffect(consentUri) {
         if (consentUri != null) {
-            context
-                .appContainer()
+            container
                 .consentGate
                 .consentNeeded(stripped.map { it.uri })
                 ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }

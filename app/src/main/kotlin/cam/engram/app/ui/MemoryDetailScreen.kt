@@ -27,7 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import cam.engram.format.read.Memory
 import coil3.compose.AsyncImage
 import java.io.File
@@ -38,8 +37,7 @@ fun MemoryDetailScreen(
     onAnnotate: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val container = context.appContainer()
+    val container = currentAppContainer()
     // observe the row so returning from annotate (which bumps lastScanMillis)
     // reloads the memory instead of showing the pre-annotation state (review F7)
     val item by remember(mediaId) { container.db.media().flowById(mediaId) }

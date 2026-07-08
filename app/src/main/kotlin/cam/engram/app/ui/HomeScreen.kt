@@ -17,14 +17,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.appContainer
 
 @Composable
 fun HomeScreen(
@@ -34,12 +32,12 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onOpenLab: () -> Unit = {},
 ) {
-    val context = LocalContext.current
+    val container = currentAppContainer()
     val vm: HomeViewModel =
         viewModel(
             factory =
                 viewModelFactory {
-                    initializer { HomeViewModel(context.appContainer()) }
+                    initializer { HomeViewModel(container) }
                 },
         )
     val counts by vm.counts.collectAsState()

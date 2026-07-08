@@ -22,11 +22,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import cam.engram.app.writeback.Annotation
 import cam.engram.app.writeback.WriteOutcome
 import kotlinx.coroutines.launch
@@ -70,9 +68,8 @@ private fun labStatusRes(status: DictationStatus): Int? =
 /** Track A3 debug entry: one-tap write-back against the newest real photo. */
 @Composable
 private fun SpikeSection() {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val container = context.appContainer()
+    val container = currentAppContainer()
     var result by remember { mutableStateOf("") }
 
     suspend fun run(): String {

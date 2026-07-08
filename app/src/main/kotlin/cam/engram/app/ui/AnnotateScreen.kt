@@ -50,7 +50,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.io.File
@@ -79,6 +78,7 @@ private fun AnnotateCard(
     onNext: () -> Unit,
 ) {
     val context = LocalContext.current
+    val container = currentAppContainer()
     val vm: AnnotateViewModel =
         viewModel(
             key = "annotate-$mediaId",
@@ -86,7 +86,7 @@ private fun AnnotateCard(
                 viewModelFactory {
                     initializer {
                         AnnotateViewModel(
-                            container = context.appContainer(),
+                            container = container,
                             mediaId = mediaId,
                             draftsDir = File(context.filesDir, "drafts"),
                         )
@@ -94,7 +94,7 @@ private fun AnnotateCard(
                 },
         )
     val ui by vm.ui.collectAsState()
-    val store = remember { context.appContainer().settings }
+    val store = remember { container.settings }
     val scope = rememberCoroutineScope()
     // recording language is decoupled from the UI language: an explicit choice,
     // else the current UI language (review item 4)
@@ -121,8 +121,7 @@ private fun AnnotateCard(
             }
             is SaveUi.Rejected -> {
                 ui.item?.let { item ->
-                    context
-                        .appContainer()
+                    container
                         .consentGate
                         .consentNeeded(listOf(item.uri))
                         ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }

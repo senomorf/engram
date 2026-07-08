@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cam.engram.app.R
-import cam.engram.app.appContainer
 import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.export.ExportResult
 import cam.engram.app.verify.BackupVerifier
@@ -58,6 +57,7 @@ private sealed interface VerifyState {
 @Composable
 fun ToolsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val container = currentAppContainer()
     val scope = rememberCoroutineScope()
     var export by remember { mutableStateOf<ExportState>(ExportState.Idle) }
     var verify by remember { mutableStateOf<VerifyState>(VerifyState.Idle) }
@@ -74,7 +74,7 @@ fun ToolsScreen(onBack: () -> Unit) {
                 scope.launch {
                     export = ExportState.Running
                     export =
-                        runCatching { ArchiveExporter(context, context.appContainer().db).export(uri) }
+                        runCatching { ArchiveExporter(context, container.db).export(uri) }
                             .fold(
                                 onSuccess = { ExportState.Done(it) },
                                 onFailure = { ExportState.Failed(it.message ?: unknownError) },
