@@ -15,6 +15,17 @@ they get scheduled.
 - Backup verifier improvements (guided flows per destination).
 - Offline reverse geocoding (drop the network dependency for place names).
 
+## Android platform modernization
+
+Already current: Material 3 with dynamic color, edge-to-edge, per-app locale,
+themed monochrome icon, predictive-back opt-in, Android 12+ backup rules (D21).
+Deferred, rough order:
+
+- Adaptive layouts: window size classes for tablets and foldables (phone-only today).
+- Material 3 Expressive: adopt the expressive type scale and components as they stabilize.
+- Predictive-back in-app previews: PredictiveBackHandler with screen transitions (the
+  manifest opt-in is in; cross-screen preview animation is not).
+
 ## v2 (bigger features, still Android)
 
 - Memory sessions: explicitly armed start/stop ambient capture for an outing,

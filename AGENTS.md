@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Engram: embeds memories (text, voice) into media files. Before non-trivial work
-read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README.md.
+read docs/design.md (decisions D1-D21, assumptions A1-A8) for state, motivation
+and assumptions. Docs map: docs/README.md.
 
 ## Modules
 
@@ -39,7 +40,7 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
 - Bug fix flow: reproduce with a failing test in core-format first.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). Do not add overlapping rules.
-- Localization: every user-facing string via stringResource; keep values/ and values-ru/ in sync (only translatable=false entries and app_name may differ). Lab debug diagnostics are exempt.
+- Localization: every user-facing string via stringResource; keep values/ and values-ru/ in sync (only translatable=false entries and app_name may differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics are exempt. Voice dictation language is decoupled from UI language (Dictation.supportedLanguages).
 - Offline: annotate, browse, search, verify and export must work with no network. Only enrichment may use the network, and only best-effort and graceful.
 - Material: M3 only (no androidx.compose.material.* components), dynamic color, top bars via EngramScaffold, edge-to-edge. Do not hardcode Color/TextStyle outside the theme.
 

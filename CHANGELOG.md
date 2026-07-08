@@ -21,9 +21,12 @@ change lands under Unreleased at merge time.
 - In-app language switch (English and Russian) with per-app locale, plus complete
   Russian coverage across every screen.
 - Voice dictation in the annotate flow: on-device, offline-preferred speech to
-  text that follows the app language and fills the note field.
+  text in any supported language, decoupled from the UI language via a per-note
+  language picker, fetching a missing on-device model when needed.
 - Material 3 polish: standard top app bars via a shared scaffold, Material You
   dynamic color and edge-to-edge.
+- Predictive-back opt-in, themed monochrome launcher icon and Android 12+ backup rules.
+- Landing page at engram.cam with a favicon and social-share card.
 
 - Android app (Track B, M0 to M8): ingest of camera and screenshot media into
   a Room index; annotation queue with text notes and hold-to-record Opus voice;

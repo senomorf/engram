@@ -82,9 +82,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   Archive export: all ever-recorded metadata to a user-chosen location in a
   documented parseable format.
 - D15 Transcription: on-device (SpeechRecognizer, offline-preferred), integrated
-  into the annotate flow as dictation that fills the note field. Language follows
-  the app locale (en-US or ru-RU). Audio is always recorded and stored regardless,
-  so a weak transcript never costs the voice clip.
+  into the annotate flow as dictation that fills the note field. Recording language
+  is decoupled from the UI language: a persisted picker (default the UI language)
+  chooses from a supported list, so any supported language dictates regardless of
+  UI language; a missing on-device model is fetched via triggerModelDownload.
+  Audio is always recorded and stored regardless, so a weak transcript never costs
+  the voice clip.
 - D16 Archive model: each person annotates their own media on their own phone.
   No sync, no conflicts. Shared family pool: roadmap, far. Spec carries writer id
   from day one so that future does not require a format migration.
@@ -99,9 +102,11 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   in-app language switch (framework LocaleManager, per-app locale, declared in
   locales_config). Both string sets stay complete; further languages are additive.
 - D21 Material and versions: Material 3 with dynamic color (Material You), a shared
-  EngramScaffold for standard top app bars, and edge-to-edge. Dependencies track
-  newest stable; the Robolectric test SDK trails compileSdk (pinned to 36) until a
-  release adds 37.
+  EngramScaffold for standard top app bars, edge-to-edge, predictive-back opt-in,
+  a themed monochrome icon and Android 12+ backup rules. Dependencies track newest
+  stable; the Robolectric test SDK trails compileSdk (pinned to 36) until a release
+  adds 37. CI adds CodeQL code scanning and dependency review. Deferred modernization
+  (adaptive layouts, Material 3 Expressive, in-app predictive-back previews): roadmap.
 
 ## 5. Assumptions register
 
