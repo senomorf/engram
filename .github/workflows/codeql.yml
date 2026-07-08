@@ -34,7 +34,11 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
-      - run: ./gradlew :app:assembleDebug :cli:assemble --console=plain
+      # daemon-less + in-process Kotlin so the compile runs in the traced process;
+      # otherwise the Gradle/Kotlin daemon hides it from CodeQL and nothing extracts
+      - run: >
+          ./gradlew :app:assembleDebug :cli:assemble
+          --no-daemon -Dkotlin.compiler.execution.strategy=in-process --console=plain
       - uses: github/codeql-action/analyze@v3
         with:
           category: "/language:java-kotlin"
