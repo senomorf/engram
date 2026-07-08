@@ -18,4 +18,4 @@ Three rules keep this documentation useful:
 | [plan.md](plan.md) | Current phase plan and exit criteria | Phase progress; rewritten at phase turnover |
 | [roadmap.md](roadmap.md) | Future versions and gated ideas | Scope moves in or out |
 | [../lab/survivability-matrix.md](../lab/survivability-matrix.md) | Phase 0 ground truth | Each lab run |
-| [../spec/engram-spec-v0.md](../spec/engram-spec-v0.md) | Engram format specification (private until stable) | Wire or binding changes |
+| [../spec/engram-spec-v0.md](../spec/engram-spec-v0.md) | Engram format specification (open, CC BY 4.0) | Wire or binding changes |

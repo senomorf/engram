@@ -44,22 +44,23 @@ milestone was: build green, CHANGELOG updated, docs touched.
 
 ### Known v1 gaps (built vs designed), for the owner to decide
 
-- Transcription: voice notes are stored as audio only; no Transcript record is
-  produced in the annotate flow. This is the designed contingency (D15) pending
-  the ru-RU quality spike (A4). The lab screen measures it; wiring transcription
-  into annotate is a one-session follow-up once the spike passes.
+- Transcription: on-device dictation (speech to text) is wired into annotate as a
+  note-filling mic, language-selectable and decoupled from the UI language (D15).
+  Still open: auto-generating a Transcript record from a recorded voice clip; clips
+  are stored as audio only. The A4 ru-RU quality spike still informs whether the
+  auto-transcript is worth adding.
 - Enrichment covers place + weather (Open-Meteo + Geocoder). Calendar-event
   enrichment (named in D4) is not built.
 - Audio codec is Opus only; the "AAC via advanced setting" option (D6) is not
   exposed.
-- Distribution (M9): no release keystore, signing config, or Play internal
-  testing track yet (owner accounts required).
+- Distribution (M9): no release keystore, signing config, or signed APK on
+  GitHub Releases yet (D17); the landing page Download button awaits it.
 - Not built, were nice-to-haves: share-sheet inbound "annotate this" target;
   home-screen widget (widget was already roadmap, not v1).
 
 - M0 Spec draft: write spec/engram-spec-v0.md from the implemented reality
   (record frame with id and writer, bindings, ExtendedXMP, caption mirrors,
-  expectation sidecar format). Private until stable (D18).
+  expectation sidecar format). Open under CC BY 4.0 (D18).
 - M1 Android scaffold: :app module (Compose, minSdk 33, package
   cam.engram.app), local Android SDK + emulator bootstrap for autonomous
   UI verification, CI extended to assemble a debug APK artifact.
@@ -84,9 +85,9 @@ milestone was: build green, CHANGELOG updated, docs touched.
 - M8 Export and verifier: Engram Archive export to a SAF location, in-app
   backup verifier reusing the cli extraction logic, size-cap warnings (D13),
   RU + EN strings (D20), onboarding screens incl. the backup-honesty page.
-- M9 Release prep [OWNER for accounts]: Play internal testing packaging,
-  family install links, device QA script. Owner: Play Console account,
-  installing on family devices.
+- M9 Release prep [OWNER]: release keystore and signing config, a signed APK on
+  GitHub Releases (D17) linked from engram.cam, device QA script. Owner: sign and
+  publish the release, install on family devices.
 
 Milestone order is dependency-driven: M2 before M3 before M4; M5 to M8 can
 interleave after M4. Matrix verdicts (track A) may inject work into M4/M8

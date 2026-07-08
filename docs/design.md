@@ -23,7 +23,7 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 ## 2. Targets and definition of done
 
 - v1 done when: owner, family, and select friends use it happily on their own
-  phones, installed via Play internal testing track.
+  phones, installed via a signed APK on GitHub Releases (D17).
 - Secondary target: owner learns Android development end to end; all code stays
   reviewable Kotlin, written agentically, gated by tests.
 - Explicit non-targets for v1: store production release, revenue, public spec.
@@ -228,7 +228,7 @@ foreground services; everything is scheduled or user-initiated.
   reconcile; buckets per D11.
 - Transcription: on-device SpeechRecognizer, ru-RU primary [P0].
 - Playback: Ogg Opus and AAC via platform players.
-- Distribution: Play internal testing track.
+- Distribution: signed APK on GitHub Releases (D17).
 
 ## 10. iOS portability guardrails (constraints, not a build)
 
@@ -303,6 +303,6 @@ registration and namespace freeze, family device list (A1, A6, A8).
 ## Appendices
 
 - A. Survivability matrix: produced by Phase 0, committed as ground truth.
-- B. Format spec v0: spec/ directory, private until stable (D18).
+- B. Format spec v0: spec/ directory, open under CC BY 4.0 (D18).
 - C. Ambient AI constraints research: platform limits, consent law, market
   evidence, and the explicit conditions under which the topic reopens.
