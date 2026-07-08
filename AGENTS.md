@@ -16,6 +16,7 @@ rationale. Docs map and update rules: docs/README.md.
 - iOS portability tripwire: `./gradlew :core-format:compileKotlinIosArm64` (also in CI)
 - autofix formatting: `./gradlew ktlintFormat` (run after editing Kotlin, before commit)
 - android debug apk + unit tests: `./gradlew :app:assembleDebug :app:testDebugUnitTest`
+- coverage gate + reports: `koverVerify` runs inside `check`; HTML via `:core-format:koverHtmlReport`, `:cli:koverHtmlReport`, `:app:koverHtmlReportDebug`
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
 - survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
 
@@ -42,6 +43,7 @@ rationale. Docs map and update rules: docs/README.md.
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
 - Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). New code vs spec files go under the right one.
 - Bug fix flow: reproduce with a failing test in core-format first.
+- Coverage (D22): Kover per-module line gate (`koverVerify` in `check`); floors core-format/cli 90, app 76, floor only rises toward the 90%+ target. Integration/scenario tests over unit tests. Counted coverage is JVM/Robolectric only (Kover cannot measure on-device); real platform adapters (MediaStore, SAF, SpeechRecognizer, MediaRecorder, Geocoder) and LabScreen are excluded and covered by the instrumented androidTest layer. New code ships with tests.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). No overlapping rules.
 - Localization: user-facing strings via stringResource; keep values/ and values-ru/ in sync (only translatable=false and app_name differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics exempt.
 - Offline: annotate, browse, search, verify, export must work with no network. Only enrichment uses the network, best-effort and graceful.

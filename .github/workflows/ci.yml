@@ -27,7 +27,20 @@ jobs:
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-kotlin-2.3.21
+      # build runs check, which runs koverVerify: the per-module line-coverage floor is enforced here
       - run: ./gradlew build :core-format:compileKotlinIosArm64 --console=plain
+      - name: coverage html reports
+        if: always()
+        run: ./gradlew :core-format:koverHtmlReport :cli:koverHtmlReport :app:koverHtmlReportDebug --console=plain
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-reports
+          path: |
+            core-format/build/reports/kover/html
+            cli/build/reports/kover/html
+            app/build/reports/kover/htmlDebug
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v7
         with:
           name: engram-debug-apk

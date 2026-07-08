@@ -98,5 +98,7 @@ wording and behavior; nothing else depends on them.
 - Track A: matrix rows 1 to 11 filled; landmine verdicts recorded; A1/A6/A8
   device facts confirmed; transcription verdict recorded (D15).
 - Track B: M0 to M8 complete and green; M9 installed on the family's phones.
+- Coverage: per-module Kover line gate green in CI; core-format and cli at 90%+,
+  app at its floor and climbing to the 90% target (D22).
 - engram.cam registered and namespace confirmed (done 2026-07-08).
 - Owner and family annotating real photos happily.
