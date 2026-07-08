@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ backup/transfer rules. The record-recovery cache (design D3) is
+     the one non-rebuildable store, so let settings, drafts and the cache ride
+     cloud backup and device transfer; the rest of the index is harmlessly rebuilt
+     on the next reconcile. -->
+<data-extraction-rules>
+    <cloud-backup />
+    <device-transfer />
+</data-extraction-rules>
