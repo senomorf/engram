@@ -113,19 +113,22 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   adds 37. CI adds CodeQL code scanning and dependency review. Deferred modernization
   (adaptive layouts, Material 3 Expressive, in-app predictive-back previews): roadmap.
 - D22 Test coverage: Kover measures line coverage per module with a `koverVerify`
-  floor wired into `check`, so `./gradlew build` enforces it. Target is 90%+ for
+  floor wired into `check`, so `./gradlew build` enforces it. Target is 95%+ for
   every module (destination: all code under some test, with user-facing scenario
-  tests for every case and corner case); floors only ever rise. core-format (95%)
-  and cli (90%) already meet it, app starts at a 76% floor and climbs. Tests are
-  integration/scenario-first over isolated unit tests, and integration coverage
-  counts: the cli number comes entirely from its integrationTest suite. Kover
-  cannot measure on-device instrumented tests, so counted coverage is JVM plus
-  Robolectric only; the thin real platform adapters (MediaStore, SAF,
-  SpeechRecognizer, MediaRecorder, Geocoder) and the debug LabScreen are excluded
-  from the number and exercised by a separate instrumented androidTest layer
-  (Gradle Managed Devices) that is a confidence net, not part of the percentage.
-  Closing app's gap to 90% needs the screen DI seam (inject the container so
-  screens test with fakes) or that instrumented layer, not more JVM tests.
+  tests for every case and corner case); floors only ever rise. Achieved:
+  core-format ~97%, cli ~98%, app ~91% (up from 78% once the LocalAppContainer
+  seam let screens render against a fake container); enforced floors 95/95/88 with
+  headroom for Compose-timing coverage variance. Tests are integration/scenario-
+  first over isolated unit tests, and integration coverage counts: the cli number
+  comes entirely from its integrationTest suite. Kover cannot measure on-device
+  instrumented tests, so counted coverage is JVM plus Robolectric only; the thin
+  real platform adapters (MediaStore, SAF, SpeechRecognizer, MediaRecorder,
+  Geocoder), the debug LabScreen, and device-only Compose marked `@DeviceOnly`
+  (MediaPlayer playback, dictation, SAF result callbacks) are excluded from the
+  number and exercised by a separate instrumented androidTest layer (Gradle
+  Managed Devices) that is a confidence net, not part of the percentage. The
+  aggregate sits at ~95%; the residual is that device-only Compose plus timing
+  variance, not untested logic.
 
 ## 5. Assumptions register
 
