@@ -36,7 +36,8 @@ Deferred, rough order:
 - Play production release: personal dev accounts require a closed test
   (12 testers, 14 days) before production access; verify the current rule then.
 - Spec publication plus reference CLI release (license per D18).
-- F-Droid distribution, if the project is public by then.
+- F-Droid: dropped. PolyForm Noncommercial (D18) is not FLOSS, which F-Droid
+  requires, so the app is ineligible; revisit only if the code license changes.
 
 ## Far, explicitly gated
 

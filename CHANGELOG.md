@@ -15,6 +15,9 @@ change lands under Unreleased at merge time.
 - Target Android 16 (API 37): compileSdk and targetSdk 37, minSdk held at 33.
   Refreshed AndroidX (activity-compose 1.13, lifecycle 2.11), Kotlin 2.3.21,
   AGP 9.2.1 and compose-bom 2026.06.01; Robolectric test runtime pinned to 36.
+- Licensing: app and library code under PolyForm Noncommercial 1.0.0 (noncommercial
+  use free, commercial rights reserved); the format spec under CC BY 4.0. Not FLOSS,
+  so F-Droid distribution is dropped.
 
 ### Added
 

@@ -1,7 +1,7 @@
 # Engram format specification, v0 (draft, private)
 
 Status: draft describing the implemented reality of :core-format as of this
-commit. Private until stable (design D18). SpecVersion property: `0.1`.
+commit. Open under CC BY 4.0 (design D18, see spec/LICENSE). SpecVersion property: `0.1`.
 Wire version byte: `1`. Any change to the wire frame or a binding requires
 bumping these and a design-doc decision (AGENTS.md rule).
 

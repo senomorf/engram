@@ -38,6 +38,7 @@ and assumptions. Docs map: docs/README.md.
 - Records are append-only; nothing may silently drop or rewrite existing payload.
 - Escape NUL as `\u0000` in source, never literal control bytes.
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
+- Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). Put new code vs spec files under the right one.
 - Bug fix flow: reproduce with a failing test in core-format first.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). Do not add overlapping rules.
 - Localization: every user-facing string via stringResource; keep values/ and values-ru/ in sync (only translatable=false entries and app_name may differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics are exempt. Voice dictation language is decoupled from UI language (Dictation.supportedLanguages).

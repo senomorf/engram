@@ -94,8 +94,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 - D17 Distribution: signed APK on GitHub Releases (install by link) for family
   and friends, linked from the landing page at engram.cam (GitHub Pages). Play
   and F-Droid are deferred, not v1 goals.
-- D18 Spec: written from day one, private until stable. License intent at
-  publication: Apache-2.0 for code, CC BY 4.0 for spec (A5, revisit then).
+- D18 License: app and library code under PolyForm Noncommercial 1.0.0
+  (source-available; noncommercial use free, commercial rights reserved to the
+  author, so only the author may monetize). The format spec under CC BY 4.0, kept
+  explicitly open so Engram files stay readable by any tool (no lock-in). Copyright
+  is held under a project pseudonym, not a legal name. Deliberately not FLOSS, which
+  precludes F-Droid (D17, roadmap).
 - D19 Repo: conventional commits (feat:, fix:, docs:, ...), one line, no body;
   rebase over merge per owner's global git rules.
 - D20 UI languages: Russian and English. Follows device locale and offers an

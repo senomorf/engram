@@ -41,6 +41,13 @@ Other useful entry points:
 
 Requires JDK 21 (or use the dev container in .devcontainer/).
 
+## License
+
+App and library code is under PolyForm Noncommercial 1.0.0 (see [LICENSE](LICENSE)):
+noncommercial use is free, commercial rights are reserved. The Engram format
+specification ([spec/](spec/)) is under CC BY 4.0 (see [spec/LICENSE](spec/LICENSE)),
+kept open so your files stay readable by any tool.
+
 ## Documentation
 
 The docs map with roles and update rules: [docs/README.md](docs/README.md).
