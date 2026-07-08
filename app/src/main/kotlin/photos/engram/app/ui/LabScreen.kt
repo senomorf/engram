@@ -8,6 +8,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,15 +23,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import photos.engram.app.R
+import photos.engram.app.appContainer
+import photos.engram.app.writeback.Annotation
+import photos.engram.app.writeback.WriteOutcome
 
 /**
  * Transcription spike (plan track A4): measures on-device ru-RU quality on the
@@ -116,13 +124,72 @@ fun LabScreen() {
                 Text(stringResource(R.string.lab_speak))
             }
             if (status.value.isNotEmpty()) Text(status.value)
-            LazyColumn {
+            LazyColumn(Modifier.weight(1f)) {
                 items(transcripts) { t ->
                     Text(text = t, modifier = Modifier.padding(vertical = 4.dp))
                 }
             }
+            SpikeSection()
         }
     }
+}
+
+/** Track A3 debug entry: one-tap write-back against the newest real photo. */
+@Composable
+private fun SpikeSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val container = context.appContainer()
+    var result by remember { mutableStateOf("") }
+
+    suspend fun run(): String {
+        val item =
+            container.db
+                .media()
+                .all()
+                .maxByOrNull { it.takenAtMillis } ?: return "no indexed media, open the queue first"
+        val started = System.currentTimeMillis()
+        val outcome =
+            container.writeBack.write(
+                item,
+                Annotation(noteText = "engram spike $started", audioFile = null),
+            )
+        val took = System.currentTimeMillis() - started
+        return when (outcome) {
+            is WriteOutcome.Success -> "ok: ${outcome.recordCount} record(s) in ${took}ms, ${item.relativePath}"
+            is WriteOutcome.Failed -> outcome.reason
+        }
+    }
+
+    val consent =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+            if (r.resultCode == android.app.Activity.RESULT_OK) scope.launch { result = run() }
+        }
+    Text(stringResource(R.string.lab_spike_title), style = MaterialTheme.typography.titleMedium)
+    Button(
+        onClick = {
+            scope.launch {
+                val out = run()
+                result = out
+                if (out == "media write rejected") {
+                    container.db
+                        .media()
+                        .all()
+                        .maxByOrNull { it.takenAtMillis }
+                        ?.let { item ->
+                            container.consentGate
+                                .consentNeeded(listOf(item.uri))
+                                ?.let { consent.launch(IntentSenderRequest.Builder(it).build()) }
+                        }
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.lab_spike_run))
+    }
+    if (result.isNotEmpty()) Text(result)
+    Text(stringResource(R.string.lab_spike_hint), style = MaterialTheme.typography.bodySmall)
 }
 
 private fun startListening(recognizer: SpeechRecognizer) {

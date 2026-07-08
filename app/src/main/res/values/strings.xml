@@ -24,4 +24,12 @@
     <string name="lab_on_device_yes">On-device recognition: available</string>
     <string name="lab_on_device_no">On-device recognition: NOT available, network recognizer in use</string>
     <string name="lab_speak">Speak (ru-RU)</string>
+    <string name="annotate_save">Save into the photo</string>
+    <string name="annotate_saving">Saving…</string>
+    <string name="annotate_error">Could not save: %1$s</string>
+    <string name="queue_stripped_banner">%1$d photo(s) lost their embedded memories. The cached copies can be written back.</string>
+    <string name="queue_restore">Restore memories</string>
+    <string name="lab_spike_title">Write-back spike</string>
+    <string name="lab_spike_run">Annotate newest photo with a test note</string>
+    <string name="lab_spike_hint">Then check: Ultra HDR still renders, Motion still plays, Google Photos sync behavior (plan track A3).</string>
 </resources>

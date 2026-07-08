@@ -10,13 +10,31 @@ import kotlinx.coroutines.launch
 import photos.engram.app.AppContainer
 import photos.engram.app.data.db.DraftEntity
 import photos.engram.app.data.db.MediaItemEntity
+import photos.engram.app.writeback.Annotation
+import photos.engram.app.writeback.WriteOutcome
 import java.io.File
+
+sealed interface SaveUi {
+    data object Idle : SaveUi
+
+    data object Saving : SaveUi
+
+    /** Media write was rejected: the screen must obtain MediaStore consent and retry. */
+    data object Rejected : SaveUi
+
+    data class Error(
+        val reason: String,
+    ) : SaveUi
+
+    data object Saved : SaveUi
+}
 
 data class AnnotateState(
     val item: MediaItemEntity? = null,
     val text: String = "",
     val audioPath: String? = null,
     val recording: Boolean = false,
+    val save: SaveUi = SaveUi.Idle,
 )
 
 class AnnotateViewModel(
@@ -72,6 +90,48 @@ class AnnotateViewModel(
         state.value.audioPath?.let { File(it).delete() }
         state.value = state.value.copy(audioPath = null)
         viewModelScope.launch { persistDraft() }
+    }
+
+    fun hasContent(): Boolean = state.value.text.isNotBlank() || state.value.audioPath != null
+
+    fun save() {
+        val s = state.value
+        val item = s.item ?: return
+        if (!hasContent()) {
+            state.value = s.copy(save = SaveUi.Saved)
+            return
+        }
+        state.value = s.copy(save = SaveUi.Saving)
+        viewModelScope.launch {
+            saveJob?.cancel()
+            persistDraft()
+            val outcome =
+                container.writeBack.write(
+                    item,
+                    Annotation(
+                        noteText = s.text.takeIf { it.isNotBlank() },
+                        audioFile = s.audioPath?.let { File(it) },
+                    ),
+                )
+            state.value =
+                when (outcome) {
+                    is WriteOutcome.Success -> {
+                        container.db.drafts().delete(mediaId)
+                        s.audioPath?.let { File(it).delete() }
+                        state.value.copy(save = SaveUi.Saved)
+                    }
+                    is WriteOutcome.Failed ->
+                        if (outcome.reason == "media write rejected") {
+                            state.value.copy(save = SaveUi.Rejected)
+                        } else {
+                            state.value.copy(save = SaveUi.Error(outcome.reason))
+                        }
+                }
+        }
+    }
+
+    fun consumeSaved() {
+        state.value = state.value.copy(save = SaveUi.Idle)
     }
 
     private suspend fun persistDraft() {

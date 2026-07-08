@@ -7,7 +7,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import photos.engram.app.data.db.EngramDb
-import photos.engram.app.data.media.ContentAccess
 import photos.engram.app.data.media.MediaSource
 import photos.engram.app.data.media.SourceItem
 import photos.engram.app.data.scan.RecordScanner
@@ -15,25 +14,16 @@ import photos.engram.app.domain.Reconciler
 import photos.engram.format.records.EngramRecord
 import photos.engram.format.records.RecordKind
 import photos.engram.format.testing.SyntheticMedia
-import java.nio.channels.SeekableByteChannel
 import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 class ReconcilerTest {
     private val db = EngramDb.inMemory(ApplicationProvider.getApplicationContext())
 
-    private val files = mutableMapOf<String, ByteArray>()
     private val snapshot = mutableListOf<SourceItem>()
 
-    private val access =
-        object : ContentAccess {
-            override fun readBytes(uri: String): ByteArray? = files[uri]
-
-            override fun <T> withChannel(
-                uri: String,
-                block: (SeekableByteChannel) -> T,
-            ): T? = null
-        }
+    private val access = FakeContentAccess()
+    private val files get() = access.files
 
     private val source =
         object : MediaSource {

@@ -3,6 +3,7 @@ package photos.engram.app.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -61,6 +63,21 @@ fun QueueScreen(onAnnotate: (List<Long>, Int) -> Unit) {
     LaunchedEffect(Unit) { vm.refresh() }
     val items by vm.queue.collectAsState()
     val busy by vm.busy.collectAsState()
+    val stripped by vm.stripped.collectAsState()
+    val consentUri by vm.repairNeedsConsent.collectAsState()
+    val consentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) vm.consentHandled()
+        }
+    LaunchedEffect(consentUri) {
+        if (consentUri != null) {
+            context
+                .appContainer()
+                .consentGate
+                .consentNeeded(stripped.map { it.uri })
+                ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }
+        }
+    }
     Scaffold { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             Text(
@@ -68,6 +85,19 @@ fun QueueScreen(onAnnotate: (List<Long>, Int) -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(16.dp),
             )
+            if (stripped.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.queue_stripped_banner, stripped.size),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(onClick = vm::repairAll, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(R.string.queue_restore))
+                        }
+                    }
+                }
+            }
             when {
                 busy && items.isEmpty() ->
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

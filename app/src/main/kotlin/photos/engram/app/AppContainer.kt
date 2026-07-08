@@ -10,6 +10,11 @@ import photos.engram.app.data.media.MediaStoreSource
 import photos.engram.app.data.media.ResolverContentAccess
 import photos.engram.app.data.scan.RecordScanner
 import photos.engram.app.domain.Reconciler
+import photos.engram.app.writeback.ConsentGate
+import photos.engram.app.writeback.MediaStoreConsentGate
+import photos.engram.app.writeback.MediaWriteBack
+import photos.engram.app.writeback.StripRepair
+import java.io.File
 
 /**
  * Manual dependency container: one place wires the app. A DI framework buys
@@ -35,4 +40,13 @@ class AppContainer(
             includeScreenshots = { true },
             clock = System::currentTimeMillis,
         )
+    val consentGate: ConsentGate = MediaStoreConsentGate(context.contentResolver)
+    val writeBack: MediaWriteBack =
+        MediaWriteBack(
+            db = db,
+            access = access,
+            scanner = scanner,
+            backupDir = File(context.filesDir, "writeback"),
+        )
+    val stripRepair: StripRepair = StripRepair(db, writeBack)
 }

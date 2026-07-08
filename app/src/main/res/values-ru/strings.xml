@@ -23,4 +23,12 @@
     <string name="lab_on_device_yes">Распознавание на устройстве: доступно</string>
     <string name="lab_on_device_no">Распознавание на устройстве: НЕДОСТУПНО, используется сетевое</string>
     <string name="lab_speak">Говорите (ru-RU)</string>
+    <string name="annotate_save">Сохранить в фото</string>
+    <string name="annotate_saving">Сохранение…</string>
+    <string name="annotate_error">Не удалось сохранить: %1$s</string>
+    <string name="queue_stripped_banner">Фото без встроенных воспоминаний: %1$d. Кэшированные копии можно записать обратно.</string>
+    <string name="queue_restore">Восстановить воспоминания</string>
+    <string name="lab_spike_title">Спайк обратной записи</string>
+    <string name="lab_spike_run">Аннотировать новейшее фото тестовой заметкой</string>
+    <string name="lab_spike_hint">Затем проверьте: Ultra HDR отображается, Motion воспроизводится, поведение синхронизации Google Photos (план, трек A3).</string>
 </resources>

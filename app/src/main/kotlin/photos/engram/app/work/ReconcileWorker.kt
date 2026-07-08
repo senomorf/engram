@@ -17,6 +17,8 @@ class ReconcileWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext as? EngramApp ?: return Result.failure()
+        // crash-safety first: restore any interrupted write before rescanning
+        runCatching { app.container.writeBack.recoverPending() }
         return runCatching { app.container.reconciler.reconcile() }
             .fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
     }

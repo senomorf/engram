@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +83,28 @@ private fun AnnotateCard(
                 },
         )
     val ui by vm.ui.collectAsState()
+    val consentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) vm.save()
+        }
+    LaunchedEffect(ui.save) {
+        when (val save = ui.save) {
+            is SaveUi.Saved -> {
+                vm.consumeSaved()
+                onNext()
+            }
+            is SaveUi.Rejected -> {
+                ui.item?.let { item ->
+                    context
+                        .appContainer()
+                        .consentGate
+                        .consentNeeded(listOf(item.uri))
+                        ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }
+                }
+            }
+            else -> Unit
+        }
+    }
     Scaffold { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             Row(
@@ -123,11 +147,27 @@ private fun AnnotateCard(
                     AudioChip(path = path, onDiscard = vm::discardAudio)
                 }
             }
+            (ui.save as? SaveUi.Error)?.let {
+                Text(
+                    text = stringResource(R.string.annotate_error, it.reason),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             Button(
-                onClick = onNext,
+                onClick = vm::save,
+                enabled = ui.save != SaveUi.Saving,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
-                Text(stringResource(R.string.annotate_done))
+                Text(
+                    stringResource(
+                        when {
+                            ui.save == SaveUi.Saving -> R.string.annotate_saving
+                            vm.hasContent() -> R.string.annotate_save
+                            else -> R.string.annotate_done
+                        },
+                    ),
+                )
             }
         }
     }
