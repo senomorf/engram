@@ -29,6 +29,7 @@ import photos.engram.app.appContainer
 @Composable
 fun HomeScreen(
     onOpenQueue: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onOpenLab: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -76,9 +77,12 @@ fun HomeScreen(
                 Text(stringResource(R.string.open_queue))
             }
             TextButton(
-                onClick = onOpenLab,
+                onClick = onOpenSettings,
                 modifier = Modifier.padding(top = 8.dp),
             ) {
+                Text(stringResource(R.string.open_settings))
+            }
+            TextButton(onClick = onOpenLab) {
                 Text(stringResource(R.string.open_lab))
             }
         }

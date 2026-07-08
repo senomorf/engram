@@ -20,6 +20,8 @@ sealed interface Screen {
         val startIndex: Int,
     ) : Screen
 
+    data object Settings : Screen
+
     data object Lab : Screen
 }
 
@@ -40,16 +42,23 @@ class Navigator internal constructor(
 }
 
 @Composable
-fun EngramRoot() {
-    val stack = remember { mutableStateListOf<Screen>(Screen.Home) }
+fun EngramRoot(startInQueue: Boolean = false) {
+    val stack =
+        remember {
+            mutableStateListOf<Screen>(Screen.Home).apply {
+                if (startInQueue) add(Screen.Queue)
+            }
+        }
     val navigator = remember { Navigator(stack) }
     BackHandler(enabled = stack.size > 1) { navigator.pop() }
     when (val screen = stack.last()) {
         is Screen.Home ->
             HomeScreen(
                 onOpenQueue = { navigator.push(Screen.Queue) },
+                onOpenSettings = { navigator.push(Screen.Settings) },
                 onOpenLab = { navigator.push(Screen.Lab) },
             )
+        is Screen.Settings -> SettingsScreen(onBack = { navigator.pop() })
         is Screen.Queue ->
             QueueScreen(
                 onAnnotate = { ids, index -> navigator.push(Screen.Annotate(ids, index)) },

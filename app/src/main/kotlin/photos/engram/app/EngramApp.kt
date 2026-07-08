@@ -7,6 +7,8 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
+import photos.engram.app.work.DigestWorker
+import photos.engram.app.work.MediaObserverService
 import photos.engram.app.work.ReconcileWorker
 
 class EngramApp :
@@ -23,6 +25,11 @@ class EngramApp :
         super.onCreate()
         container = AppContainer(this)
         ReconcileWorker.schedulePeriodic(this)
+        kotlinx.coroutines.runBlocking {
+            val s = container.settings.current()
+            DigestWorker.reschedule(this@EngramApp, s.digestHour, s.digestEnabled)
+        }
+        MediaObserverService.schedule(this)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

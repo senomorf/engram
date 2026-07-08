@@ -31,4 +31,19 @@
     <string name="lab_spike_title">Спайк обратной записи</string>
     <string name="lab_spike_run">Аннотировать новейшее фото тестовой заметкой</string>
     <string name="lab_spike_hint">Затем проверьте: Ultra HDR отображается, Motion воспроизводится, поведение синхронизации Google Photos (план, трек A3).</string>
+    <string name="open_settings">Настройки</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_screenshots">Включать скриншоты</string>
+    <string name="settings_digest">Вечерняя сводка</string>
+    <string name="settings_digest_hour">Час сводки: %1$d:00</string>
+    <string name="settings_burst">Напоминать вскоре после съёмки</string>
+    <string name="settings_enrichment_network">Погода и названия мест (использует сеть)</string>
+    <string name="digest_channel_name">Ежедневная сводка</string>
+    <string name="digest_title">Некоторые моменты ждут</string>
+    <plurals name="digest_body">
+        <item quantity="one">У %1$d фото ещё нет воспоминания. Добавьте, пока не забылось.</item>
+        <item quantity="few">У %1$d фото ещё нет воспоминаний. Добавьте, пока не забылось.</item>
+        <item quantity="many">У %1$d фото ещё нет воспоминаний. Добавьте, пока не забылось.</item>
+        <item quantity="other">У %1$d фото ещё нет воспоминаний. Добавьте, пока не забылось.</item>
+    </plurals>
 </resources>

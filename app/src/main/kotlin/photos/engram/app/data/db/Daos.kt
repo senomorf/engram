@@ -22,6 +22,9 @@ interface MediaDao {
     @Query("SELECT * FROM media_items WHERE recordCount = -1")
     suspend fun unscanned(): List<MediaItemEntity>
 
+    @Query("SELECT COUNT(*) FROM media_items WHERE recordCount = 0")
+    suspend fun unannotatedCount(): Int
+
     @Query(
         "SELECT COUNT(*) AS total, " +
             "COALESCE(SUM(CASE WHEN recordCount > 0 THEN 1 ELSE 0 END), 0) AS annotated, " +

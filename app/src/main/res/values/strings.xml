@@ -32,4 +32,17 @@
     <string name="lab_spike_title">Write-back spike</string>
     <string name="lab_spike_run">Annotate newest photo with a test note</string>
     <string name="lab_spike_hint">Then check: Ultra HDR still renders, Motion still plays, Google Photos sync behavior (plan track A3).</string>
+    <string name="open_settings">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_screenshots">Include screenshots</string>
+    <string name="settings_digest">Evening digest</string>
+    <string name="settings_digest_hour">Digest hour: %1$d:00</string>
+    <string name="settings_burst">Nudge soon after shooting</string>
+    <string name="settings_enrichment_network">Fetch weather and place names (uses network)</string>
+    <string name="digest_channel_name">Daily digest</string>
+    <string name="digest_title">Some moments are waiting</string>
+    <plurals name="digest_body">
+        <item quantity="one">%1$d photo has no memory yet. Add one before it fades.</item>
+        <item quantity="other">%1$d photos have no memory yet. Add a few before they fade.</item>
+    </plurals>
 </resources>
