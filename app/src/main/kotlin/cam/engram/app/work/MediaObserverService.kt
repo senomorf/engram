@@ -39,6 +39,13 @@ class MediaObserverService : JobService() {
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                             JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS,
                         ),
+                    )
+                    // videos are indexed too, so new clips must also arm the nudge (review F16)
+                    .addTriggerContentUri(
+                        JobInfo.TriggerContentUri(
+                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                            JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS,
+                        ),
                     ).setTriggerContentMaxDelay(TRIGGER_MAX_DELAY_MS)
                     .build()
             context.getSystemService(JobScheduler::class.java).schedule(job)
