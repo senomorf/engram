@@ -7,11 +7,18 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.seedItem
 import cam.engram.app.seedMemory
 import cam.engram.app.setScreen
+import cam.engram.format.jpeg.JpegEmbedder
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.EnrichmentPayload
+import cam.engram.format.records.RecordKind
+import cam.engram.format.testing.SyntheticMedia
+import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
@@ -50,5 +57,31 @@ class MemoryDetailScreenTest {
         compose.setScreen(app) { MemoryDetailScreen(mediaId = 2, onAnnotate = { annotated = it }, onBack = {}) }
         compose.onNodeWithText(strings.getString(R.string.detail_add_more)).performClick()
         assertEquals(2L, annotated)
+    }
+
+    @Test
+    fun showsNoteHistoryAndEnrichment() {
+        runBlocking {
+            val records =
+                listOf(
+                    EngramRecord(RecordKind.Note, 1, "first look".encodeToByteArray()),
+                    EngramRecord(RecordKind.Note, 2, "second thought".encodeToByteArray()),
+                    EngramRecord(
+                        RecordKind.Enrichment,
+                        3,
+                        EnrichmentPayload(mapOf("place" to "Lakeside", "weather" to "Clear")).encode(),
+                    ),
+                )
+            val bytes = JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), records, "second thought")
+            (app.access as FakeContentAccess).files["content://media/5"] = bytes
+            app.seedItem(5, recordCount = records.size)
+        }
+        compose.setScreen(app) { MemoryDetailScreen(mediaId = 5, onAnnotate = {}, onBack = {}) }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("second thought").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("second thought").assertIsDisplayed() // current note
+        compose.onNodeWithText("Lakeside · Clear").assertIsDisplayed() // enrichment line
+        compose.onNodeWithText("• first look").assertIsDisplayed() // older note under history
     }
 }
