@@ -33,6 +33,13 @@
     <string name="lab_spike_run">Annotate newest photo with a test note</string>
     <string name="lab_spike_hint">Then check: Ultra HDR still renders, Motion still plays, Google Photos sync behavior (plan track A3).</string>
     <string name="open_settings">Settings</string>
+    <string name="open_browse">Browse memories</string>
+    <string name="browse_search_hint">Search notes and voices</string>
+    <string name="browse_empty">No memories yet. Annotate a photo to start your album.</string>
+    <string name="browse_no_results">No memory matches that.</string>
+    <string name="detail_voice">Voice</string>
+    <string name="detail_history">Earlier versions</string>
+    <string name="detail_add_more">Add more to this memory</string>
     <string name="settings_title">Settings</string>
     <string name="settings_screenshots">Include screenshots</string>
     <string name="settings_digest">Evening digest</string>

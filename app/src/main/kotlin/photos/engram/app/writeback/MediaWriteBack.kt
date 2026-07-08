@@ -2,6 +2,7 @@ package photos.engram.app.writeback
 
 import photos.engram.app.data.db.EngramDb
 import photos.engram.app.data.db.MediaItemEntity
+import photos.engram.app.data.db.MemoryFts
 import photos.engram.app.data.db.RecordCacheEntity
 import photos.engram.app.data.media.ContentAccess
 import photos.engram.app.data.scan.RecordScanner
@@ -144,6 +145,8 @@ class MediaWriteBack(
                 ),
             )
         }
+        val text = outcome?.searchableText.orEmpty()
+        if (text.isBlank()) db.search().delete(item.mediaId) else db.search().upsert(MemoryFts(item.mediaId, text))
     }
 
     private fun restore(

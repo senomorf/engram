@@ -32,6 +32,13 @@
     <string name="lab_spike_run">Аннотировать новейшее фото тестовой заметкой</string>
     <string name="lab_spike_hint">Затем проверьте: Ultra HDR отображается, Motion воспроизводится, поведение синхронизации Google Photos (план, трек A3).</string>
     <string name="open_settings">Настройки</string>
+    <string name="open_browse">Мои воспоминания</string>
+    <string name="browse_search_hint">Поиск по заметкам и голосам</string>
+    <string name="browse_empty">Пока нет воспоминаний. Аннотируйте фото, чтобы начать альбом.</string>
+    <string name="browse_no_results">Ничего не найдено.</string>
+    <string name="detail_voice">Голос</string>
+    <string name="detail_history">Прежние версии</string>
+    <string name="detail_add_more">Дополнить это воспоминание</string>
     <string name="settings_title">Настройки</string>
     <string name="settings_screenshots">Включать скриншоты</string>
     <string name="settings_digest">Вечерняя сводка</string>

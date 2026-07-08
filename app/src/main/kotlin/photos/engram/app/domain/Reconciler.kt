@@ -2,6 +2,7 @@ package photos.engram.app.domain
 
 import photos.engram.app.data.db.EngramDb
 import photos.engram.app.data.db.MediaItemEntity
+import photos.engram.app.data.db.MemoryFts
 import photos.engram.app.data.db.RecordCacheEntity
 import photos.engram.app.data.media.MediaSource
 import photos.engram.app.data.media.SourceItem
@@ -71,8 +72,17 @@ class Reconciler(
                     ),
                 )
             }
+            indexSearch(pending.mediaId, outcome.searchableText)
         }
+        if (removedIds.isNotEmpty()) removedIds.forEach { db.search().delete(it) }
         return ReconcileStats(added, removedIds.size, scanned)
+    }
+
+    private suspend fun indexSearch(
+        mediaId: Long,
+        text: String,
+    ) {
+        if (text.isBlank()) db.search().delete(mediaId) else db.search().upsert(MemoryFts(mediaId, text))
     }
 
     private fun SourceItem.toEntity(): MediaItemEntity =

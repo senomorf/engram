@@ -10,6 +10,7 @@ import photos.engram.app.data.media.MediaSource
 import photos.engram.app.data.media.MediaStoreSource
 import photos.engram.app.data.media.ResolverContentAccess
 import photos.engram.app.data.scan.RecordScanner
+import photos.engram.app.domain.MemoryReader
 import photos.engram.app.domain.Reconciler
 import photos.engram.app.writeback.ConsentGate
 import photos.engram.app.writeback.MediaStoreConsentGate
@@ -35,6 +36,7 @@ class AppContainer(
 ) {
     val appContext: Context = context.applicationContext
     val scanner: RecordScanner = RecordScanner(access)
+    val memoryReader: MemoryReader = MemoryReader(access)
     val reconciler: Reconciler =
         Reconciler(
             db = db,

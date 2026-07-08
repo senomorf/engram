@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [MediaItemEntity::class, RecordCacheEntity::class, DraftEntity::class],
+    entities = [MediaItemEntity::class, RecordCacheEntity::class, DraftEntity::class, MemoryFts::class],
     version = 1,
     exportSchema = false,
 )
@@ -16,6 +16,8 @@ abstract class EngramDb : RoomDatabase() {
     abstract fun recordCache(): RecordCacheDao
 
     abstract fun drafts(): DraftDao
+
+    abstract fun search(): SearchDao
 
     companion object {
         fun build(context: Context): EngramDb =

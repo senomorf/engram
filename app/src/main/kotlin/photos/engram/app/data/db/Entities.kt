@@ -1,6 +1,7 @@
 package photos.engram.app.data.db
 
 import androidx.room.Entity
+import androidx.room.Fts4
 import androidx.room.PrimaryKey
 
 /** recordCount semantics: -1 not yet scanned, 0 scanned and empty, >0 annotated. */
@@ -45,4 +46,17 @@ data class Counts(
     val annotated: Int,
     val waiting: Int,
     val unscanned: Int,
+)
+
+/**
+ * Full-text index over note and transcript text (design: search across notes
+ * and transcripts). Rebuilt from files during scan, so it is not a source of
+ * truth. docid ties a row back to its media item.
+ */
+@Fts4
+@Entity(tableName = "memory_fts")
+data class MemoryFts(
+    @PrimaryKey(autoGenerate = false)
+    val rowid: Long,
+    val text: String,
 )

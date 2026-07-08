@@ -1,6 +1,8 @@
 package photos.engram.app.data.db
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +21,9 @@ interface MediaDao {
     @Query("SELECT * FROM media_items WHERE recordCount = 0 ORDER BY takenAtMillis DESC")
     fun queue(): Flow<List<MediaItemEntity>>
 
+    @Query("SELECT * FROM media_items WHERE recordCount > 0 ORDER BY takenAtMillis DESC")
+    fun timeline(): Flow<List<MediaItemEntity>>
+
     @Query("SELECT * FROM media_items WHERE recordCount = -1")
     suspend fun unscanned(): List<MediaItemEntity>
 
@@ -36,6 +41,21 @@ interface MediaDao {
 
     @Query("DELETE FROM media_items WHERE mediaId IN (:ids)")
     suspend fun delete(ids: List<Long>)
+}
+
+@Dao
+interface SearchDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: MemoryFts)
+
+    @Query("DELETE FROM memory_fts WHERE rowid = :mediaId")
+    suspend fun delete(mediaId: Long)
+
+    @Query(
+        "SELECT m.* FROM media_items m JOIN memory_fts f ON f.rowid = m.mediaId " +
+            "WHERE memory_fts MATCH :query ORDER BY m.takenAtMillis DESC",
+    )
+    suspend fun search(query: String): List<MediaItemEntity>
 }
 
 @Dao

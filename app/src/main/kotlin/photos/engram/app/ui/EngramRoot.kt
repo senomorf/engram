@@ -22,6 +22,12 @@ sealed interface Screen {
 
     data object Settings : Screen
 
+    data object Browse : Screen
+
+    data class Detail(
+        val mediaId: Long,
+    ) : Screen
+
     data object Lab : Screen
 }
 
@@ -55,10 +61,17 @@ fun EngramRoot(startInQueue: Boolean = false) {
         is Screen.Home ->
             HomeScreen(
                 onOpenQueue = { navigator.push(Screen.Queue) },
+                onOpenBrowse = { navigator.push(Screen.Browse) },
                 onOpenSettings = { navigator.push(Screen.Settings) },
                 onOpenLab = { navigator.push(Screen.Lab) },
             )
         is Screen.Settings -> SettingsScreen(onBack = { navigator.pop() })
+        is Screen.Browse -> BrowseScreen(onOpen = { navigator.push(Screen.Detail(it)) })
+        is Screen.Detail ->
+            MemoryDetailScreen(
+                mediaId = screen.mediaId,
+                onAnnotate = { navigator.push(Screen.Annotate(listOf(it), 0)) },
+            )
         is Screen.Queue ->
             QueueScreen(
                 onAnnotate = { ids, index -> navigator.push(Screen.Annotate(ids, index)) },
