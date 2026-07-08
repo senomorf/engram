@@ -3,6 +3,7 @@ plugins {
     application
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
     `jvm-test-suite`
 }
 
@@ -39,6 +40,13 @@ testing {
 
 tasks.named("check") {
     dependsOn(testing.suites.named("integrationTest"))
+}
+
+kover {
+    reports {
+        // coverage comes entirely from the integrationTest suite (there is no unit test suite)
+        verify { rule { minBound(90) } }
+    }
 }
 
 detekt {

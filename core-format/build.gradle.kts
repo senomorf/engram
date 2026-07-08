@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
@@ -33,4 +34,17 @@ detekt {
         "src/jvmMain/kotlin",
         "src/jvmTest/kotlin",
     )
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                // synthetic test-media builders shipped in commonMain, not product code
+                packages("cam.engram.format.testing")
+            }
+        }
+        // line-coverage floor; raise toward 100 as coverage climbs, never lower (see AGENTS.md)
+        verify { rule { minBound(90) } }
+    }
 }

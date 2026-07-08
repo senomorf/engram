@@ -3,6 +3,7 @@ kotlin = "2.3.21"
 xmpcore = "6.1.11"
 detekt = "1.23.8"
 ktlint-gradle = "14.2.0"
+kover = "0.9.8"
 agp = "9.2.1"
 compose-bom = "2026.06.01"
 activity-compose = "1.13.0"
@@ -35,6 +36,7 @@ lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-com
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
@@ -55,3 +57,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

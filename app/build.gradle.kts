@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
 }
 
 android {
@@ -63,6 +64,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.junit)
+    testImplementation(libs.work.testing)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
 }
@@ -74,4 +76,42 @@ detekt {
         "src/main/kotlin",
         "src/test/kotlin",
     )
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                // generated code (Room DAOs/db, Compose singletons, build metadata) and
+                // process entry points that no unit test drives
+                classes(
+                    "*.ComposableSingletons*",
+                    "*.BuildConfig",
+                    "cam.engram.app.data.db.*_Impl*",
+                    "cam.engram.app.MainActivity*",
+                    "cam.engram.app.EngramApp*",
+                )
+                // Thin platform-adapter edges: real MediaStore/ContentResolver, SAF, the
+                // SpeechRecognizer and MediaRecorder wrappers, Geocoder, the media-observer
+                // service. The logic behind each interface is unit-tested through fakes; the
+                // adapters themselves only run on a device and are covered by the instrumented
+                // androidTest layer, which Kover cannot measure on-device. LabScreen is debug
+                // diagnostics (exempt like the lab strings).
+                classes(
+                    "cam.engram.app.data.media.ResolverContentAccess",
+                    "cam.engram.app.data.media.MediaStoreSource",
+                    "cam.engram.app.audio.MediaVoiceRecorder",
+                    "cam.engram.app.ui.SpeechInputKt*",
+                    "cam.engram.app.export.ArchiveExporter*",
+                    "cam.engram.app.enrich.GeocoderPlaceProvider*",
+                    "cam.engram.app.enrich.OpenMeteoWeatherProvider*",
+                    "cam.engram.app.work.MediaObserverService*",
+                    "cam.engram.app.ui.LabScreenKt*",
+                )
+            }
+        }
+        // interim floor below the current ~78%; target is 90% (see AGENTS.md). Closing the
+        // gap needs the screen-DI refactor or the instrumented layer, not more JVM tests.
+        verify { rule { minBound(76) } }
+    }
 }
