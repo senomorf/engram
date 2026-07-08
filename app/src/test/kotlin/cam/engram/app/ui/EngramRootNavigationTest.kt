@@ -66,4 +66,28 @@ class EngramRootNavigationTest {
         // the onboarding gate keeps the home content off screen until onboarding completes
         compose.onNodeWithText(strings.getString(R.string.home_tagline)).assertDoesNotExist()
     }
+
+    @Test
+    fun navigatesToSettings() = home { R.string.open_settings to R.string.settings_language }
+
+    @Test
+    fun navigatesToTools() = home { R.string.open_tools to R.string.tools_export_button }
+
+    @Test
+    fun navigatesToBrowse() = home { R.string.open_browse to R.string.open_browse }
+
+    // reach Home, click the given entry button, assert the destination's marker text appears
+    private fun home(route: () -> Pair<Int, Int>) {
+        val (button, marker) = route()
+        runBlocking { app.settings.setOnboardingDone(true) }
+        compose.setScreen(app) { EngramRoot() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.home_tagline)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(button)).performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(marker)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(marker)).assertIsDisplayed()
+    }
 }
