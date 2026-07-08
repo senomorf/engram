@@ -4,8 +4,11 @@ import cam.engram.format.jpeg.JpegCodec
 import cam.engram.format.jpeg.JpegFormatException
 import cam.engram.format.png.PngCodec
 import cam.engram.format.png.PngFormatException
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.RecordKind
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 /**
  * Fail-closed guards: the parsers must reject malformed containers rather than
@@ -50,5 +53,24 @@ class FormatGuardsTest {
                     byteArrayOf(0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0x49, 0x48, 0x44, 0x52),
             )
         }
+    }
+
+    @Test
+    fun recordRejectsWrongIdLength() {
+        assertFailsWith<IllegalArgumentException> {
+            EngramRecord(RecordKind.Note, 1, ByteArray(0), id = ByteArray(4))
+        }
+    }
+
+    @Test
+    fun recordRejectsOverlongWriter() {
+        assertFailsWith<IllegalArgumentException> {
+            EngramRecord(RecordKind.Note, 1, ByteArray(0), writer = "w".repeat(300))
+        }
+    }
+
+    @Test
+    fun decodeAtReturnsNullForForeignBytes() {
+        assertNull(EngramRecord.decodeAt(ByteArray(40) { 0x55 }, 0))
     }
 }

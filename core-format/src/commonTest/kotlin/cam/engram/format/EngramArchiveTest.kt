@@ -41,7 +41,11 @@ class EngramArchiveTest {
                 records =
                     listOf(
                         EngramRecord(RecordKind.Audio, 5, AudioPayload.encode("audio/mp4", ByteArray(8))),
-                        EngramRecord(RecordKind.Enrichment, 6, EnrichmentPayload(mapOf("place" to "Bay\tside")).encode()),
+                        EngramRecord(
+                            RecordKind.Enrichment,
+                            6,
+                            EnrichmentPayload(mapOf("place" to "Bay\tside")).encode(),
+                        ),
                         EngramRecord(RecordKind.Transcript, 7, "line1\nline2".encodeToByteArray()),
                     ),
             )
