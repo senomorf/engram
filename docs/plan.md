@@ -36,10 +36,26 @@ device list (design A1).
 
 All milestones M0 to M8 landed and build green (`./gradlew build` plus
 `:core-format:compileKotlinIosArm64`: unit tests, integration tests, ktlint,
-detekt, AGP lint, iOS klib tripwire). Emulator screenshot evidence is the one
-deferred item: this build environment lacks `/dev/kvm` access, so live UI
-screenshots must come from the owner's machine or CI. Definition of done for
-every milestone was: build green, CHANGELOG updated, docs touched.
+detekt, AGP lint, iOS klib tripwire). Verified on an Android 16 emulator
+2026-07-08 (KVM now available): onboarding, ingest counts, queue, annotate,
+browse, tools, settings all render; the run caught and fixed an onboarding
+recompose bug and a settings label layout bug. Definition of done for every
+milestone was: build green, CHANGELOG updated, docs touched.
+
+### Known v1 gaps (built vs designed), for the owner to decide
+
+- Transcription: voice notes are stored as audio only; no Transcript record is
+  produced in the annotate flow. This is the designed contingency (D15) pending
+  the ru-RU quality spike (A4). The lab screen measures it; wiring transcription
+  into annotate is a one-session follow-up once the spike passes.
+- Enrichment covers place + weather (Open-Meteo + Geocoder). Calendar-event
+  enrichment (named in D4) is not built.
+- Audio codec is Opus only; the "AAC via advanced setting" option (D6) is not
+  exposed.
+- Distribution (M9): no release keystore, signing config, or Play internal
+  testing track yet (owner accounts required).
+- Not built, were nice-to-haves: share-sheet inbound "annotate this" target;
+  home-screen widget (widget was already roadmap, not v1).
 
 - M0 Spec draft: write spec/engram-spec-v0.md from the implemented reality
   (record frame with id and writer, bindings, ExtendedXMP, caption mirrors,
