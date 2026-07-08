@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -38,7 +39,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun LabScreen(onBack: () -> Unit) {
     val transcripts = remember { mutableStateListOf<String>() }
-    val speech = rememberSpeechInput { transcripts.add(0, it) }
+    val uiTag = Dictation.recognizerLanguageTag(LocalConfiguration.current.locales[0].toLanguageTag())
+    val speech = rememberSpeechInput(uiTag) { transcripts.add(0, it) }
     EngramScaffold(title = stringResource(R.string.lab_title), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), Arrangement.spacedBy(12.dp)) {
             Text(

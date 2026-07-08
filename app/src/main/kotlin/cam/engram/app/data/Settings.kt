@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -19,6 +20,8 @@ data class EngramSettings(
     val burstNudgeEnabled: Boolean = false,
     val enrichmentNetworkEnabled: Boolean = true,
     val onboardingDone: Boolean = false,
+    // BCP-47 tag for voice dictation, decoupled from the UI language; null follows it
+    val dictationLanguage: String? = null,
 ) {
     companion object {
         const val DEFAULT_DIGEST_HOUR = 20
@@ -35,6 +38,7 @@ class SettingsStore(
         val burst = booleanPreferencesKey("burst_enabled")
         val enrichmentNetwork = booleanPreferencesKey("enrichment_network")
         val onboarding = booleanPreferencesKey("onboarding_done")
+        val dictationLanguage = stringPreferencesKey("dictation_language")
     }
 
     val settings: Flow<EngramSettings> =
@@ -54,6 +58,13 @@ class SettingsStore(
 
     suspend fun setOnboardingDone(value: Boolean) = put(Keys.onboarding, value)
 
+    // null clears the override so dictation follows the UI language again
+    suspend fun setDictationLanguage(tag: String?) {
+        context.dataStore.edit { prefs ->
+            if (tag == null) prefs.remove(Keys.dictationLanguage) else prefs[Keys.dictationLanguage] = tag
+        }
+    }
+
     private suspend fun <T> put(
         key: Preferences.Key<T>,
         value: T,
@@ -69,5 +80,6 @@ class SettingsStore(
             burstNudgeEnabled = this[Keys.burst] ?: false,
             enrichmentNetworkEnabled = this[Keys.enrichmentNetwork] ?: true,
             onboardingDone = this[Keys.onboarding] ?: false,
+            dictationLanguage = this[Keys.dictationLanguage],
         )
 }

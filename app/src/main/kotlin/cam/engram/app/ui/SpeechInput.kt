@@ -3,6 +3,7 @@ package cam.engram.app.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -16,11 +17,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
-enum class DictationStatus { Idle, Listening, Processing, Error, Unavailable }
+enum class DictationStatus { Idle, Listening, Processing, Error, LanguageUnavailable }
 
 /** What a screen needs from voice input: is it usable, its live state, a trigger. */
 class SpeechInput(
@@ -30,23 +30,23 @@ class SpeechInput(
 )
 
 /**
- * Reusable on-device speech-to-text. The recognizer language follows the app
- * locale (so Russian UI dictates Russian), prefers the offline model, and the
- * recognizer is torn down with the composition. onResult fires with the final
- * transcript; callers decide what to do with it.
+ * Reusable on-device speech-to-text. The recognizer language is passed in
+ * explicitly (decoupled from the UI language), prefers the offline model, and
+ * the recognizer is torn down with the composition. When the chosen language is
+ * not installed on-device it best-effort triggers a one-time model download.
+ * onResult fires with the final transcript; callers decide what to do with it.
  */
 @Composable
-fun rememberSpeechInput(onResult: (String) -> Unit): SpeechInput {
+fun rememberSpeechInput(
+    languageTag: String,
+    onResult: (String) -> Unit,
+): SpeechInput {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val languageTag =
-        remember(configuration) {
-            Dictation.recognizerLanguageTag(configuration.locales[0].toLanguageTag())
-        }
     val available = remember { SpeechRecognizer.isRecognitionAvailable(context) }
     val latestOnResult = rememberUpdatedState(onResult)
+    val latestLang = rememberUpdatedState(languageTag)
     var status by remember {
-        mutableStateOf(if (available) DictationStatus.Idle else DictationStatus.Unavailable)
+        mutableStateOf(if (available) DictationStatus.Idle else DictationStatus.Error)
     }
 
     val recognizer =
@@ -70,7 +70,14 @@ fun rememberSpeechInput(onResult: (String) -> Unit): SpeechInput {
                 }
 
                 override fun onError(error: Int) {
-                    status = DictationStatus.Error
+                    val languageMissing =
+                        error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ||
+                            error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED
+                    status = if (languageMissing) DictationStatus.LanguageUnavailable else DictationStatus.Error
+                    if (languageMissing && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        // fetch the on-device model so the next attempt works offline
+                        runCatching { recognizer?.triggerModelDownload(dictationIntent(latestLang.value)) }
+                    }
                 }
 
                 override fun onResults(results: Bundle?) {
@@ -101,7 +108,7 @@ fun rememberSpeechInput(onResult: (String) -> Unit): SpeechInput {
 
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted && recognizer != null) recognizer.startListening(dictationIntent(languageTag))
+            if (granted && recognizer != null) recognizer.startListening(dictationIntent(latestLang.value))
         }
 
     val start: () -> Unit = {
@@ -110,9 +117,7 @@ fun rememberSpeechInput(onResult: (String) -> Unit): SpeechInput {
                 ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                     PackageManager.PERMISSION_GRANTED
             if (granted) {
-                recognizer.startListening(
-                    dictationIntent(languageTag),
-                )
+                recognizer.startListening(dictationIntent(latestLang.value))
             } else {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }

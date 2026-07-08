@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,10 +36,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -47,6 +52,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
 import cam.engram.app.appContainer
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -88,7 +94,14 @@ private fun AnnotateCard(
                 },
         )
     val ui by vm.ui.collectAsState()
-    val speech = rememberSpeechInput { spoken -> vm.onTextChange(Dictation.merge(ui.text, spoken)) }
+    val store = remember { context.appContainer().settings }
+    val scope = rememberCoroutineScope()
+    // recording language is decoupled from the UI language: an explicit choice,
+    // else the current UI language (review item 4)
+    val prefs = store.settings.collectAsState(initial = null).value
+    val uiLanguageTag = LocalConfiguration.current.locales[0].toLanguageTag()
+    val dictationTag = Dictation.resolveDictationTag(prefs?.dictationLanguage, uiLanguageTag)
+    val speech = rememberSpeechInput(dictationTag) { spoken -> vm.onTextChange(Dictation.merge(ui.text, spoken)) }
     val consentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) vm.save()
@@ -142,6 +155,8 @@ private fun AnnotateCard(
                 value = ui.text,
                 onValueChange = vm::onTextChange,
                 speech = speech,
+                dictationTag = dictationTag,
+                onPickLanguage = { tag -> scope.launch { store.setDictationLanguage(tag) } },
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Row(
@@ -190,6 +205,8 @@ private fun NoteField(
     value: String,
     onValueChange: (String) -> Unit,
     speech: SpeechInput,
+    dictationTag: String,
+    onPickLanguage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
@@ -202,25 +219,52 @@ private fun NoteField(
             if (!speech.available) {
                 null
             } else {
-                {
-                    IconButton(onClick = speech.start) {
-                        Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.annotate_dictate))
-                    }
-                }
+                { DictationControls(dictationTag, onPickLanguage, speech.start) }
             },
         supportingText = dictationSupportingText(speech.status),
     )
 }
 
-// live dictation state shown under the note field; silent when idle or when
-// voice input is unavailable (the absent mic already signals that)
+// recording-language badge (decoupled from UI language) plus the dictate mic
+@Composable
+private fun DictationControls(
+    dictationTag: String,
+    onPickLanguage: (String) -> Unit,
+    onDictate: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box {
+            TextButton(onClick = { menuOpen = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text(Dictation.shortLabel(dictationTag), style = MaterialTheme.typography.labelLarge)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                Dictation.supportedLanguages.forEach { lang ->
+                    DropdownMenuItem(
+                        text = { Text(lang.label) },
+                        onClick = {
+                            onPickLanguage(lang.tag)
+                            menuOpen = false
+                        },
+                    )
+                }
+            }
+        }
+        IconButton(onClick = onDictate) {
+            Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.annotate_dictate))
+        }
+    }
+}
+
+// live dictation state shown under the note field; silent when idle
 private fun dictationSupportingText(status: DictationStatus): (@Composable () -> Unit)? {
     val res =
         when (status) {
             DictationStatus.Listening -> R.string.dictation_listening
             DictationStatus.Processing -> R.string.dictation_processing
             DictationStatus.Error -> R.string.dictation_error
-            DictationStatus.Idle, DictationStatus.Unavailable -> null
+            DictationStatus.LanguageUnavailable -> R.string.dictation_language_unavailable
+            DictationStatus.Idle -> null
         } ?: return null
     return { Text(stringResource(res)) }
 }

@@ -80,6 +80,7 @@
     <string name="dictation_listening">Listening…</string>
     <string name="dictation_processing">Processing…</string>
     <string name="dictation_error">Did not catch that. Try again.</string>
+    <string name="dictation_language_unavailable">That language needs a one-time download; getting it now.</string>
     <string name="error_unknown">unknown error</string>
     <string name="digest_channel_name">Daily digest</string>
     <string name="digest_title">Some moments are waiting</string>
