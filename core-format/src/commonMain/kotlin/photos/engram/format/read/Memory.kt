@@ -59,7 +59,8 @@ class Memory(
                         }
                     RecordKind.Enrichment ->
                         EnrichmentPayload.decode(r.payload)?.let {
-                            if (latestEnrichment == null || r.tsMillis >= latestEnrichment!!.first) {
+                            val prev = latestEnrichment
+                            if (prev == null || r.tsMillis >= prev.first) {
                                 latestEnrichment = r.tsMillis to it.fields
                             }
                         }
