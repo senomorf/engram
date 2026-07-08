@@ -6,8 +6,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import cam.engram.app.appContainer
 import kotlinx.coroutines.launch
 
 /**
@@ -56,8 +54,8 @@ class Navigator internal constructor(
 
 @Composable
 fun EngramRoot(startInQueue: Boolean = false) {
-    val context = LocalContext.current
-    val settings = remember { context.appContainer().settings }
+    val container = currentAppContainer()
+    val settings = remember { container.settings }
     val scope = rememberCoroutineScope()
     // observe the flow so finishing onboarding recomposes into the app at once;
     // a one-shot read would leave the user stuck until the next launch

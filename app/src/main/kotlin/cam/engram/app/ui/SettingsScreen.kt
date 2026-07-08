@@ -31,14 +31,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.appContainer
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val container = currentAppContainer()
     val vm: SettingsViewModel =
         viewModel(
-            factory = viewModelFactory { initializer { SettingsViewModel(context.appContainer()) } },
+            factory = viewModelFactory { initializer { SettingsViewModel(container) } },
         )
     val s by vm.settings.collectAsState()
     EngramScaffold(title = stringResource(R.string.settings_title), onBack = onBack) { padding ->

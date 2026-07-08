@@ -2,68 +2,73 @@ package cam.engram.app.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import cam.engram.app.ui.theme.EngramTheme
+import cam.engram.app.fakeContainer
+import cam.engram.app.setScreen
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Composition smoke tests: each user-facing screen must compose against the real
- * app container without throwing, exercising its empty-state layout. Screens pull
- * their ViewModels from appContainer(), which resolves under Robolectric because
- * EngramApp is the test application.
+ * Composition smoke tests: each screen must compose against a fake AppContainer (empty state)
+ * without throwing. Depth (populated data + interactions) lives in the per-screen tests.
  */
 @RunWith(RobolectricTestRunner::class)
 class ScreenRenderTest {
     @get:Rule
     val compose = createComposeRule()
 
+    private val app = fakeContainer()
+
+    @After
+    fun tearDown() = app.db.close()
+
     @Test
     fun onboardingRenders() {
-        compose.setContent { EngramTheme { OnboardingScreen(onDone = {}) } }
+        compose.setScreen(app) { OnboardingScreen(onDone = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun settingsRenders() {
-        compose.setContent { EngramTheme { SettingsScreen(onBack = {}) } }
+        compose.setScreen(app) { SettingsScreen(onBack = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun toolsRenders() {
-        compose.setContent { EngramTheme { ToolsScreen(onBack = {}) } }
+        compose.setScreen(app) { ToolsScreen(onBack = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun browseRenders() {
-        compose.setContent { EngramTheme { BrowseScreen(onOpen = {}, onBack = {}) } }
+        compose.setScreen(app) { BrowseScreen(onOpen = {}, onBack = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun queueRenders() {
-        compose.setContent { EngramTheme { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) } }
+        compose.setScreen(app) { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun memoryDetailRenders() {
-        compose.setContent { EngramTheme { MemoryDetailScreen(mediaId = 1, onAnnotate = {}, onBack = {}) } }
+        compose.setScreen(app) { MemoryDetailScreen(mediaId = 1, onAnnotate = {}, onBack = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun annotateRenders() {
-        compose.setContent { EngramTheme { AnnotateScreen(mediaIds = listOf(1), startIndex = 0, onDone = {}) } }
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(1), startIndex = 0, onDone = {}) }
         compose.onRoot().assertExists()
     }
 
     @Test
     fun rootRenders() {
-        compose.setContent { EngramTheme { EngramRoot() } }
+        compose.setScreen(app) { EngramRoot() }
         compose.onRoot().assertExists()
     }
 }
