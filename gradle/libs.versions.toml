@@ -4,7 +4,7 @@ xmpcore = "6.1.11"
 detekt = "1.23.8"
 ktlint-gradle = "14.2.0"
 agp = "9.2.0"
-compose-bom = "2026.06.00"
+compose-bom = "2026.06.01"
 # newest lines requiring compileSdk 36 (37-requiring releases wait for the next cycle)
 activity-compose = "1.12.4"
 lifecycle = "2.10.0"
