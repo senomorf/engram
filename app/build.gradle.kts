@@ -46,6 +46,7 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.work.runtime)
     implementation(libs.datastore.preferences)
+    implementation(libs.exifinterface)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     debugImplementation(libs.compose.ui.tooling)

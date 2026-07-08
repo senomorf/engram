@@ -51,8 +51,10 @@ Payloads:
   Opus in Ogg (`audio/ogg`); AAC (`audio/mp4`) supported; field open.
 - Transcript: UTF-8 text; links to its Audio record by sharing context
   (explicit linkage field: reserved for v0.2, uses flags or payload prefix).
-- Enrichment: schema to be pinned in v0.2 (place, weather, calendar ref with
-  provenance); readers must treat payload as opaque until then.
+- Enrichment (v0.2): `version u8 | fieldCount u8 | repeated [keyLen u16be, key,
+  valLen u16be, val]`, all UTF-8. Stable keys: place, weather, temp_c,
+  calendar, source, fetched_at. source and fetched_at carry provenance so a
+  reader knows where a datum came from and when. Unknown keys are ignored.
 
 ## 3. XMP properties (all bindings)
 

@@ -18,6 +18,8 @@ complexity:
     threshold: 6
   LongParameterList:
     functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true # test seams with defaults do not bloat a call
 
 empty-blocks:
   EmptyFunctionBlock:

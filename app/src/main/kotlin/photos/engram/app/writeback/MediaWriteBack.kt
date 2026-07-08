@@ -24,14 +24,18 @@ class MediaWriteBack(
     private val scanner: RecordScanner,
     private val backupDir: File,
     private val recordFactory: RecordFactory = RecordFactory(),
+    // best-effort context record for this item; returns null when disabled,
+    // offline, or the file has no GPS. Never allowed to block the save loop.
+    private val enrichmentFor: suspend (MediaItemEntity) -> EngramRecord? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     suspend fun write(
         item: MediaItemEntity,
         annotation: Annotation,
     ): WriteOutcome {
-        val records = recordFactory.fromAnnotation(annotation)
+        val records = recordFactory.fromAnnotation(annotation).toMutableList()
         if (records.isEmpty()) return WriteOutcome.Failed("nothing to write")
+        runCatching { enrichmentFor(item) }.getOrNull()?.let { records += it }
         return writeRecords(item, records, annotation.noteText)
     }
 

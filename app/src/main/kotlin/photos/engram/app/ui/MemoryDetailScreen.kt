@@ -69,6 +69,14 @@ fun MemoryDetailScreen(
                     Text(stringResource(R.string.detail_voice), style = MaterialTheme.typography.titleSmall)
                     m.audio.forEach { clip -> AudioRow(clip.data, clip.mime) }
                 }
+                val place = m.enrichment["place"]
+                val weather = m.enrichment["weather"]
+                if (place != null || weather != null) {
+                    Text(
+                        text = listOfNotNull(place, weather).joinToString(" · "),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
                 if (m.noteHistory.size > 1) {
                     HorizontalDivider()
                     Text(stringResource(R.string.detail_history), style = MaterialTheme.typography.titleSmall)

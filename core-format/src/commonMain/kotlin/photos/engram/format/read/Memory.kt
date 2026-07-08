@@ -2,6 +2,7 @@ package photos.engram.format.read
 
 import photos.engram.format.records.AudioPayload
 import photos.engram.format.records.EngramRecord
+import photos.engram.format.records.EnrichmentPayload
 import photos.engram.format.records.RecordHit
 import photos.engram.format.records.RecordKind
 
@@ -28,6 +29,7 @@ class Memory(
     val noteHistory: List<NoteVersion>,
     val audio: List<AudioClip>,
     val transcripts: List<NoteVersion>,
+    val enrichment: Map<String, String> = emptyMap(),
 ) {
     val currentNote: NoteVersion? get() = noteHistory.maxByOrNull { it.tsMillis }
 
@@ -44,6 +46,7 @@ class Memory(
             val notes = mutableListOf<NoteVersion>()
             val audio = mutableListOf<AudioClip>()
             val transcripts = mutableListOf<NoteVersion>()
+            var latestEnrichment: Pair<Long, Map<String, String>>? = null
             for (r in records) {
                 when (r.kind) {
                     RecordKind.Note ->
@@ -54,13 +57,19 @@ class Memory(
                         AudioPayload.decode(r.payload)?.let {
                             audio += AudioClip(it.first, it.second, r.tsMillis, r.idHex)
                         }
-                    RecordKind.Enrichment -> Unit
+                    RecordKind.Enrichment ->
+                        EnrichmentPayload.decode(r.payload)?.let {
+                            if (latestEnrichment == null || r.tsMillis >= latestEnrichment!!.first) {
+                                latestEnrichment = r.tsMillis to it.fields
+                            }
+                        }
                 }
             }
             return Memory(
                 noteHistory = notes.sortedByDescending { it.tsMillis },
                 audio = audio.sortedBy { it.tsMillis },
                 transcripts = transcripts.sortedByDescending { it.tsMillis },
+                enrichment = latestEnrichment?.second ?: emptyMap(),
             )
         }
     }

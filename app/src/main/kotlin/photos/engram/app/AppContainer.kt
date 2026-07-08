@@ -12,6 +12,11 @@ import photos.engram.app.data.media.ResolverContentAccess
 import photos.engram.app.data.scan.RecordScanner
 import photos.engram.app.domain.MemoryReader
 import photos.engram.app.domain.Reconciler
+import photos.engram.app.enrich.Enricher
+import photos.engram.app.enrich.EnrichmentGateway
+import photos.engram.app.enrich.ExifGpsReader
+import photos.engram.app.enrich.GeocoderPlaceProvider
+import photos.engram.app.enrich.OpenMeteoWeatherProvider
 import photos.engram.app.writeback.ConsentGate
 import photos.engram.app.writeback.MediaStoreConsentGate
 import photos.engram.app.writeback.MediaWriteBack
@@ -46,12 +51,19 @@ class AppContainer(
             clock = System::currentTimeMillis,
         )
     val consentGate: ConsentGate = MediaStoreConsentGate(context.contentResolver)
+    private val enrichmentGateway =
+        EnrichmentGateway(
+            settings = settings,
+            gpsReader = ExifGpsReader(access),
+            enricher = Enricher(GeocoderPlaceProvider(appContext), OpenMeteoWeatherProvider()),
+        )
     val writeBack: MediaWriteBack =
         MediaWriteBack(
             db = db,
             access = access,
             scanner = scanner,
             backupDir = File(context.filesDir, "writeback"),
+            enrichmentFor = { enrichmentGateway.recordFor(it) },
         )
     val stripRepair: StripRepair = StripRepair(db, writeBack)
 }
