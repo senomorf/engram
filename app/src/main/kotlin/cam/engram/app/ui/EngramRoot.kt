@@ -2,9 +2,8 @@ package cam.engram.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
@@ -58,20 +57,16 @@ class Navigator internal constructor(
 @Composable
 fun EngramRoot(startInQueue: Boolean = false) {
     val context = LocalContext.current
+    val settings = remember { context.appContainer().settings }
     val scope = rememberCoroutineScope()
-    val onboardingDone by produceState<Boolean?>(initialValue = null) {
-        value =
-            context
-                .appContainer()
-                .settings
-                .current()
-                .onboardingDone
-    }
-    when (onboardingDone) {
-        null -> Unit // brief settings read; nothing to draw yet
-        false ->
+    // observe the flow so finishing onboarding recomposes into the app at once;
+    // a one-shot read would leave the user stuck until the next launch
+    val current = settings.settings.collectAsState(initial = null).value
+    when {
+        current == null -> Unit // brief first settings read; nothing to draw yet
+        !current.onboardingDone ->
             OnboardingScreen(onDone = {
-                scope.launch { context.appContainer().settings.setOnboardingDone(true) }
+                scope.launch { settings.setOnboardingDone(true) }
             })
         else -> MainNavigation(startInQueue)
     }
