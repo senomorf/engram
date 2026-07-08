@@ -47,6 +47,17 @@ class CliVerifyTest {
     }
 
     @Test
+    fun jsonEscapesControlCharactersInDescription() {
+        val src = File(dir, "j.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
+        val out = File(dir, "j-out.jpg")
+        run("generate", "--in", src.path, "--out", out.path, "--note", "line1\nline2\ttabbed")
+        val (code, output) = run("verify", "--in", out.path, "--json")
+        assertEquals(0, code, output)
+        // the mirrored description carries the control chars; js() must escape them
+        assertTrue(output.contains("line1\\nline2\\ttabbed"), output)
+    }
+
+    @Test
     fun degradedWhenOnlyCaptionSurvives() {
         val src = File(dir, "s2.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
         val out = File(dir, "o2.jpg")
