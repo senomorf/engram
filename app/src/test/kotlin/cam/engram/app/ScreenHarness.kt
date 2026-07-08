@@ -12,6 +12,8 @@ import cam.engram.app.audio.VoiceRecorderFactory
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
+import cam.engram.app.data.media.MediaSource
+import cam.engram.app.data.media.SourceItem
 import cam.engram.app.ui.LocalAppContainer
 import cam.engram.app.ui.theme.EngramTheme
 import cam.engram.format.jpeg.JpegEmbedder
@@ -45,6 +47,13 @@ private val noopRecorderFactory =
             }
     }
 
+/** In-memory MediaSource so reconcile keeps seeded queue items instead of pruning them. */
+class FakeMediaSource : MediaSource {
+    val items = mutableListOf<SourceItem>()
+
+    override suspend fun snapshot(includeScreenshots: Boolean): List<SourceItem> = items.toList()
+}
+
 fun fakeContainer(
     context: Context = ApplicationProvider.getApplicationContext(),
     db: EngramDb = EngramDb.inMemory(context),
@@ -54,6 +63,7 @@ fun fakeContainer(
         context = context,
         db = db,
         access = access,
+        source = FakeMediaSource(),
         io = Dispatchers.Unconfined,
         recorderFactory = noopRecorderFactory,
     )
@@ -127,4 +137,11 @@ suspend fun AppContainer.seedBrowsable(
     val item = seedItem(id, recordCount = 1)
     db.search().upsert(MemoryFts(id, note))
     return item
+}
+
+/** Registers an unannotated item in the fake MediaSource so a QueueScreen reconcile surfaces it. */
+fun AppContainer.seedQueue(id: Long) {
+    (access as FakeContentAccess).files["content://media/$id"] = SyntheticMedia.jpegPlain()
+    (source as FakeMediaSource).items +=
+        SourceItem(id, "content://media/$id", false, "image/jpeg", "DCIM/Camera/", id, 10, id)
 }

@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
+import cam.engram.app.seedQueue
 import cam.engram.app.setScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,5 +55,18 @@ class QueueScreenTest {
             compose.onAllNodesWithText(strings.getString(R.string.queue_empty)).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText(strings.getString(R.string.queue_empty)).assertIsDisplayed()
+    }
+
+    @Test
+    fun showsQueuedItemsAfterReconcile() {
+        grantMediaPermissions()
+        app.seedQueue(1)
+        app.seedQueue(2)
+        compose.setScreen(app) { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) }
+        // refresh reconciles the two waiting items in, so the empty message disappears and the grid shows
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.queue_empty)).fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.queue_empty)).assertDoesNotExist()
     }
 }
