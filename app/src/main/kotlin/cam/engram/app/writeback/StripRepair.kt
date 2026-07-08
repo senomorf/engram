@@ -2,11 +2,15 @@ package cam.engram.app.writeback
 
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
+import cam.engram.app.data.db.RecordCacheEntity
+import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 
 /**
  * Strip detection and one-tap re-embed (design D3): an item whose file lost
  * its records while the cache still holds them gets its memories written back.
+ * The cache is matched by capture time as well as id, so a reused MediaStore id
+ * can never graft one photo's memories onto a different photo (review F6).
  */
 class StripRepair(
     private val db: EngramDb,
@@ -18,22 +22,35 @@ class StripRepair(
         return db
             .media()
             .all()
-            .filter { it.recordCount == 0 && (cached[it.mediaId]?.recordCount ?: 0) > 0 }
+            .filter { item ->
+                val c = cached[item.mediaId]
+                item.recordCount == 0 && c != null && c.recordCount > 0 && sameIdentity(c, item)
+            }
     }
 
     suspend fun repair(item: MediaItemEntity): WriteOutcome {
         val cache =
             db.recordCache().byId(item.mediaId)
                 ?: return WriteOutcome.Failed("no cached records")
+        if (!sameIdentity(cache, item)) {
+            return WriteOutcome.Failed("cached records belong to a different photo, refusing to graft")
+        }
         val hits = RecordStream.decodeSequence(cache.recordsBlob)
         val records = hits.mapNotNull { it.decoded.record }
         if (records.isEmpty()) return WriteOutcome.Failed("cache is empty or corrupt")
         val mirror =
             records
-                .filter { it.kind == cam.engram.format.records.RecordKind.Note }
+                .filter { it.kind == RecordKind.Note }
                 .maxByOrNull { it.tsMillis }
                 ?.payload
                 ?.decodeToString()
         return writeBack.writeRecords(item, records, mirror)
     }
+
+    // identityTakenAt of 0 predates the identity field (legacy cache row): treat
+    // as matching so pre-migration caches still repair rather than silently drop
+    private fun sameIdentity(
+        cache: RecordCacheEntity,
+        item: MediaItemEntity,
+    ): Boolean = cache.identityTakenAt == 0L || cache.identityTakenAt == item.takenAtMillis
 }

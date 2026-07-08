@@ -10,6 +10,10 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class EngramApp :
     Application(),
@@ -18,6 +22,8 @@ class EngramApp :
     lateinit var container: AppContainer
         private set
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().build()
 
@@ -25,11 +31,13 @@ class EngramApp :
         super.onCreate()
         container = AppContainer(this)
         ReconcileWorker.schedulePeriodic(this)
-        kotlinx.coroutines.runBlocking {
+        MediaObserverService.schedule(this)
+        // read settings off the main thread so Application.onCreate never blocks
+        // on a cold DataStore read (review F2)
+        appScope.launch {
             val s = container.settings.current()
             DigestWorker.reschedule(this@EngramApp, s.digestHour, s.digestEnabled)
         }
-        MediaObserverService.schedule(this)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

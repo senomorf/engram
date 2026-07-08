@@ -14,6 +14,9 @@ data class MediaItemEntity(
     val relativePath: String,
     val takenAtMillis: Long,
     val sizeBytes: Long,
+    // MediaStore DATE_MODIFIED: catches metadata-only rewrites that keep the
+    // same byte size (change detection, review F11)
+    val dateModified: Long,
     val recordCount: Int,
     val payloadLength: Long,
     val lastScanMillis: Long,
@@ -22,13 +25,28 @@ data class MediaItemEntity(
 /**
  * Strip-recovery cache (design D3): last successfully parsed records per item.
  * The one table not rebuildable from files; exported with the Engram Archive.
+ * identityTakenAt pins the cached records to a specific capture, so a reused
+ * MediaStore id cannot graft one photo's memories onto another (review F6).
  */
 @Entity(tableName = "record_cache")
 data class RecordCacheEntity(
     @PrimaryKey val mediaId: Long,
+    val identityTakenAt: Long,
     val sizeBytesAtScan: Long,
     val recordsBlob: ByteArray,
     val recordCount: Int,
+    val updatedMillis: Long,
+)
+
+/**
+ * Pre-fetched enrichment record per item (review F5). Filled by a background
+ * worker so the user save path never waits on the network; the write-back
+ * reads it instantly and includes it when present.
+ */
+@Entity(tableName = "enrichment_cache")
+data class EnrichmentCacheEntity(
+    @PrimaryKey val mediaId: Long,
+    val recordBlob: ByteArray,
     val updatedMillis: Long,
 )
 

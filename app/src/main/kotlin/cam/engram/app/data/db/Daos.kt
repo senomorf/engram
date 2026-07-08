@@ -18,6 +18,12 @@ interface MediaDao {
     @Query("SELECT * FROM media_items WHERE mediaId = :mediaId")
     suspend fun byId(mediaId: Long): MediaItemEntity?
 
+    @Query("SELECT * FROM media_items WHERE mediaId = :mediaId")
+    fun flowById(mediaId: Long): Flow<MediaItemEntity?>
+
+    @Query("SELECT * FROM media_items WHERE recordCount >= 0")
+    suspend fun scanned(): List<MediaItemEntity>
+
     @Query("SELECT * FROM media_items WHERE recordCount = 0 ORDER BY takenAtMillis DESC")
     fun queue(): Flow<List<MediaItemEntity>>
 
@@ -68,6 +74,21 @@ interface RecordCacheDao {
 
     @Query("SELECT * FROM record_cache")
     suspend fun all(): List<RecordCacheEntity>
+}
+
+@Dao
+interface EnrichmentCacheDao {
+    @Upsert
+    suspend fun upsert(entry: EnrichmentCacheEntity)
+
+    @Query("SELECT * FROM enrichment_cache WHERE mediaId = :mediaId")
+    suspend fun byId(mediaId: Long): EnrichmentCacheEntity?
+
+    @Query("SELECT mediaId FROM enrichment_cache")
+    suspend fun cachedIds(): List<Long>
+
+    @Query("DELETE FROM enrichment_cache WHERE mediaId = :mediaId")
+    suspend fun delete(mediaId: Long)
 }
 
 @Dao

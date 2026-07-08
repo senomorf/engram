@@ -20,6 +20,11 @@ complexity:
     functionThreshold: 8
     constructorThreshold: 8
     ignoreDefaultParameters: true # test seams with defaults do not bloat a call
+  TooManyFunctions:
+    # DAOs and the transactional write-back are cohesive units with many small
+    # members; splitting them for a count would hurt readability
+    thresholdInClasses: 15
+    thresholdInInterfaces: 15
 
 empty-blocks:
   EmptyFunctionBlock:

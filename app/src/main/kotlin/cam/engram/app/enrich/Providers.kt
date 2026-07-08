@@ -3,6 +3,7 @@ package cam.engram.app.enrich
 import android.content.Context
 import android.location.Geocoder
 import android.os.Build
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -11,6 +12,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 import kotlin.coroutines.resume
+
+// returns null for provider failures but never swallows coroutine cancellation.
+// the instanceof-rethrow is the standard idiom for this; the two-catch
+// alternative trips RethrowCaughtException, so one rule must be suppressed
+@Suppress("InstanceOfCheckForException")
+internal inline fun <T> nullOnError(block: () -> T): T? =
+    try {
+        block()
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        null
+    }
 
 /** Platform reverse geocoder: no API key, on-device where the OEM supports it. */
 class GeocoderPlaceProvider(
@@ -22,7 +35,7 @@ class GeocoderPlaceProvider(
         lat: Double,
         lon: Double,
     ): String? =
-        runCatching {
+        nullOnError {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 suspendCancellableCoroutine { cont ->
                     geocoder.getFromLocation(lat, lon, 1) { list -> cont.resume(list.firstOrNull()?.toName()) }
@@ -33,7 +46,7 @@ class GeocoderPlaceProvider(
                     geocoder.getFromLocation(lat, lon, 1)?.firstOrNull()?.toName()
                 }
             }
-        }.getOrNull()
+        }
 
     private fun android.location.Address.toName(): String? = locality ?: subAdminArea ?: adminArea ?: countryName
 }
@@ -51,14 +64,14 @@ class OpenMeteoWeatherProvider(
         atMillis: Long,
     ): WeatherReading? =
         withContext(Dispatchers.IO) {
-            runCatching {
+            nullOnError {
                 val date = isoDate(atMillis)
                 val url =
                     "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon" +
                         "&start_date=$date&end_date=$date&hourly=temperature_2m,weather_code&timezone=UTC"
-                val body = fetch(url) ?: return@runCatching null
+                val body = fetch(url) ?: return@nullOnError null
                 parse(body, hourOfDay(atMillis))
-            }.getOrNull()
+            }
         }
 
     private fun fetch(url: String): String? {
@@ -112,7 +125,8 @@ class OpenMeteoWeatherProvider(
         val d = doy - (153 * mp + 2) / 5 + 1
         val m = if (mp < 10) mp + 3 else mp - 9
         val year = if (m <= 2) y + 1 else y
-        return "%04d-%02d-%02d".format(year, m, d)
+        // Locale.US so non-ASCII locale digits never corrupt the request URL (review F12)
+        return String.format(Locale.US, "%04d-%02d-%02d", year, m, d)
     }
 
     private fun hourOfDay(millis: Long): Int = ((millis / 3_600_000L) % 24).toInt()

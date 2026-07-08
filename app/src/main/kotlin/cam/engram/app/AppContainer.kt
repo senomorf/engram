@@ -21,6 +21,9 @@ import cam.engram.app.writeback.ConsentGate
 import cam.engram.app.writeback.MediaStoreConsentGate
 import cam.engram.app.writeback.MediaWriteBack
 import cam.engram.app.writeback.StripRepair
+import cam.engram.format.records.EngramRecord
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 /**
@@ -34,6 +37,7 @@ class AppContainer(
     val access: ContentAccess = ResolverContentAccess(context.contentResolver),
     val source: MediaSource = MediaStoreSource(context.contentResolver),
     val settings: SettingsStore = SettingsStore(context.applicationContext),
+    private val io: CoroutineDispatcher = Dispatchers.IO,
     val recorderFactory: VoiceRecorderFactory =
         object : VoiceRecorderFactory {
             override fun create() = MediaVoiceRecorder(context.applicationContext)
@@ -41,29 +45,39 @@ class AppContainer(
 ) {
     val appContext: Context = context.applicationContext
     val scanner: RecordScanner = RecordScanner(access)
-    val memoryReader: MemoryReader = MemoryReader(access)
-    val reconciler: Reconciler =
-        Reconciler(
-            db = db,
-            source = source,
-            scanner = scanner,
-            includeScreenshots = { kotlinx.coroutines.runBlocking { settings.current().includeScreenshots } },
-            clock = System::currentTimeMillis,
-        )
-    val consentGate: ConsentGate = MediaStoreConsentGate(context.contentResolver)
+    val memoryReader: MemoryReader = MemoryReader(access, io)
+
     private val enrichmentGateway =
         EnrichmentGateway(
             settings = settings,
             gpsReader = ExifGpsReader(access),
             enricher = Enricher(GeocoderPlaceProvider(appContext), OpenMeteoWeatherProvider()),
         )
+
+    val reconciler: Reconciler =
+        Reconciler(
+            db = db,
+            source = source,
+            scanner = scanner,
+            includeScreenshots = { settings.current().includeScreenshots },
+            io = io,
+            enrichmentPrefetch = { enrichmentGateway.fetch(it)?.encode() },
+            clock = System::currentTimeMillis,
+        )
+
+    val consentGate: ConsentGate = MediaStoreConsentGate(context.contentResolver)
+
     val writeBack: MediaWriteBack =
         MediaWriteBack(
             db = db,
             access = access,
             scanner = scanner,
             backupDir = File(context.filesDir, "writeback"),
-            enrichmentFor = { enrichmentGateway.recordFor(it) },
+            io = io,
+            cachedEnrichment = { item ->
+                db.enrichmentCache().byId(item.mediaId)?.let { EngramRecord.decodeAt(it.recordBlob, 0)?.record }
+            },
         )
+
     val stripRepair: StripRepair = StripRepair(db, writeBack)
 }
