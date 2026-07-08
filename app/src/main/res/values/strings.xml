@@ -23,7 +23,7 @@
     <string name="lab_title">Speech to text lab</string>
     <string name="lab_on_device_yes">On-device recognition: available</string>
     <string name="lab_on_device_no">On-device recognition: NOT available, network recognizer in use</string>
-    <string name="lab_speak">Speak (ru-RU)</string>
+    <string name="lab_speak">Speak</string>
     <string name="annotate_save">Save into the photo</string>
     <string name="annotate_saving">Saving…</string>
     <string name="annotate_error">Could not save: %1$s</string>
@@ -71,6 +71,16 @@
     <string name="settings_digest_hour">Digest hour: %1$d:00</string>
     <string name="settings_burst">Nudge soon after shooting</string>
     <string name="settings_enrichment_network">Fetch weather and place names (uses network)</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_english" translatable="false">English</string>
+    <string name="settings_language_russian" translatable="false">Русский</string>
+    <string name="annotate_dictate">Dictate</string>
+    <string name="dictation_listening">Listening…</string>
+    <string name="dictation_processing">Processing…</string>
+    <string name="dictation_error">Did not catch that. Try again.</string>
+    <string name="dictation_unavailable">Voice input is not available on this device</string>
+    <string name="error_unknown">unknown error</string>
     <string name="digest_channel_name">Daily digest</string>
     <string name="digest_title">Some moments are waiting</string>
     <plurals name="digest_body">

@@ -22,7 +22,7 @@
     <string name="lab_title">Лаборатория речи в текст</string>
     <string name="lab_on_device_yes">Распознавание на устройстве: доступно</string>
     <string name="lab_on_device_no">Распознавание на устройстве: НЕДОСТУПНО, используется сетевое</string>
-    <string name="lab_speak">Говорите (ru-RU)</string>
+    <string name="lab_speak">Говорите</string>
     <string name="annotate_save">Сохранить в фото</string>
     <string name="annotate_saving">Сохранение…</string>
     <string name="annotate_error">Не удалось сохранить: %1$s</string>
@@ -70,6 +70,14 @@
     <string name="settings_digest_hour">Час сводки: %1$d:00</string>
     <string name="settings_burst">Напоминать вскоре после съёмки</string>
     <string name="settings_enrichment_network">Погода и названия мест (использует сеть)</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_system">Системный</string>
+    <string name="annotate_dictate">Надиктовать</string>
+    <string name="dictation_listening">Слушаю…</string>
+    <string name="dictation_processing">Обработка…</string>
+    <string name="dictation_error">Не расслышал. Попробуйте ещё раз.</string>
+    <string name="dictation_unavailable">Голосовой ввод недоступен на этом устройстве</string>
+    <string name="error_unknown">неизвестная ошибка</string>
     <string name="digest_channel_name">Ежедневная сводка</string>
     <string name="digest_title">Некоторые моменты ждут</string>
     <plurals name="digest_body">

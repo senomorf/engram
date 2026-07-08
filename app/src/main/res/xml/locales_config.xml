@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Locales the app ships. Enables per-app language in system settings and the
+     in-app picker (LocaleManager). Keep in sync with values-*/ resource dirs. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="ru" />
+</locale-config>
