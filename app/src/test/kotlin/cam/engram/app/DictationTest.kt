@@ -1,8 +1,8 @@
 package cam.engram.app
 
 import cam.engram.app.ui.Dictation
-import kotlin.test.assertEquals
 import org.junit.Test
+import kotlin.test.assertEquals
 
 class DictationTest {
     @Test
