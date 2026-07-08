@@ -29,6 +29,11 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    lint {
+        // every shipped locale must stay complete; a missing translation fails the build
+        error += "MissingTranslation"
+    }
 }
 
 dependencies {
