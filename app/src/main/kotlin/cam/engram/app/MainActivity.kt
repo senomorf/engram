@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import cam.engram.app.notify.Notifier
 import cam.engram.app.ui.EngramRoot
 import cam.engram.app.ui.theme.EngramTheme
@@ -13,8 +15,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val openQueue = intent?.getBooleanExtra(Notifier.EXTRA_OPEN_QUEUE, false) == true
+        val container = appContainer()
         setContent {
-            EngramTheme {
+            val prefs by container.settings.settings.collectAsState(initial = null)
+            EngramTheme(dynamicColor = prefs?.dynamicColor ?: true) {
                 EngramRoot(startInQueue = openQueue)
             }
         }

@@ -105,7 +105,8 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 - D20 UI languages: Russian and English. Follows device locale and offers an
   in-app language switch (framework LocaleManager, per-app locale, declared in
   locales_config). Both string sets stay complete; further languages are additive.
-- D21 Material and versions: Material 3 with dynamic color (Material You), a shared
+- D21 Material and versions: Material 3 with dynamic color (Material You) as the
+  default plus an optional mauve brand scheme (settings toggle), a shared
   EngramScaffold for standard top app bars, edge-to-edge, predictive-back opt-in,
   a themed monochrome icon and Android 12+ backup rules. Dependencies track newest
   stable; the Robolectric test SDK trails compileSdk (pinned to 36) until a release

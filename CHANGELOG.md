@@ -28,6 +28,8 @@ change lands under Unreleased at merge time.
   language picker, fetching a missing on-device model when needed.
 - Material 3 polish: standard top app bars via a shared scaffold, Material You
   dynamic color and edge-to-edge.
+- Optional mauve brand color scheme, switchable in settings, as an alternative to
+  Material You dynamic color (which stays the default).
 - Predictive-back opt-in, themed monochrome launcher icon and Android 12+ backup rules.
 - Landing page at engram.cam with a favicon and social-share card.
 

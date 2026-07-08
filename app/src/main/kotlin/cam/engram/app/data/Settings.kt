@@ -22,6 +22,8 @@ data class EngramSettings(
     val onboardingDone: Boolean = false,
     // BCP-47 tag for voice dictation, decoupled from the UI language; null follows it
     val dictationLanguage: String? = null,
+    // true = Material You dynamic color; false = the mauve brand scheme
+    val dynamicColor: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_DIGEST_HOUR = 20
@@ -39,6 +41,7 @@ class SettingsStore(
         val enrichmentNetwork = booleanPreferencesKey("enrichment_network")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val dictationLanguage = stringPreferencesKey("dictation_language")
+        val dynamicColor = booleanPreferencesKey("dynamic_color")
     }
 
     val settings: Flow<EngramSettings> =
@@ -65,6 +68,8 @@ class SettingsStore(
         }
     }
 
+    suspend fun setDynamicColor(value: Boolean) = put(Keys.dynamicColor, value)
+
     private suspend fun <T> put(
         key: Preferences.Key<T>,
         value: T,
@@ -81,5 +86,6 @@ class SettingsStore(
             enrichmentNetworkEnabled = this[Keys.enrichmentNetwork] ?: true,
             onboardingDone = this[Keys.onboarding] ?: false,
             dictationLanguage = this[Keys.dictationLanguage],
+            dynamicColor = this[Keys.dynamicColor] ?: true,
         )
 }

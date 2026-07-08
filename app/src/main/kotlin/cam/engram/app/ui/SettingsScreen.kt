@@ -77,6 +77,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                 checked = s.enrichmentNetworkEnabled,
                 onChange = vm::setEnrichmentNetwork,
             )
+            ToggleRow(
+                label = stringResource(R.string.settings_dynamic_color),
+                checked = s.dynamicColor,
+                onChange = vm::setDynamicColor,
+            )
             Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleSmall)
             LanguageRow(context)
         }

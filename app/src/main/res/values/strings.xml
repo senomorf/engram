@@ -72,6 +72,7 @@
     <string name="settings_digest_hour">Digest hour: %1$d:00</string>
     <string name="settings_burst">Nudge soon after shooting</string>
     <string name="settings_enrichment_network">Fetch weather and place names (uses network)</string>
+    <string name="settings_dynamic_color">Dynamic colors (Material You)</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System default</string>
     <string name="settings_language_english" translatable="false">English</string>
