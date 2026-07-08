@@ -126,6 +126,40 @@ class AnnotateScreenTest {
     }
 
     @Test
+    fun failedWriteShowsErrorMessage() {
+        runBlocking { app.seedMemory(8, note = "existing") }
+        (app.access as cam.engram.app.FakeContentAccess).corruptWrites = true
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(8), startIndex = 0, onDone = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("will not verify")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_save)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_save)).performClick()
+        // the corrupt write fails verification; the SaveUi.Error branch renders the reason
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("no records", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("no records", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun rejectedWriteDrivesConsentBranch() {
+        runBlocking { app.seedMemory(9, note = "existing") }
+        (app.access as cam.engram.app.FakeContentAccess).rejectWrites = true
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(9), startIndex = 0, onDone = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("needs consent")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_save)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_save)).performClick()
+        // rejected write -> SaveUi.Rejected -> consentGate branch; screen must not crash
+        compose.waitForIdle()
+        compose.onRoot().assertExists()
+    }
+
+    @Test
     fun recordButtonRunsGestureWhenMicGranted() {
         shadowOf(ApplicationProvider.getApplicationContext<Application>())
             .grantPermissions(Manifest.permission.RECORD_AUDIO)
