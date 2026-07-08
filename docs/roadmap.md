@@ -22,7 +22,13 @@ themed monochrome icon, predictive-back opt-in, Android 12+ backup rules (D21).
 Deferred, rough order:
 
 - Adaptive layouts: window size classes for tablets and foldables (phone-only today).
-- Material 3 Expressive: adopt the expressive type scale and components as they stabilize.
+- Material 3 Expressive: deferred until stable. MaterialExpressiveTheme and the
+  expressive tokens are internal in stable material3 1.4.0 (our compose-bom line)
+  and public only in 1.5.0-alpha (alpha23 as of 2026-07), so adopting now means an
+  alpha dependency across the whole UI. Trigger: material3 1.5.0 stable, then
+  MaterialExpressiveTheme slots over the current color scheme in one pass and the
+  brand/dynamic toggle carries over unchanged. A hand-tuned shapes+typography
+  approximation on 1.4.0 is possible but throwaway, so skipped.
 - Predictive-back in-app previews: PredictiveBackHandler with screen transitions (the
   manifest opt-in is in; cross-screen preview animation is not).
 

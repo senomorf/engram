@@ -43,7 +43,7 @@ and assumptions. Docs map: docs/README.md.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). Do not add overlapping rules.
 - Localization: every user-facing string via stringResource; keep values/ and values-ru/ in sync (only translatable=false entries and app_name may differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics are exempt. Voice dictation language is decoupled from UI language (Dictation.supportedLanguages).
 - Offline: annotate, browse, search, verify and export must work with no network. Only enrichment may use the network, and only best-effort and graceful.
-- Material: M3 only (no androidx.compose.material.* components), dynamic color, top bars via EngramScaffold, edge-to-edge. Do not hardcode Color/TextStyle outside the theme.
+- Material: M3 only (no androidx.compose.material.* components), dynamic color, top bars via EngramScaffold, edge-to-edge. Do not hardcode Color/TextStyle outside the theme. MaterialExpressiveTheme is internal in stable material3 1.4.0 (public only in 1.5.0-alpha); do not attempt it until 1.5.0 is stable (roadmap).
 
 ## Docs upkeep (details in docs/README.md)
 
