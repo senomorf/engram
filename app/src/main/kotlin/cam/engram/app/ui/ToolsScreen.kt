@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,7 +56,7 @@ private sealed interface VerifyState {
 }
 
 @Composable
-fun ToolsScreen() {
+fun ToolsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var export by remember { mutableStateOf<ExportState>(ExportState.Idle) }
@@ -97,7 +96,7 @@ fun ToolsScreen() {
             }
         }
 
-    Scaffold { padding ->
+    EngramScaffold(title = stringResource(R.string.open_tools), onBack = onBack) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

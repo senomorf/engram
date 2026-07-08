@@ -46,7 +46,10 @@ private val mediaPermissions =
     arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
 
 @Composable
-fun QueueScreen(onAnnotate: (List<Long>, Int) -> Unit) {
+fun QueueScreen(
+    onAnnotate: (List<Long>, Int) -> Unit,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(hasMediaPermissions(context)) }
     if (!granted) {
@@ -78,13 +81,8 @@ fun QueueScreen(onAnnotate: (List<Long>, Int) -> Unit) {
                 ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }
         }
     }
-    Scaffold { padding ->
+    EngramScaffold(title = stringResource(R.string.queue_title, items.size), onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            Text(
-                text = stringResource(R.string.queue_title, items.size),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(16.dp),
-            )
             if (stripped.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     Column(Modifier.padding(12.dp)) {

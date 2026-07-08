@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,7 +29,10 @@ import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
 
 @Composable
-fun BrowseScreen(onOpen: (Long) -> Unit) {
+fun BrowseScreen(
+    onOpen: (Long) -> Unit,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val vm: BrowseViewModel =
         viewModel(factory = viewModelFactory { initializer { BrowseViewModel(context.appContainer()) } })
@@ -38,7 +40,7 @@ fun BrowseScreen(onOpen: (Long) -> Unit) {
     val query by vm.query.collectAsState()
     val results by vm.results.collectAsState()
     val shown = results ?: timeline
-    Scaffold { padding ->
+    EngramScaffold(title = stringResource(R.string.open_browse), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
                 value = query,

@@ -92,16 +92,22 @@ private fun MainNavigation(startInQueue: Boolean) {
                 onOpenLab = { navigator.push(Screen.Lab) },
             )
         is Screen.Settings -> SettingsScreen(onBack = { navigator.pop() })
-        is Screen.Browse -> BrowseScreen(onOpen = { navigator.push(Screen.Detail(it)) })
+        is Screen.Browse ->
+            BrowseScreen(
+                onOpen = { navigator.push(Screen.Detail(it)) },
+                onBack = { navigator.pop() },
+            )
         is Screen.Detail ->
             MemoryDetailScreen(
                 mediaId = screen.mediaId,
                 onAnnotate = { navigator.push(Screen.Annotate(listOf(it), 0)) },
+                onBack = { navigator.pop() },
             )
-        is Screen.Tools -> ToolsScreen()
+        is Screen.Tools -> ToolsScreen(onBack = { navigator.pop() })
         is Screen.Queue ->
             QueueScreen(
                 onAnnotate = { ids, index -> navigator.push(Screen.Annotate(ids, index)) },
+                onBack = { navigator.pop() },
             )
         is Screen.Annotate ->
             AnnotateScreen(
@@ -109,6 +115,6 @@ private fun MainNavigation(startInQueue: Boolean) {
                 startIndex = screen.startIndex,
                 onDone = { navigator.pop() },
             )
-        is Screen.Lab -> LabScreen()
+        is Screen.Lab -> LabScreen(onBack = { navigator.pop() })
     }
 }

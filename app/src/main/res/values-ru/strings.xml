@@ -38,6 +38,7 @@
     <string name="browse_no_results">Ничего не найдено.</string>
     <string name="detail_voice">Голос</string>
     <string name="detail_history">Прежние версии</string>
+    <string name="detail_title">Воспоминание</string>
     <string name="detail_add_more">Дополнить это воспоминание</string>
     <string name="open_tools">Экспорт и проверка</string>
     <string name="annotate_over_cap">В этом фото уже больше 10 МБ воспоминаний. Это нормально, просто файл больше.</string>

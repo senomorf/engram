@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,12 +36,11 @@ import kotlinx.coroutines.launch
  * surface by design; the transcription feature itself now lives in Annotate.
  */
 @Composable
-fun LabScreen() {
+fun LabScreen(onBack: () -> Unit) {
     val transcripts = remember { mutableStateListOf<String>() }
     val speech = rememberSpeechInput { transcripts.add(0, it) }
-    Scaffold { padding ->
+    EngramScaffold(title = stringResource(R.string.lab_title), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.lab_title), style = MaterialTheme.typography.titleLarge)
             Text(
                 text = stringResource(if (speech.available) R.string.lab_on_device_yes else R.string.lab_on_device_no),
                 style = MaterialTheme.typography.bodyMedium,

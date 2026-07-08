@@ -13,7 +13,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,6 +36,7 @@ import java.io.File
 fun MemoryDetailScreen(
     mediaId: Long,
     onAnnotate: (Long) -> Unit,
+    onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val container = context.appContainer()
@@ -49,7 +49,7 @@ fun MemoryDetailScreen(
     LaunchedEffect(item?.mediaId, item?.lastScanMillis, item?.recordCount) {
         memory = item?.let { container.memoryReader.read(it) }
     }
-    Scaffold { padding ->
+    EngramScaffold(title = stringResource(R.string.detail_title), onBack = onBack) { padding ->
         Column(
             Modifier
                 .fillMaxSize()

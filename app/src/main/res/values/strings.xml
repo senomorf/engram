@@ -39,6 +39,7 @@
     <string name="browse_no_results">No memory matches that.</string>
     <string name="detail_voice">Voice</string>
     <string name="detail_history">Earlier versions</string>
+    <string name="detail_title">Memory</string>
     <string name="detail_add_more">Add more to this memory</string>
     <string name="open_tools">Export and verify</string>
     <string name="annotate_over_cap">This photo now carries over 10MB of memories. Still fine, just larger.</string>

@@ -97,6 +97,8 @@ private fun AnnotateCard(
         when (val save = ui.save) {
             is SaveUi.Saved -> {
                 if (save.overSoftCap) {
+                    // a Toast, not a Snackbar, on purpose: this fires as we navigate to the
+                    // next photo, so the message must outlive this composition
                     android.widget.Toast
                         .makeText(context, R.string.annotate_over_cap, android.widget.Toast.LENGTH_LONG)
                         .show()
