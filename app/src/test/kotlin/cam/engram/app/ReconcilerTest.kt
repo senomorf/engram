@@ -9,6 +9,7 @@ import cam.engram.app.domain.Reconciler
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
 import cam.engram.format.testing.SyntheticMedia
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
@@ -36,6 +37,7 @@ class ReconcilerTest {
             source = source,
             scanner = RecordScanner(access),
             includeScreenshots = { true },
+            io = Dispatchers.Unconfined,
             clock = { 1000L },
         )
 
@@ -59,6 +61,7 @@ class ReconcilerTest {
                 relativePath = "DCIM/Camera/",
                 takenAtMillis = id,
                 sizeBytes = bytes.size.toLong(),
+                dateModified = id,
             )
     }
 
@@ -103,6 +106,19 @@ class ReconcilerTest {
             val stats2 = reconciler.reconcile()
             assertEquals(1, stats2.removed)
             assertEquals(0, db.media().all().size)
+        }
+
+    @Test
+    fun modifiedTimeChangeRescansEvenWhenSizeIsUnchanged() =
+        runBlocking {
+            addPhoto(1, SyntheticMedia.jpegPlain())
+            reconciler.reconcile()
+            assertEquals(0, db.media().byId(1)!!.recordCount)
+
+            // an editor rewrites metadata in place: same byte size, new mtime (review F11)
+            snapshot[0] = snapshot[0].copy(dateModified = 999)
+            val stats = reconciler.reconcile()
+            assertEquals(1, stats.scanned)
         }
 }
 

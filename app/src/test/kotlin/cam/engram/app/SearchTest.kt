@@ -13,6 +13,7 @@ import cam.engram.format.xmp.XmpApplyResult
 import cam.engram.format.xmp.XmpEngine
 import cam.engram.format.xmp.XmpSummary
 import cam.engram.format.xmp.XmpUpdate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -33,7 +34,7 @@ class SearchTest {
         }
 
     private val reconciler =
-        Reconciler(db, source, RecordScanner(access), { true }, { 1L })
+        Reconciler(db, source, RecordScanner(access), { true }, Dispatchers.Unconfined, clock = { 1L })
 
     @After
     fun tearDown() = db.close()
@@ -52,7 +53,7 @@ class SearchTest {
         val uri = "content://media/$id"
         access.files[uri] = photoWith(note)
         snapshot +=
-            SourceItem(id, uri, false, "image/jpeg", "DCIM/Camera/", id, access.files[uri]!!.size.toLong())
+            SourceItem(id, uri, false, "image/jpeg", "DCIM/Camera/", id, access.files[uri]!!.size.toLong(), id)
     }
 
     @Test
@@ -73,7 +74,7 @@ class SearchTest {
             seed(1, "with a memory")
             access.files["content://media/2"] = SyntheticMedia.jpegPlain()
             snapshot +=
-                SourceItem(2, "content://media/2", false, "image/jpeg", "DCIM/Camera/", 2, 50)
+                SourceItem(2, "content://media/2", false, "image/jpeg", "DCIM/Camera/", 2, 50, 2)
             reconciler.reconcile()
 
             val rows = db.media().timeline().first()

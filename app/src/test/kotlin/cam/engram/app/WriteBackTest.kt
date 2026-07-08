@@ -11,6 +11,7 @@ import cam.engram.app.writeback.WriteOutcome
 import cam.engram.format.mp4.Mp4Caption
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
@@ -38,6 +39,7 @@ class WriteBackTest {
             access = access,
             scanner = RecordScanner(access),
             backupDir = backupDir,
+            io = Dispatchers.Unconfined,
         )
 
     @After
@@ -62,6 +64,7 @@ class WriteBackTest {
                 relativePath = "DCIM/Camera/",
                 takenAtMillis = id,
                 sizeBytes = bytes.size.toLong(),
+                dateModified = id,
                 recordCount = 0,
                 payloadLength = 0,
                 lastScanMillis = 0,

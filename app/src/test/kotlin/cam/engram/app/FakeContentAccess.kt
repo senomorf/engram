@@ -11,6 +11,10 @@ class FakeContentAccess : ContentAccess {
     var rejectWrites = false
     var corruptWrites = false
 
+    // fail only restore (writeFromFile) while letting the corrupt writeBytes run,
+    // to exercise the "restore also failed, keep the backup" path (review F4)
+    var rejectRestore = false
+
     override fun readBytes(uri: String): ByteArray? = files[uri]
 
     override fun <T> withChannel(
@@ -49,7 +53,7 @@ class FakeContentAccess : ContentAccess {
         uri: String,
         source: File,
     ): Boolean {
-        if (rejectWrites) return false
+        if (rejectWrites || rejectRestore) return false
         files[uri] = source.readBytes()
         return true
     }

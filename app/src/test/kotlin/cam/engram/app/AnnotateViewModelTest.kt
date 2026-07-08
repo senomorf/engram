@@ -76,6 +76,7 @@ class AnnotateViewModelTest {
                     relativePath = "DCIM/Camera/",
                     takenAtMillis = 1,
                     sizeBytes = 10,
+                    dateModified = 1,
                     recordCount = 0,
                     payloadLength = 0,
                     lastScanMillis = 0,
