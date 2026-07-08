@@ -39,7 +39,9 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 
 ## 4. Decision log
 
-- D1 Platform: Android only, minSdk 33 (Android 13+), baseline device Pixel 9.
+- D1 Platform: Android only, minSdk 33 (Android 13+) held for device reach while
+  still giving modern APIs (per-app locale, photo picker, dynamic color); compileSdk
+  and targetSdk 37. Baseline device Pixel 9.
 - D2 Capture: annotator-first. App is a layer over the photo library.
 - D3 Data home: file is the single source of truth. App keeps a rebuildable
   index plus a strip-recovery cache: last successfully parsed records per content
@@ -79,19 +81,27 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   round-tripped through a cloud or messenger, get a survival report); Engram
   Archive export: all ever-recorded metadata to a user-chosen location in a
   documented parseable format.
-- D15 Transcription: on-device only. Primary language Russian [P0 gate]: if
-  on-device Russian quality is inadequate, v1 ships audio-only and transcripts
-  arrive later (roadmap); audio is always recorded and stored regardless.
+- D15 Transcription: on-device (SpeechRecognizer, offline-preferred), integrated
+  into the annotate flow as dictation that fills the note field. Language follows
+  the app locale (en-US or ru-RU). Audio is always recorded and stored regardless,
+  so a weak transcript never costs the voice clip.
 - D16 Archive model: each person annotates their own media on their own phone.
   No sync, no conflicts. Shared family pool: roadmap, far. Spec carries writer id
   from day one so that future does not require a format migration.
-- D17 Distribution: Play internal testing track (install by link, up to 100
-  testers) for family and friends. Production release is not a v1 goal.
+- D17 Distribution: signed APK on GitHub Releases (install by link) for family
+  and friends, linked from the landing page at engram.cam (GitHub Pages). Play
+  and F-Droid are deferred, not v1 goals.
 - D18 Spec: written from day one, private until stable. License intent at
   publication: Apache-2.0 for code, CC BY 4.0 for spec (A5, revisit then).
 - D19 Repo: conventional commits (feat:, fix:, docs:, ...), one line, no body;
   rebase over merge per owner's global git rules.
-- D20 UI languages: Russian and English, following device locale (A4).
+- D20 UI languages: Russian and English. Follows device locale and offers an
+  in-app language switch (framework LocaleManager, per-app locale, declared in
+  locales_config). Both string sets stay complete; further languages are additive.
+- D21 Material and versions: Material 3 with dynamic color (Material You), a shared
+  EngramScaffold for standard top app bars, and edge-to-edge. Dependencies track
+  newest stable; the Robolectric test SDK trails compileSdk (pinned to 36) until a
+  release adds 37.
 
 ## 5. Assumptions register
 

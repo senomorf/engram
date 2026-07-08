@@ -21,7 +21,8 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 ## Environment gotchas
 
 - SDK bootstrapped at ~/Android/Sdk; local.properties points to it. Set ANDROID_HOME for CLI gradle runs.
-- Emulator needs /dev/kvm; this box lacks it (user not in kvm group). UI screenshots must come from CI or the owner's machine.
+- Emulator runs headless via `sg kvm -c "<emulator cmd>"` (owner is in the kvm group; a login shell may not have it yet). AVD `engram`, API 36 image; a targetSdk 37 build installs and runs on it fine.
+- compileSdk/targetSdk 37 (platform android-37.0). Robolectric 4.16.1 caps at API 36, so app/src/test/resources/robolectric.properties pins sdk=36; raise it when a Robolectric release adds 37.
 - AGP 9 built-in Kotlin: no standalone kotlin-android plugin in :app; compose-compiler plugin is still required.
 - Room suspend DAOs run off the test scheduler: use runBlocking + real settle in ViewModel tests, not advanceUntilIdle.
 - Compose PascalCase functions are exempted from ktlint/detekt naming via config; do not rename them.
@@ -38,6 +39,9 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
 - Bug fix flow: reproduce with a failing test in core-format first.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). Do not add overlapping rules.
+- Localization: every user-facing string via stringResource; keep values/ and values-ru/ in sync (only translatable=false entries and app_name may differ). Lab debug diagnostics are exempt.
+- Offline: annotate, browse, search, verify and export must work with no network. Only enrichment may use the network, and only best-effort and graceful.
+- Material: M3 only (no androidx.compose.material.* components), dynamic color, top bars via EngramScaffold, edge-to-edge. Do not hardcode Color/TextStyle outside the theme.
 
 ## Docs upkeep (details in docs/README.md)
 
@@ -46,3 +50,4 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 - User-visible change: CHANGELOG.md under [Unreleased].
 - New agent-relevant rule or command: this file.
 - Docs are living state, not journals: update in place, keep short, link instead of duplicating.
+- Keep this file current every session: when a pattern, gotcha, command or rule changes, update AGENTS.md in the same change, not later.

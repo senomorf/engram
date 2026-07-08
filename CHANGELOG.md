@@ -12,8 +12,18 @@ change lands under Unreleased at merge time.
   https://ns.engram.cam/1.0/ and the package/applicationId is cam.engram
   (was the unregistered engram.photos / photos.engram). Done before any real
   photo was written, so no format migration is implied.
+- Target Android 16 (API 37): compileSdk and targetSdk 37, minSdk held at 33.
+  Refreshed AndroidX (activity-compose 1.13, lifecycle 2.11), Kotlin 2.3.21,
+  AGP 9.2.1 and compose-bom 2026.06.01; Robolectric test runtime pinned to 36.
 
 ### Added
+
+- In-app language switch (English and Russian) with per-app locale, plus complete
+  Russian coverage across every screen.
+- Voice dictation in the annotate flow: on-device, offline-preferred speech to
+  text that follows the app language and fills the note field.
+- Material 3 polish: standard top app bars via a shared scaffold, Material You
+  dynamic color and edge-to-edge.
 
 - Android app (Track B, M0 to M8): ingest of camera and screenshot media into
   a Room index; annotation queue with text notes and hold-to-record Opus voice;
@@ -38,7 +48,7 @@ change lands under Unreleased at merge time.
   MPF offset validation), PNG (iTXt XMP, egRm chunks), MP4 (custom uuid box).
 - Lab CLI: generate, inspect/verify, selftest.
 - Survivability lab templates (lab/corpus, lab/survivability-matrix.md).
-- Tooling: Gradle 9.6.1 wrapper, Kotlin 2.3.20, version catalog, ktlint +
+- Tooling: Gradle 9.6.1 wrapper, Kotlin 2.3.21, version catalog, ktlint +
   detekt, integration test suite, GitHub Actions CI, dependabot, dev container.
 - Adversarial review round 1 (Codex) outcomes: record frame carries id and
   writer; XMP merge fails closed and supports ExtendedXMP split/reassembly;
