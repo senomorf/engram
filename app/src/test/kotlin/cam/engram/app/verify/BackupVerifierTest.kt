@@ -91,6 +91,13 @@ class BackupVerifierTest {
     }
 
     @Test
+    fun unreadableWhenStreamMissing() {
+        // a uri with no registered stream: openInputStream returns null -> UNREADABLE
+        val report = runBlocking { verifier.verify(Uri.parse("content://x/missing")) }
+        assertEquals(Survival.UNREADABLE, report.summary)
+    }
+
+    @Test
     fun mp4WithRecordsReportsFull() {
         val bytes = Mp4Codec.embed(SyntheticMedia.mp4MoovLast(), records())
         val report = verify("content://x/6", bytes)
