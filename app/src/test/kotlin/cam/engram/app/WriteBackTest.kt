@@ -88,6 +88,29 @@ class WriteBackTest {
         }
 
     @Test
+    fun backupFailureIsReported() =
+        runBlocking {
+            // a DB row whose bytes are not in the fake resolver: the backup copy cannot be made
+            val item =
+                MediaItemEntity(
+                    mediaId = 99,
+                    uri = "content://media/99",
+                    isVideo = false,
+                    mime = "image/jpeg",
+                    relativePath = "DCIM/Camera/",
+                    takenAtMillis = 99,
+                    sizeBytes = 0,
+                    dateModified = 99,
+                    recordCount = 0,
+                    payloadLength = 0,
+                    lastScanMillis = 0,
+                )
+            db.media().upsert(listOf(item))
+            val outcome = writeBack.write(item, Annotation("x", null))
+            assertEquals("cannot back up original", assertIs<WriteOutcome.Failed>(outcome).reason)
+        }
+
+    @Test
     fun rejectedWriteLeavesFileUntouched() =
         runBlocking {
             val original = SyntheticMedia.jpegPlain()
