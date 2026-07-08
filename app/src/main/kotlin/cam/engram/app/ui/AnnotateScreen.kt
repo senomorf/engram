@@ -14,9 +14,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -84,6 +88,7 @@ private fun AnnotateCard(
                 },
         )
     val ui by vm.ui.collectAsState()
+    val speech = rememberSpeechInput { spoken -> vm.onTextChange(Dictation.merge(ui.text, spoken)) }
     val consentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) vm.save()
@@ -137,6 +142,17 @@ private fun AnnotateCard(
                 label = { Text(stringResource(R.string.annotate_note_hint)) },
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 minLines = 2,
+                trailingIcon =
+                    if (!speech.available) {
+                        null
+                    } else {
+                        {
+                            IconButton(onClick = speech.start) {
+                                Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.annotate_dictate))
+                            }
+                        }
+                    },
+                supportingText = dictationSupportingText(speech.status),
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -177,6 +193,19 @@ private fun AnnotateCard(
             }
         }
     }
+}
+
+// live dictation state shown under the note field; silent when idle or when
+// voice input is unavailable (the absent mic already signals that)
+private fun dictationSupportingText(status: DictationStatus): (@Composable () -> Unit)? {
+    val res =
+        when (status) {
+            DictationStatus.Listening -> R.string.dictation_listening
+            DictationStatus.Processing -> R.string.dictation_processing
+            DictationStatus.Error -> R.string.dictation_error
+            DictationStatus.Idle, DictationStatus.Unavailable -> null
+        } ?: return null
+    return { Text(stringResource(res)) }
 }
 
 @Composable
