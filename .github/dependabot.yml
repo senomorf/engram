@@ -9,12 +9,6 @@ updates:
       androidx:
         patterns: ["androidx.*"]
     ignore:
-      # activity-compose >= 1.13 and lifecycle >= 2.11 require compileSdk 37;
-      # we hold at compileSdk 36 (Play target) until a deliberate SDK bump.
-      - dependency-name: "androidx.activity:activity-compose"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      - dependency-name: "androidx.lifecycle:*"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
       # Kotlin toolchain (compiler, KSP, compose plugin) must move together and
       # is upgraded by hand; let only patch bumps through automatically.
       - dependency-name: "org.jetbrains.kotlin*"
