@@ -85,6 +85,26 @@ class AnnotateScreenTest {
     }
 
     @Test
+    fun overSoftCapSaveStillAdvances() {
+        // an audio clip past the ~10MB soft cap drives the over-cap Saved branch (and its Toast)
+        val bigAudio = File.createTempFile("big", ".ogg").apply { writeBytes(ByteArray(11 * 1024 * 1024)) }
+        runBlocking {
+            app.seedMemory(11, note = "seed")
+            app.db.drafts().upsert(
+                DraftEntity(mediaId = 11, text = "note", audioPath = bigAudio.absolutePath, updatedMillis = 1),
+            )
+        }
+        var done = false
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(11), startIndex = 0, onDone = { done = true }) }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_save)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_save)).performClick()
+        compose.waitUntil(10_000) { done }
+        assertTrue(done)
+    }
+
+    @Test
     fun skipAdvancesWithoutWriting() {
         runBlocking { app.seedItem(2) }
         var done = false
