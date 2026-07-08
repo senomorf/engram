@@ -32,7 +32,7 @@ read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README
 - No em or en dashes anywhere (code, comments, docs, commits). Use commas, colons, hyphens.
 - :core-format commonMain stays pure Kotlin: no java.* or android.* imports (iOS portability tripwire, design doc sec 10).
 - Every JPEG write must leave MpfInspector valid; never bypass the post-write check (Ultra HDR survival).
-- XMP namespace https://ns.engram.photos/1.0/ is frozen. Record wire format changes require a spec version bump and a design doc decision.
+- XMP namespace https://ns.engram.cam/1.0/ is frozen. Record wire format changes require a spec version bump and a design doc decision.
 - Records are append-only; nothing may silently drop or rewrite existing payload.
 - Escape NUL as `\u0000` in source, never literal control bytes.
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.

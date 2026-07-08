@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "photos.engram.app"
+    namespace = "cam.engram.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "photos.engram.app"
+        applicationId = "cam.engram.app"
         minSdk = 33
         targetSdk = 36
         versionCode = 1

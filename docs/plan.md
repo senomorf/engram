@@ -10,11 +10,11 @@ accepted: matrix row 10 (Google Photos duplicate-on-rewrite) may change the
 write-back strategy; the strategy sits behind an interface, so the blast
 radius is one module.
 
-Assumptions in force (confirmed 2026-07-08): namespace stays
-https://ns.engram.photos/1.0/ with engram.photos registration pending [OWNER];
-device tests use disposable copies until the domain is owned; enrichment
-defaults to keyless providers (Open-Meteo weather, platform Geocoder places);
-minSdk 33 pending family device list (design A1).
+Assumptions in force (confirmed 2026-07-08): namespace
+https://ns.engram.cam/1.0/ is frozen (engram.cam registered 2026-07-08,
+package renamed to cam.engram); enrichment defaults to keyless providers
+(Open-Meteo weather, platform Geocoder places); minSdk 33 pending family
+device list (design A1).
 
 ## Track A: verification lab (owner-gated, checklists ready)
 
@@ -45,7 +45,7 @@ every milestone was: build green, CHANGELOG updated, docs touched.
   (record frame with id and writer, bindings, ExtendedXMP, caption mirrors,
   expectation sidecar format). Private until stable (D18).
 - M1 Android scaffold: :app module (Compose, minSdk 33, package
-  photos.engram.app), local Android SDK + emulator bootstrap for autonomous
+  cam.engram.app), local Android SDK + emulator bootstrap for autonomous
   UI verification, CI extended to assemble a debug APK artifact.
 - M2 Ingest and index: Room database (items, records cache, pending queue),
   MediaStore ingest for camera + screenshots buckets (D11), periodic reconcile
@@ -81,5 +81,5 @@ wording and behavior; nothing else depends on them.
 - Track A: matrix rows 1 to 11 filled; landmine verdicts recorded; A1/A6/A8
   device facts confirmed; transcription verdict recorded (D15).
 - Track B: M0 to M8 complete and green; M9 installed on the family's phones.
-- engram.photos registered and namespace confirmed [OWNER].
+- engram.cam registered and namespace confirmed (done 2026-07-08).
 - Owner and family annotating real photos happily.

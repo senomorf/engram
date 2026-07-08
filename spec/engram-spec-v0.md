@@ -7,7 +7,7 @@ bumping these and a design-doc decision (AGENTS.md rule).
 
 Identity:
 
-- XMP namespace: `https://ns.engram.photos/1.0/` (prefix `engram`), frozen.
+- XMP namespace: `https://ns.engram.cam/1.0/` (prefix `engram`), frozen.
 - Binary record magic: ASCII `EGRM`.
 - MP4 uuid box usertype: `7a0b5c4d-9e2f-4a31-8b6d-0c3e5f719246`.
 

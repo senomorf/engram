@@ -6,6 +6,13 @@ change lands under Unreleased at merge time.
 
 ## [Unreleased]
 
+### Changed
+
+- Identity moved to the registered engram.cam domain: XMP namespace is now
+  https://ns.engram.cam/1.0/ and the package/applicationId is cam.engram
+  (was the unregistered engram.photos / photos.engram). Done before any real
+  photo was written, so no format migration is implied.
+
 ### Added
 
 - Android app (Track B, M0 to M8): ingest of camera and screenshot media into

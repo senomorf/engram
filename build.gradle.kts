@@ -9,6 +9,6 @@ plugins {
 }
 
 allprojects {
-    group = "photos.engram"
+    group = "cam.engram"
     version = "0.1.0"
 }

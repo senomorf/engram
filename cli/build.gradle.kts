@@ -19,7 +19,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("photos.engram.cli.MainKt")
+    mainClass.set("cam.engram.cli.MainKt")
 }
 
 testing {

@@ -55,9 +55,11 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   choice inside the annotate flow.
 - D7 Stack: Kotlin everywhere. :core-format pure Kotlin (KMP-compilable),
   :app Jetpack Compose, :cli JVM tool from the same core.
-- D8 Identity: name Engram; domain engram.photos (owner registers [P0]);
-  XMP namespace https://ns.engram.photos/1.0/ frozen before the first real
-  photo is written; package prefix photos.engram; binary record magic EGRM.
+- D8 Identity: name Engram; domain engram.cam (registered 2026-07-08);
+  XMP namespace https://ns.engram.cam/1.0/, now frozen (no real family photo
+  written yet, so the pre-first-photo rename from the unregistered
+  engram.photos was free); package prefix cam.engram, Android applicationId
+  cam.engram.app; binary record magic EGRM.
 - D9 Dual-write: latest note text mirrored to standard caption fields so
   mainstream galleries display it natively. Implemented today: XMP
   dc:description, IPTC 2:120 caption (APP13), MP4 comment atom (moov-last
@@ -275,7 +277,7 @@ memory sessions, shared pool, iOS, spec publication, production release.
 ## 15. Phase 0 gates feeding this document
 
 Survivability matrix (appendix A), Google Photos rewrite behavior, Ultra HDR
-and Motion Photo coexistence, Russian transcription verdict, engram.photos
+and Motion Photo coexistence, Russian transcription verdict, engram.cam
 registration and namespace freeze, family device list (A1, A6, A8).
 
 ## Appendices
