@@ -21,6 +21,15 @@ class IptcTest {
     }
 
     @Test
+    fun upsertPreservesOtherPhotoshopResources() {
+        // a non-IPTC 8BIM resource (id 0x0405, empty name, 2 data bytes) must survive the caption upsert
+        val other =
+            byteArrayOf(0x38, 0x42, 0x49, 0x4D, 0x04, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x0A, 0x0B)
+        val updated = Iptc.upsertCaption(Iptc.APP13_HEADER + other, "kept caption")
+        assertEquals("kept caption", Iptc.readCaption(updated))
+    }
+
+    @Test
     fun readsNullWhenNoIptcResource() {
         assertNull(Iptc.readCaption(Iptc.APP13_HEADER))
     }

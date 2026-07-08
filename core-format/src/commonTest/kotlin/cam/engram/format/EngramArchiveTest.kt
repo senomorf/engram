@@ -33,7 +33,7 @@ class EngramArchiveTest {
     }
 
     @Test
-    fun rendersMp4AudioEnrichmentEscapingAndNoNote() {
+    fun rendersMp4AudioEnrichmentAndNoNote() {
         val item =
             EngramArchive.Item(
                 contentHashHex = "deadbeef",
@@ -41,19 +41,15 @@ class EngramArchiveTest {
                 records =
                     listOf(
                         EngramRecord(RecordKind.Audio, 5, AudioPayload.encode("audio/mp4", ByteArray(8))),
-                        EngramRecord(
-                            RecordKind.Enrichment,
-                            6,
-                            EnrichmentPayload(mapOf("place" to "Bay\tside")).encode(),
-                        ),
+                        EngramRecord(RecordKind.Enrichment, 6, EnrichmentPayload(mapOf("place" to "Bay\tside")).encode()),
                         EngramRecord(RecordKind.Transcript, 7, "line1\nline2".encodeToByteArray()),
                     ),
             )
         val rendered = EngramArchive.render(item)
         assertEquals("deadbeef_0.m4a", rendered.audio.single().fileName) // mp4 mime -> m4a extension
         assertTrue(rendered.json.contains("\"currentNote\":null"), rendered.json) // no note record
-        assertTrue(rendered.json.contains("\"enrichment\":{\"place\":\"Bay\\tside\"}"), rendered.json)
-        assertTrue(rendered.json.contains("line1\\nline2"), rendered.json) // control chars escaped
+        assertTrue(rendered.json.contains("\"enrichment\":{\"place\":\"Bay\\tside\"}"), rendered.json) // tab escaped
+        assertTrue(rendered.json.contains("line1\\nline2"), rendered.json) // newline escaped
     }
 
     @Test

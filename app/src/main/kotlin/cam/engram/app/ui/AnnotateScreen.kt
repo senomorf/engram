@@ -49,6 +49,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -225,6 +226,7 @@ private fun NoteField(
 }
 
 // recording-language badge (decoupled from UI language) plus the dictate mic
+@DeviceOnly
 @Composable
 private fun DictationControls(
     dictationTag: String,
@@ -310,6 +312,7 @@ private fun RecordButton(
     }
 }
 
+@DeviceOnly
 @Composable
 private fun AudioChip(
     path: String,
