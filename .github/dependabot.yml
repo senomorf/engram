@@ -4,6 +4,23 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # one PR per ecosystem instead of a swarm; keeps toolchain members together
+      androidx:
+        patterns: ["androidx.*"]
+    ignore:
+      # activity-compose >= 1.13 and lifecycle >= 2.11 require compileSdk 37;
+      # we hold at compileSdk 36 (Play target) until a deliberate SDK bump.
+      - dependency-name: "androidx.activity:activity-compose"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "androidx.lifecycle:*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Kotlin toolchain (compiler, KSP, compose plugin) must move together and
+      # is upgraded by hand; let only patch bumps through automatically.
+      - dependency-name: "org.jetbrains.kotlin*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "com.google.devtools.ksp*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
