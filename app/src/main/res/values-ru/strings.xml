@@ -77,7 +77,6 @@
     <string name="dictation_listening">Слушаю…</string>
     <string name="dictation_processing">Обработка…</string>
     <string name="dictation_error">Не расслышал. Попробуйте ещё раз.</string>
-    <string name="dictation_unavailable">Голосовой ввод недоступен на этом устройстве</string>
     <string name="error_unknown">неизвестная ошибка</string>
     <string name="digest_channel_name">Ежедневная сводка</string>
     <string name="digest_title">Некоторые моменты ждут</string>

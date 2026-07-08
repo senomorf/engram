@@ -138,23 +138,11 @@ private fun AnnotateCard(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            OutlinedTextField(
+            NoteField(
                 value = ui.text,
                 onValueChange = vm::onTextChange,
-                label = { Text(stringResource(R.string.annotate_note_hint)) },
+                speech = speech,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                minLines = 2,
-                trailingIcon =
-                    if (!speech.available) {
-                        null
-                    } else {
-                        {
-                            IconButton(onClick = speech.start) {
-                                Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.annotate_dictate))
-                            }
-                        }
-                    },
-                supportingText = dictationSupportingText(speech.status),
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -195,6 +183,33 @@ private fun AnnotateCard(
             }
         }
     }
+}
+
+@Composable
+private fun NoteField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    speech: SpeechInput,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(R.string.annotate_note_hint)) },
+        modifier = modifier,
+        minLines = 2,
+        trailingIcon =
+            if (!speech.available) {
+                null
+            } else {
+                {
+                    IconButton(onClick = speech.start) {
+                        Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.annotate_dictate))
+                    }
+                }
+            },
+        supportingText = dictationSupportingText(speech.status),
+    )
 }
 
 // live dictation state shown under the note field; silent when idle or when

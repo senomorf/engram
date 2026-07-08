@@ -61,6 +61,8 @@ fun ToolsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var export by remember { mutableStateOf<ExportState>(ExportState.Idle) }
     var verify by remember { mutableStateOf<VerifyState>(VerifyState.Idle) }
+    // resolved in composition; the failure lambda below runs off the UI thread
+    val unknownError = stringResource(R.string.error_unknown)
 
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -75,11 +77,7 @@ fun ToolsScreen(onBack: () -> Unit) {
                         runCatching { ArchiveExporter(context, context.appContainer().db).export(uri) }
                             .fold(
                                 onSuccess = { ExportState.Done(it) },
-                                onFailure = {
-                                    ExportState.Failed(
-                                        it.message ?: context.getString(R.string.error_unknown),
-                                    )
-                                },
+                                onFailure = { ExportState.Failed(it.message ?: unknownError) },
                             )
                 }
             }
