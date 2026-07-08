@@ -113,9 +113,11 @@ object Mp4Files {
 
     fun readRecords(file: File): List<RecordHit> {
         val engram = topLevel(file).lastOrNull { Mp4Codec.isEngramBox(it) } ?: return emptyList()
+        val payloadLen = engram.boxLength - engram.headerLength
+        if (payloadLen > Mp4Channels.MAX_RECORD_BOX_BYTES) throw Mp4FormatException("engram box too large: $payloadLen")
         RandomAccessFile(file, "r").use { raf ->
             raf.seek(engram.offset + engram.headerLength)
-            val payload = ByteArray((engram.boxLength - engram.headerLength).toInt())
+            val payload = ByteArray(payloadLen.toInt())
             raf.readFully(payload)
             return RecordStream.decodeSequence(payload)
         }

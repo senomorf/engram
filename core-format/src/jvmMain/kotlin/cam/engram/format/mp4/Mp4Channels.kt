@@ -31,9 +31,15 @@ object Mp4Channels {
         return boxes
     }
 
+    // a hostile/corrupt uuid box must not OOM the reader (review F15); real
+    // engram payloads are bounded by the ~10MB product soft cap, this is slack
+    const val MAX_RECORD_BOX_BYTES = 128L * 1024 * 1024
+
     fun readRecords(ch: SeekableByteChannel): List<RecordHit> {
         val engram = topLevel(ch).lastOrNull { Mp4Codec.isEngramBox(it) } ?: return emptyList()
-        val payload = ByteBuffer.allocate((engram.boxLength - engram.headerLength).toInt())
+        val payloadLen = engram.boxLength - engram.headerLength
+        if (payloadLen > MAX_RECORD_BOX_BYTES) throw Mp4FormatException("engram box too large: $payloadLen")
+        val payload = ByteBuffer.allocate(payloadLen.toInt())
         ch.position(engram.offset + engram.headerLength)
         while (payload.hasRemaining() && ch.read(payload) > 0) {
             // fill fully

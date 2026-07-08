@@ -38,4 +38,14 @@ class EngramArchiveTest {
             EngramArchive.manifest(3),
         )
     }
+
+    @Test
+    fun contentHashNameDistinguishesSameSizeSamePrefixFiles() {
+        // the old size+8-byte scheme collided here; a real digest must not (review F13)
+        val prefix = ByteArray(8) { 1 }
+        val a = prefix + ByteArray(24) { 0 }
+        val b = prefix + ByteArray(24) { 2 }
+        assertEquals(a.size, b.size)
+        assertTrue(EngramArchive.contentHashName(a) != EngramArchive.contentHashName(b))
+    }
 }

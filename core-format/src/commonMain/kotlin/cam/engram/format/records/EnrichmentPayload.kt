@@ -61,6 +61,8 @@ class EnrichmentPayload(
                 i += vl
                 fields[key] = value
             }
+            // trailing bytes after the declared fields mean corruption (review F14)
+            if (i != payload.size) return null
             return EnrichmentPayload(fields)
         }
     }

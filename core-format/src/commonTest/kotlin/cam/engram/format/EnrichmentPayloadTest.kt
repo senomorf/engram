@@ -30,4 +30,11 @@ class EnrichmentPayloadTest {
         val bytes = EnrichmentPayload(mapOf("a" to "b")).encode()
         assertNull(EnrichmentPayload.decode(bytes.copyOfRange(0, bytes.size - 1)))
     }
+
+    @Test
+    fun trailingBytesRejected() {
+        // extra bytes after the declared fields signal corruption (review F14)
+        val bytes = EnrichmentPayload(mapOf("a" to "b")).encode() + byteArrayOf(0, 0)
+        assertNull(EnrichmentPayload.decode(bytes))
+    }
 }

@@ -1,5 +1,6 @@
 package cam.engram.format.archive
 
+import cam.engram.format.Md5
 import cam.engram.format.read.Memory
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.toHex
@@ -134,5 +135,7 @@ object EngramArchive {
         return sb.append("\"").toString()
     }
 
-    fun contentHashName(bytes: ByteArray): String = bytes.size.toString(16) + "_" + bytes.take(8).toByteArray().toHex()
+    // a real digest, not size+prefix: distinct files never collide on their
+    // archive JSON/audio filenames (review F13)
+    fun contentHashName(bytes: ByteArray): String = Md5.of(bytes).toHex()
 }
