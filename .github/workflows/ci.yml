@@ -26,7 +26,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-kotlin-2.3.20
+          key: konan-${{ runner.os }}-kotlin-2.3.21
       - run: ./gradlew build :core-format:compileKotlinIosArm64 --console=plain
       - uses: actions/upload-artifact@v7
         with:
