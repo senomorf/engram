@@ -128,7 +128,13 @@ kover {
                     "cam.engram.app.enrich.OpenMeteoWeatherProvider*",
                     "cam.engram.app.work.MediaObserverService*",
                     "cam.engram.app.ui.LabScreenKt*",
+                    // SAF export/verify result callbacks: fire only on a real document-picker result
+                    "*exportLauncher*",
+                    "*verifyLauncher*",
                 )
+                // device-only code (MediaPlayer playback, SpeechRecognizer dictation) that cannot
+                // run on the JVM; the instrumented layer covers it (design D22)
+                annotatedBy("cam.engram.app.DeviceOnly")
             }
         }
         // interim floor below the current ~78%; target is 90% (see AGENTS.md). Closing the

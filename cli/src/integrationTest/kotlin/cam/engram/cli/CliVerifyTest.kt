@@ -1,5 +1,6 @@
 package cam.engram.cli
 
+import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
 import java.io.ByteArrayOutputStream
@@ -55,6 +56,24 @@ class CliVerifyTest {
         assertEquals(0, code, output)
         // the mirrored description carries the control chars; js() must escape them
         assertTrue(output.contains("line1\\nline2\\ttabbed"), output)
+    }
+
+    @Test
+    fun corruptedAudioRecordIsDamaged() {
+        val src = File(dir, "ac.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
+        val audio = File(dir, "ac.ogg").apply { writeBytes(ByteArray(128) { it.toByte() }) }
+        val out = File(dir, "ac-out.jpg")
+        run("generate", "--in", src.path, "--out", out.path, "--note", "n", "--audio", audio.path)
+        val bytes = out.readBytes()
+        // flip a byte inside the audio record's payload so its crc fails
+        val audioHit = RecordStream.scan(bytes).first { it.decoded.record?.kind == RecordKind.Audio }
+        // land inside the payload (past the ~47-byte header) so the record still decodes but its crc fails
+        val payloadByte = audioHit.offset + 60
+        bytes[payloadByte] = (bytes[payloadByte] + 1).toByte()
+        val corrupt = File(dir, "ac-corrupt.jpg").apply { writeBytes(bytes) }
+        val (code, output) = run("verify", "--in", corrupt.path, "--expect", out.path + Expectation.SUFFIX)
+        assertEquals(EXIT_DAMAGED, code, output)
+        assertTrue(output.contains("corrupted"), output)
     }
 
     @Test

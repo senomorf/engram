@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.export.ExportResult
@@ -118,6 +119,7 @@ fun ToolsScreen(onBack: () -> Unit) {
     }
 }
 
+@DeviceOnly
 @Composable
 private fun ExportStatus(state: ExportState) {
     when (state) {
@@ -129,6 +131,7 @@ private fun ExportStatus(state: ExportState) {
     }
 }
 
+@DeviceOnly
 @Composable
 private fun VerifyStatus(state: VerifyState) {
     when (state) {
