@@ -19,6 +19,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -28,6 +29,17 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+        }
+        // instrumented confidence layer (D22): a build-managed emulator covers the real platform
+        // adapters Kover excludes. Run with `./gradlew pixelApi34DebugAndroidTest` locally or in CI.
+        managedDevices {
+            localDevices {
+                create("pixelApi34") {
+                    device = "Pixel 6"
+                    apiLevel = 34
+                    systemImageSource = "aosp-atd"
+                }
+            }
         }
     }
 
@@ -67,6 +79,15 @@ dependencies {
     testImplementation(libs.work.testing)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+
+    androidTestImplementation(kotlin("test"))
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.coroutines.test)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
 detekt {
