@@ -96,7 +96,8 @@ private fun ToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, modifier = Modifier.padding(end = 12.dp))
+        // weight keeps a long label from sliding under the switch (wraps instead)
+        Text(label, modifier = Modifier.weight(1f).padding(end = 12.dp))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
