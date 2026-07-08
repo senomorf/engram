@@ -3,6 +3,7 @@ package cam.engram.format
 import cam.engram.format.archive.EngramArchive
 import cam.engram.format.records.AudioPayload
 import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.EnrichmentPayload
 import cam.engram.format.records.RecordKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +30,26 @@ class EngramArchiveTest {
         assertEquals(1, rendered.audio.size)
         assertEquals("abc123_0.ogg", rendered.audio.single().fileName)
         assertTrue(rendered.json.contains("abc123_0.ogg"))
+    }
+
+    @Test
+    fun rendersMp4AudioEnrichmentEscapingAndNoNote() {
+        val item =
+            EngramArchive.Item(
+                contentHashHex = "deadbeef",
+                originalName = "clip.mp4",
+                records =
+                    listOf(
+                        EngramRecord(RecordKind.Audio, 5, AudioPayload.encode("audio/mp4", ByteArray(8))),
+                        EngramRecord(RecordKind.Enrichment, 6, EnrichmentPayload(mapOf("place" to "Bay\tside")).encode()),
+                        EngramRecord(RecordKind.Transcript, 7, "line1\nline2".encodeToByteArray()),
+                    ),
+            )
+        val rendered = EngramArchive.render(item)
+        assertEquals("deadbeef_0.m4a", rendered.audio.single().fileName) // mp4 mime -> m4a extension
+        assertTrue(rendered.json.contains("\"currentNote\":null"), rendered.json) // no note record
+        assertTrue(rendered.json.contains("\"enrichment\":{\"place\":\"Bay\\tside\"}"), rendered.json)
+        assertTrue(rendered.json.contains("line1\\nline2"), rendered.json) // control chars escaped
     }
 
     @Test

@@ -86,6 +86,34 @@ class XmpCoreEngineTest {
     }
 
     @Test
+    fun readReturnsEmptyForGarbage() {
+        val s = engine.read("definitely not an xmp packet")
+        assertTrue(!s.hasEngram)
+        assertNull(s.description)
+    }
+
+    @Test
+    fun splitKeepsExistingDescriptionWhenNoMirror() {
+        val big = "C".repeat(70000)
+        val foreign =
+            """
+            <x:xmpmeta xmlns:x="adobe:ns:meta/">
+              <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                <rdf:Description rdf:about=""
+                    xmlns:dc="http://purl.org/dc/elements/1.1/"
+                    xmlns:t="http://test.example/ns/" t:Big="$big">
+                  <dc:description><rdf:Alt><rdf:li xml:lang="x-default">camera desc</rdf:li></rdf:Alt></dc:description>
+                </rdf:Description>
+              </rdf:RDF>
+            </x:xmpmeta>
+            """.trimIndent()
+        // mirrorDescription is null, so the split path must fall back to the existing description
+        val result = engine.apply(foreign, null, XmpUpdate(null, 5, 1), 60000)
+        assertNotNull(result.extendedPacket, "oversized packet must split")
+        assertEquals("camera desc", engine.read(result.standardPacket).description)
+    }
+
+    @Test
     fun extendedPacketMergesBackOnNextApply() {
         val big = "B".repeat(70000)
         val foreign =
