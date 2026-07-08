@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,11 +40,13 @@ fun MemoryDetailScreen(
 ) {
     val context = LocalContext.current
     val container = context.appContainer()
-    var uri by remember { mutableStateOf<String?>(null) }
+    // observe the row so returning from annotate (which bumps lastScanMillis)
+    // reloads the memory instead of showing the pre-annotation state (review F7)
+    val item by remember(mediaId) { container.db.media().flowById(mediaId) }
+        .collectAsState(initial = null)
+    val uri = item?.uri
     var memory by remember { mutableStateOf<Memory?>(null) }
-    LaunchedEffect(mediaId) {
-        val item = container.db.media().byId(mediaId)
-        uri = item?.uri
+    LaunchedEffect(item?.mediaId, item?.lastScanMillis, item?.recordCount) {
         memory = item?.let { container.memoryReader.read(it) }
     }
     Scaffold { padding ->
