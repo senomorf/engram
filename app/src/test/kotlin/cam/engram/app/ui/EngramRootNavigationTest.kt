@@ -11,14 +11,20 @@ import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
 import cam.engram.app.setScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /** Exercises the real EngramRoot gate + Navigator/MainNavigation by rendering and clicking through. */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class EngramRootNavigationTest {
     @get:Rule
@@ -27,8 +33,14 @@ class EngramRootNavigationTest {
     private val app = fakeContainer()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
 
+    @Before
+    fun setUp() = Dispatchers.setMain(Dispatchers.Unconfined)
+
     @After
-    fun tearDown() = app.db.close()
+    fun tearDown() {
+        Dispatchers.resetMain()
+        app.db.close()
+    }
 
     @Test
     fun navigatesFromHomeToQueue() {
