@@ -35,6 +35,35 @@ class MpfStrictTest {
     }
 
     @Test
+    fun badTiffEndianMarkerIsFlagged() {
+        val bytes = SyntheticMedia.jpegWithMpfSecondary()
+        bytes[tiffBase(bytes)] = 0x00 // neither II nor MM
+        assertTrue(MpfInspector.inspect(bytes).problems.any { it.contains("endian") })
+    }
+
+    @Test
+    fun badTiffMagicIsFlagged() {
+        val bytes = SyntheticMedia.jpegWithMpfSecondary()
+        val base = tiffBase(bytes)
+        bytes[base + 2] = 0x00
+        bytes[base + 3] = 0x00 // magic no longer 42
+        assertTrue(MpfInspector.inspect(bytes).problems.any { it.contains("magic") })
+    }
+
+    @Test
+    fun secondaryNotPointingAtSoiIsFlagged() {
+        val bytes = SyntheticMedia.jpegWithMpfSecondary()
+        val secondaryAt =
+            MpfInspector
+                .inspect(bytes)
+                .images[1]
+                .absoluteOffset!!
+                .toInt()
+        bytes[secondaryAt] = 0x00 // break the secondary image's SOI marker
+        assertTrue(MpfInspector.inspect(bytes).problems.any { it.contains("SOI") })
+    }
+
+    @Test
     fun validFixtureStaysValidUnderStrictChecks() {
         assertTrue(MpfInspector.inspect(SyntheticMedia.jpegWithMpfSecondary()).valid)
     }

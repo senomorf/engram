@@ -107,6 +107,19 @@ class Mp4FilesTest {
     }
 
     @Test
+    fun rejectsExistingEngramBoxNotAtEnd() {
+        val withEngram = out()
+        Mp4Files.appendRecords(tmp(SyntheticMedia.mp4Minimal()), withEngram, listOf(note(1, "one", 0x11, "w")))
+        // append a trailing free box so the engram box is no longer the last box
+        val freeBox =
+            byteArrayOf(0, 0, 0, 8, 'f'.code.toByte(), 'r'.code.toByte(), 'e'.code.toByte(), 'e'.code.toByte())
+        val notLast = out().apply { writeBytes(withEngram.readBytes() + freeBox) }
+        assertFailsWith<Mp4FormatException> {
+            Mp4Files.appendRecords(notLast, out(), listOf(note(2, "two", 0x22, "w")))
+        }
+    }
+
+    @Test
     fun rejectsEmptyRecordsAndSelfOverwrite() {
         val src = tmp(SyntheticMedia.mp4Minimal())
         assertFailsWith<IllegalArgumentException> { Mp4Files.appendRecords(src, out(), emptyList()) }

@@ -7,6 +7,7 @@ import cam.engram.format.png.PngFormatException
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
@@ -53,6 +54,13 @@ class FormatGuardsTest {
                     byteArrayOf(0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0x49, 0x48, 0x44, 0x52),
             )
         }
+    }
+
+    @Test
+    fun jpegRoundTripsStandaloneMarker() {
+        // SOI, a standalone TEM (0xFF01) parsed as a MarkerOnly, then EOI
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0x01, 0xFF.toByte(), 0xD9.toByte())
+        assertContentEquals(jpeg, JpegCodec.serialize(JpegCodec.parse(jpeg)))
     }
 
     @Test

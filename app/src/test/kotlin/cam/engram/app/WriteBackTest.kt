@@ -88,6 +88,18 @@ class WriteBackTest {
         }
 
     @Test
+    fun recoverPendingRestoresVideoWhenTargetNoLongerParses() =
+        runBlocking {
+            val uri = "content://media/50"
+            access.files[uri] = ByteArray(4) { 0x11 } // a broken target that will not parse as mp4
+            File(backupDir, "50.bak").writeBytes(SyntheticMedia.mp4Minimal())
+            File(backupDir, "50.meta").writeText("$uri\ntrue\nvideo/mp4")
+            writeBack.recoverPending()
+            // the pristine backup is restored because the target failed to parse
+            assertContentEquals(SyntheticMedia.mp4Minimal(), access.files[uri]!!)
+        }
+
+    @Test
     fun backupFailureIsReported() =
         runBlocking {
             // a DB row whose bytes are not in the fake resolver: the backup copy cannot be made
