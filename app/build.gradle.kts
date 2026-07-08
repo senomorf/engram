@@ -137,8 +137,9 @@ kover {
                 annotatedBy("cam.engram.app.DeviceOnly")
             }
         }
-        // interim floor below the current ~78%; target is 90% (see AGENTS.md). Closing the
-        // gap needs the screen-DI refactor or the instrumented layer, not more JVM tests.
-        verify { rule { minBound(76) } }
+        // floor set below the achieved ~91% with headroom for Compose-timing coverage variance;
+        // the residual to 95% is device-only Compose (MediaPlayer/SpeechRecognizer) covered by the
+        // instrumented layer (design D22). Floor only rises.
+        verify { rule { minBound(88) } }
     }
 }
