@@ -2,7 +2,10 @@ package cam.engram.format
 
 import cam.engram.format.read.Memory
 import cam.engram.format.records.AudioPayload
+import cam.engram.format.records.DecodedRecord
 import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.EnrichmentPayload
+import cam.engram.format.records.RecordHit
 import cam.engram.format.records.RecordKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -32,5 +35,19 @@ class MemoryTest {
         val memory = Memory.fromRecords(emptyList())
         assertEquals(null, memory.currentNote)
         assertEquals("", memory.searchableText())
+    }
+
+    @Test
+    fun fromHitsKeepsLatestEnrichment() {
+        val records =
+            listOf(
+                EngramRecord(RecordKind.Enrichment, 5, EnrichmentPayload(mapOf("place" to "old town")).encode()),
+                EngramRecord(RecordKind.Enrichment, 9, EnrichmentPayload(mapOf("place" to "new town")).encode()),
+                EngramRecord(RecordKind.Note, 1, "hello".encodeToByteArray()),
+            )
+        val hits = records.map { RecordHit(0, DecodedRecord(it, it.kind.code, 0, crcOk = true)) }
+        val memory = Memory.from(hits)
+        assertEquals("new town", memory.enrichment["place"]) // higher-ts enrichment wins
+        assertEquals("hello", memory.currentNote?.text)
     }
 }

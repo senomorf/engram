@@ -1,15 +1,20 @@
 package cam.engram.app.ui
 
+import android.Manifest
+import android.app.Application
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
+import cam.engram.app.data.db.DraftEntity
 import cam.engram.app.fakeContainer
 import cam.engram.app.seedItem
 import cam.engram.app.seedMemory
@@ -25,6 +30,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import java.io.File
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -85,5 +92,56 @@ class AnnotateScreenTest {
         compose.onNodeWithText(strings.getString(R.string.annotate_skip)).performClick()
         compose.waitUntil(5_000) { done }
         assertTrue(done)
+    }
+
+    @Test
+    fun showsAudioChipWhenDraftHasRecording() {
+        val ogg = File.createTempFile("draft-audio", ".ogg").apply { writeBytes(ByteArray(64) { 1 }) }
+        runBlocking {
+            app.seedItem(3)
+            app.db.drafts().upsert(
+                DraftEntity(mediaId = 3, text = null, audioPath = ogg.absolutePath, updatedMillis = 1),
+            )
+        }
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(3), startIndex = 0, onDone = {}) }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_play)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_play)).assertIsDisplayed()
+    }
+
+    @Test
+    fun recordButtonRequestsMicWhenUngranted() {
+        runBlocking { app.seedItem(5) }
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(5), startIndex = 0, onDone = {}) }
+        compose.waitUntil(5_000) {
+            compose
+                .onAllNodesWithText(strings.getString(R.string.annotate_hold_to_record))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        // no mic permission: the click path launches the permission request rather than recording
+        compose.onNodeWithText(strings.getString(R.string.annotate_hold_to_record)).performClick()
+        compose.onNodeWithText(strings.getString(R.string.annotate_hold_to_record)).assertIsDisplayed()
+    }
+
+    @Test
+    fun recordButtonRunsGestureWhenMicGranted() {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.RECORD_AUDIO)
+        runBlocking { app.seedItem(6) }
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(6), startIndex = 0, onDone = {}) }
+        compose.waitUntil(5_000) {
+            compose
+                .onAllNodesWithText(strings.getString(R.string.annotate_hold_to_record))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        // press-and-release drives the detectTapGestures onPress/onStop path (noop recorder)
+        compose.onNodeWithText(strings.getString(R.string.annotate_hold_to_record)).performTouchInput {
+            down(center)
+            up()
+        }
+        compose.onRoot().assertExists()
     }
 }
