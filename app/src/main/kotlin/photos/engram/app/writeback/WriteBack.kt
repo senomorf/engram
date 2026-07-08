@@ -9,12 +9,16 @@ sealed interface WriteOutcome {
     data class Success(
         val recordCount: Int,
         val payloadLength: Long,
+        val overSoftCap: Boolean = false,
     ) : WriteOutcome
 
     data class Failed(
         val reason: String,
     ) : WriteOutcome
 }
+
+// design D13: warn past ~10MB embedded payload, never silently prune
+const val SOFT_CAP_BYTES = 10L * 1024 * 1024
 
 /** Payload of one save: what the user recorded for one media item. */
 data class Annotation(

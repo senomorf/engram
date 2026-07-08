@@ -2,12 +2,18 @@ package photos.engram.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import photos.engram.app.appContainer
 
 /**
- * Hand-rolled navigation: a screen stack of plain values. Five screens do not
- * justify a navigation library (and its alpha-channel churn); BackHandler
+ * Hand-rolled navigation: a screen stack of plain values. A handful of screens
+ * do not justify a navigation library (and its alpha-channel churn); BackHandler
  * plus a SnapshotStateList covers push, pop and replace.
  */
 sealed interface Screen {
@@ -27,6 +33,8 @@ sealed interface Screen {
     data class Detail(
         val mediaId: Long,
     ) : Screen
+
+    data object Tools : Screen
 
     data object Lab : Screen
 }
@@ -49,6 +57,28 @@ class Navigator internal constructor(
 
 @Composable
 fun EngramRoot(startInQueue: Boolean = false) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val onboardingDone by produceState<Boolean?>(initialValue = null) {
+        value =
+            context
+                .appContainer()
+                .settings
+                .current()
+                .onboardingDone
+    }
+    when (onboardingDone) {
+        null -> Unit // brief settings read; nothing to draw yet
+        false ->
+            OnboardingScreen(onDone = {
+                scope.launch { context.appContainer().settings.setOnboardingDone(true) }
+            })
+        else -> MainNavigation(startInQueue)
+    }
+}
+
+@Composable
+private fun MainNavigation(startInQueue: Boolean) {
     val stack =
         remember {
             mutableStateListOf<Screen>(Screen.Home).apply {
@@ -62,6 +92,7 @@ fun EngramRoot(startInQueue: Boolean = false) {
             HomeScreen(
                 onOpenQueue = { navigator.push(Screen.Queue) },
                 onOpenBrowse = { navigator.push(Screen.Browse) },
+                onOpenTools = { navigator.push(Screen.Tools) },
                 onOpenSettings = { navigator.push(Screen.Settings) },
                 onOpenLab = { navigator.push(Screen.Lab) },
             )
@@ -72,6 +103,7 @@ fun EngramRoot(startInQueue: Boolean = false) {
                 mediaId = screen.mediaId,
                 onAnnotate = { navigator.push(Screen.Annotate(listOf(it), 0)) },
             )
+        is Screen.Tools -> ToolsScreen()
         is Screen.Queue ->
             QueueScreen(
                 onAnnotate = { ids, index -> navigator.push(Screen.Annotate(ids, index)) },

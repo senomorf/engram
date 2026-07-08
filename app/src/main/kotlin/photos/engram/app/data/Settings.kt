@@ -18,6 +18,7 @@ data class EngramSettings(
     val digestHour: Int = DEFAULT_DIGEST_HOUR,
     val burstNudgeEnabled: Boolean = false,
     val enrichmentNetworkEnabled: Boolean = true,
+    val onboardingDone: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_DIGEST_HOUR = 20
@@ -33,6 +34,7 @@ class SettingsStore(
         val digestHour = intPreferencesKey("digest_hour")
         val burst = booleanPreferencesKey("burst_enabled")
         val enrichmentNetwork = booleanPreferencesKey("enrichment_network")
+        val onboarding = booleanPreferencesKey("onboarding_done")
     }
 
     val settings: Flow<EngramSettings> =
@@ -50,6 +52,8 @@ class SettingsStore(
 
     suspend fun setEnrichmentNetwork(value: Boolean) = put(Keys.enrichmentNetwork, value)
 
+    suspend fun setOnboardingDone(value: Boolean) = put(Keys.onboarding, value)
+
     private suspend fun <T> put(
         key: Preferences.Key<T>,
         value: T,
@@ -64,5 +68,6 @@ class SettingsStore(
             digestHour = this[Keys.digestHour] ?: EngramSettings.DEFAULT_DIGEST_HOUR,
             burstNudgeEnabled = this[Keys.burst] ?: false,
             enrichmentNetworkEnabled = this[Keys.enrichmentNetwork] ?: true,
+            onboardingDone = this[Keys.onboarding] ?: false,
         )
 }

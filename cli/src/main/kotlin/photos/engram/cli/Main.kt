@@ -20,6 +20,7 @@ usage:
   engram generate --in <file> --out <file> [--note <text>] [--audio <file> [--mime <type>]]
   engram inspect --in <file>
   engram verify --in <file> [--expect <file>] [--json]
+  engram archive --in <file> --out <dir>
   engram selftest
 
 generate embeds engram records, mirrors the note into standard caption fields
@@ -46,6 +47,10 @@ fun cliMain(args: Array<String>): Int =
                 0
             }
             "verify" -> verify(Args(args))
+            "archive" -> {
+                archive(Args(args))
+                0
+            }
             "selftest" -> {
                 selftest()
                 0

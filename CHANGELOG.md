@@ -8,6 +8,21 @@ change lands under Unreleased at merge time.
 
 ### Added
 
+- Android app (Track B, M0 to M8): ingest of camera and screenshot media into
+  a Room index; annotation queue with text notes and hold-to-record Opus voice;
+  transactional write-back into the media file with MediaStore consent, crash-
+  safe backup/restore and strip-detection re-embed; daily digest and optional
+  post-burst nudge with a settings screen; browse timeline, full-text search
+  over notes and transcripts, and a memory detail view with note history and
+  audio playback; EXIF-derived enrichment (place via Geocoder, weather via
+  keyless Open-Meteo) written alongside the next save; Engram Archive export to
+  a SAF folder, in-app backup verifier, size-cap warning, RU and EN strings,
+  three-screen onboarding including the backup-honesty page; a transcription
+  lab and write-back spike screen for Phase 0 device checks.
+- CLI archive command mirroring the app's Engram Archive export.
+- Enrichment record payload (spec v0.2) and the container-agnostic Memory
+  reading view, both in :core-format.
+- Format spec draft (spec/engram-spec-v0.md).
 - Design document (docs/design.md), rolling plan (docs/plan.md), roadmap
   (docs/roadmap.md), docs map (docs/README.md).
 - Engram record wire format v0: self-delimiting CRC-protected records (note,

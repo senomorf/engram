@@ -27,7 +27,10 @@ internal class ExtractedRecord(
     val tsMillis: Long,
     val crcOk: Boolean,
     val payload: ByteArray?,
-)
+    val record: photos.engram.format.records.EngramRecord?,
+) {
+    fun toEngramRecord() = record?.takeIf { crcOk }
+}
 
 internal data class Extraction(
     val container: Container,
@@ -57,6 +60,7 @@ private fun toExtracted(decoded: List<DecodedRecord>): List<ExtractedRecord> =
             tsMillis = d.record?.tsMillis ?: 0,
             crcOk = d.crcOk,
             payload = d.record?.payload,
+            record = d.record,
         )
     }
 

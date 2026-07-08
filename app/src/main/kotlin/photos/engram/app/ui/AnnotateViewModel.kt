@@ -26,7 +26,9 @@ sealed interface SaveUi {
         val reason: String,
     ) : SaveUi
 
-    data object Saved : SaveUi
+    data class Saved(
+        val overSoftCap: Boolean,
+    ) : SaveUi
 }
 
 data class AnnotateState(
@@ -98,7 +100,7 @@ class AnnotateViewModel(
         val s = state.value
         val item = s.item ?: return
         if (!hasContent()) {
-            state.value = s.copy(save = SaveUi.Saved)
+            state.value = s.copy(save = SaveUi.Saved(overSoftCap = false))
             return
         }
         state.value = s.copy(save = SaveUi.Saving)
@@ -118,7 +120,7 @@ class AnnotateViewModel(
                     is WriteOutcome.Success -> {
                         container.db.drafts().delete(mediaId)
                         s.audioPath?.let { File(it).delete() }
-                        state.value.copy(save = SaveUi.Saved)
+                        state.value.copy(save = SaveUi.Saved(overSoftCap = outcome.overSoftCap))
                     }
                     is WriteOutcome.Failed ->
                         if (outcome.reason == "media write rejected") {

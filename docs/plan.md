@@ -32,11 +32,14 @@ minSdk 33 pending family device list (design A1).
 - A5 Landmine register verdicts (previous section 0.5 list, unchanged) get
   recorded in lab/survivability-matrix.md as they land.
 
-## Track B: v1 implementation milestones (agent-completable)
+## Track B: v1 implementation milestones (COMPLETE)
 
-Definition of done for every milestone: `./gradlew build` green (tests, both
-linters, iOS tripwire), CHANGELOG updated, docs touched per docs/README.md.
-UI milestones additionally produce an emulator screenshot as evidence.
+All milestones M0 to M8 landed and build green (`./gradlew build` plus
+`:core-format:compileKotlinIosArm64`: unit tests, integration tests, ktlint,
+detekt, AGP lint, iOS klib tripwire). Emulator screenshot evidence is the one
+deferred item: this build environment lacks `/dev/kvm` access, so live UI
+screenshots must come from the owner's machine or CI. Definition of done for
+every milestone was: build green, CHANGELOG updated, docs touched.
 
 - M0 Spec draft: write spec/engram-spec-v0.md from the implemented reality
   (record frame with id and writer, bindings, ExtendedXMP, caption mirrors,

@@ -119,7 +119,11 @@ class MediaWriteBack(
             scanner.scan(item.uri, item.isVideo, item.mime)
                 ?: return WriteOutcome.Failed("verification could not read file back")
         if (outcome.recordCount == 0) return WriteOutcome.Failed("verification found no records after write")
-        return WriteOutcome.Success(outcome.recordCount, outcome.payloadLength)
+        return WriteOutcome.Success(
+            recordCount = outcome.recordCount,
+            payloadLength = outcome.payloadLength,
+            overSoftCap = outcome.payloadLength > SOFT_CAP_BYTES,
+        )
     }
 
     private suspend fun finishSuccess(

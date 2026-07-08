@@ -90,6 +90,11 @@ private fun AnnotateCard(
     LaunchedEffect(ui.save) {
         when (val save = ui.save) {
             is SaveUi.Saved -> {
+                if (save.overSoftCap) {
+                    android.widget.Toast
+                        .makeText(context, R.string.annotate_over_cap, android.widget.Toast.LENGTH_LONG)
+                        .show()
+                }
                 vm.consumeSaved()
                 onNext()
             }
@@ -156,13 +161,13 @@ private fun AnnotateCard(
             }
             Button(
                 onClick = vm::save,
-                enabled = ui.save != SaveUi.Saving,
+                enabled = ui.save !is SaveUi.Saving,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
                 Text(
                     stringResource(
                         when {
-                            ui.save == SaveUi.Saving -> R.string.annotate_saving
+                            ui.save is SaveUi.Saving -> R.string.annotate_saving
                             vm.hasContent() -> R.string.annotate_save
                             else -> R.string.annotate_done
                         },

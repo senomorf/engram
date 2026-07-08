@@ -16,6 +16,7 @@ ksp = "2.3.9"
 coroutines = "1.10.2"
 datastore = "1.2.1"
 exifinterface = "1.4.2"
+documentfile = "1.1.0"
 androidx-test-core = "1.7.0"
 androidx-test-junit = "1.3.0"
 
@@ -37,6 +38,7 @@ coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

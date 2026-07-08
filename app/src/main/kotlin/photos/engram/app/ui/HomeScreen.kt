@@ -30,6 +30,7 @@ import photos.engram.app.appContainer
 fun HomeScreen(
     onOpenQueue: () -> Unit,
     onOpenBrowse: () -> Unit = {},
+    onOpenTools: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenLab: () -> Unit = {},
 ) {
@@ -82,6 +83,9 @@ fun HomeScreen(
                 modifier = Modifier.padding(top = 8.dp),
             ) {
                 Text(stringResource(R.string.open_browse))
+            }
+            TextButton(onClick = onOpenTools) {
+                Text(stringResource(R.string.open_tools))
             }
             TextButton(onClick = onOpenSettings) {
                 Text(stringResource(R.string.open_settings))

@@ -3,14 +3,28 @@
 Engram: embeds memories (text, voice) into media files. Before non-trivial work
 read docs/design.md (decisions D1-D20, assumptions A1-A8). Docs map: docs/README.md.
 
+## Modules
+
+- :core-format pure-Kotlin format engine (records, JPEG/PNG/MP4 bindings, XMP,
+  Memory reading view, archive). :cli JVM reference tool. :app Android (Compose,
+  Room, WorkManager, manual DI in AppContainer).
+
 ## Commands
 
-- verify everything: `./gradlew build` (compiles, unit + integration tests, ktlint, detekt)
+- verify everything: `./gradlew build` (compiles, unit + integration tests, ktlint, detekt, AGP lint)
 - iOS portability tripwire: `./gradlew :core-format:compileKotlinIosArm64` (also in CI)
 - autofix formatting: `./gradlew ktlintFormat` (run after editing Kotlin, before commit)
+- android debug apk + unit tests: `./gradlew :app:assembleDebug :app:testDebugUnitTest`
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
-- inspect a media file: `./gradlew :cli:run --args="inspect --in <file>"`
 - survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
+
+## Environment gotchas
+
+- SDK bootstrapped at ~/Android/Sdk; local.properties points to it. Set ANDROID_HOME for CLI gradle runs.
+- Emulator needs /dev/kvm; this box lacks it (user not in kvm group). UI screenshots must come from CI or the owner's machine.
+- AGP 9 built-in Kotlin: no standalone kotlin-android plugin in :app; compose-compiler plugin is still required.
+- Room suspend DAOs run off the test scheduler: use runBlocking + real settle in ViewModel tests, not advanceUntilIdle.
+- Compose PascalCase functions are exempted from ktlint/detekt naming via config; do not rename them.
 
 ## Rules
 
