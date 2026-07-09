@@ -26,6 +26,7 @@ import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.export.ExportResult
+import cam.engram.app.export.SafArchiveSink
 import cam.engram.app.verify.BackupVerifier
 import cam.engram.app.verify.Survival
 import kotlinx.coroutines.launch
@@ -75,11 +76,13 @@ fun ToolsScreen(onBack: () -> Unit) {
                 scope.launch {
                     export = ExportState.Running
                     export =
-                        runCatching { ArchiveExporter(context, container.db).export(uri) }
-                            .fold(
-                                onSuccess = { ExportState.Done(it) },
-                                onFailure = { ExportState.Failed(it.message ?: unknownError) },
-                            )
+                        runCatching {
+                            val sink = SafArchiveSink.open(context, uri) ?: error("cannot open chosen folder")
+                            ArchiveExporter(container.db, container.access).exportTo(sink)
+                        }.fold(
+                            onSuccess = { ExportState.Done(it) },
+                            onFailure = { ExportState.Failed(it.message ?: unknownError) },
+                        )
                 }
             }
         }
@@ -126,7 +129,12 @@ private fun ExportStatus(state: ExportState) {
         ExportState.Idle -> Unit
         ExportState.Running -> Text(stringResource(R.string.tools_exporting))
         is ExportState.Done ->
-            Text(stringResource(R.string.tools_export_done, state.result.itemCount, state.result.audioCount))
+            Column {
+                Text(stringResource(R.string.tools_export_done, state.result.itemCount, state.result.audioCount))
+                if (state.result.failedCount > 0) {
+                    Text(stringResource(R.string.tools_export_partial, state.result.failedCount))
+                }
+            }
         is ExportState.Failed -> Text(stringResource(R.string.tools_export_failed, state.message))
     }
 }
