@@ -75,17 +75,8 @@ jobs:
           arch: x86_64
           target: aosp_atd
           disable-animations: true
-          script: |
-            adb install -r engram.apk
-            adb logcat -c
-            adb shell monkey -p cam.engram.app -c android.intent.category.LAUNCHER 1 || true
-            sleep 5
-            adb logcat -d > logcat.txt
-            if grep -E "FATAL EXCEPTION|ANR in cam.engram.app" logcat.txt; then
-              echo "::error::release APK crashed on launch"; tail -60 logcat.txt; exit 1
-            fi
-            adb shell pidof cam.engram.app >/dev/null || { echo "::error::app not running after launch"; tail -60 logcat.txt; exit 1; }
-            echo "smoke ok: cam.engram.app launched without crash"
+          # the action runs `script` line by line, so keep the logic in a file bash parses whole
+          script: bash scripts/smoke-apk.sh engram.apk
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
