@@ -45,6 +45,6 @@ kover {
             }
         }
         // line-coverage floor; raise toward 100 as coverage climbs, never lower (see AGENTS.md)
-        verify { rule { minBound(95) } }
+        verify { rule { minBound(97) } }
     }
 }
