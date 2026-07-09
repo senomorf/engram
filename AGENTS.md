@@ -40,7 +40,7 @@ rationale. Docs map and update rules: docs/README.md.
 - XMP namespace https://ns.engram.cam/1.0/ is frozen; wire-format changes need a spec version bump and a design decision.
 - Records are append-only; nothing may silently drop or rewrite existing payload.
 - Escape NUL as `\u0000` in source, never literal control bytes.
-- lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
+- lab/corpus/ holds private personal media: never commit contents, never weaken its .gitignore.
 - Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). New code vs spec files go under the right one.
 - Bug fix flow: reproduce with a failing test in core-format first.
 - Testing (D22): integration/scenario tests are the primary, required way to cover new functionality: drive the real surface end to end (cli via `cliMain`, screens via `fakeContainer()` + `setScreen` with `seedItem`/`seedMemory`, codecs on real bytes via `SyntheticMedia`). Every feature or fix ships integration coverage. Unit tests are a narrow supplement, only when (a) a behavior is impractical to reach via integration and a unit test is materially faster/simpler (deep guard branches, awkward error paths), or (b) it guards a critical invariant we want to fail fast on. Never add broad unit suites for code integration tests already cover. Structure, patterns, rationale: design.md D22.

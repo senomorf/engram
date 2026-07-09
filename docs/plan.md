@@ -13,7 +13,7 @@ radius is one module.
 Assumptions in force (confirmed 2026-07-08): namespace
 https://ns.engram.cam/1.0/ is frozen (engram.cam registered 2026-07-08,
 package renamed to cam.engram); enrichment defaults to keyless providers
-(Open-Meteo weather, platform Geocoder places); minSdk 33 pending family
+(Open-Meteo weather, platform Geocoder places); minSdk 33 pending the target
 device list (design A1).
 
 ## Track A: verification lab (owner-gated, checklists ready)
@@ -87,7 +87,7 @@ milestone was: build green, CHANGELOG updated, docs touched.
   RU + EN strings (D20), onboarding screens incl. the backup-honesty page.
 - M9 Release prep [OWNER]: release keystore and signing config, a signed APK on
   GitHub Releases (D17) linked from engram.cam, device QA script. Owner: sign and
-  publish the release, install on family devices.
+  publish the release, install on target devices.
 
 Milestone order is dependency-driven: M2 before M3 before M4; M5 to M8 can
 interleave after M4. Matrix verdicts (track A) may inject work into M4/M8
@@ -97,8 +97,8 @@ wording and behavior; nothing else depends on them.
 
 - Track A: matrix rows 1 to 11 filled; landmine verdicts recorded; A1/A6/A8
   device facts confirmed; transcription verdict recorded (D15).
-- Track B: M0 to M8 complete and green; M9 installed on the family's phones.
+- Track B: M0 to M8 complete and green; M9 installed on target devices.
 - Coverage: per-module Kover floors + aggregate gate green in CI; core-format ~98%,
   cli ~98%, app ~92% (floors 97/97/90), aggregate ~95.4% enforced at 95% (D22).
 - engram.cam registered and namespace confirmed (done 2026-07-08).
-- Owner and family annotating real photos happily.
+- The owner and early adopters annotating real photos happily.

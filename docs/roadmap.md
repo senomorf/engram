@@ -4,7 +4,7 @@ Record of intent, not commitment. Ordering is rough; nothing here constrains v1
 (docs/design.md section 13 defines v1). Items graduate into the design doc when
 they get scheduled.
 
-## v1.x (after family adoption, small increments)
+## v1.x (after initial adoption, small increments)
 
 - Bake-out sharing: caption burn-in for stripping destinations; photo plus voice
   note rendered as a short video; share-as-file shortcuts with disclosure.
@@ -50,7 +50,7 @@ Deferred, rough order:
 - iOS port. Gate: real demand from an iPhone user we care about, plus a
   re-evaluation of PhotoKit constraints at that time, plus access to an iPhone
   for testing. Guardrails that keep this possible are design doc section 10.
-- Shared family pool: one photo set annotated by several people (synced folder
+- Shared pool: one photo set annotated by several people (synced folder
   or shared album). Multi-writer merge and sync semantics; the format already
   carries writer id so no migration is needed, everything else is new work.
 - Web viewer: read-only Engram reader in the browser (drop a file, see and hear
