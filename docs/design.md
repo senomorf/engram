@@ -112,23 +112,46 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   stable; the Robolectric test SDK trails compileSdk (pinned to 36) until a release
   adds 37. CI adds CodeQL code scanning and dependency review. Deferred modernization
   (adaptive layouts, Material 3 Expressive, in-app predictive-back previews): roadmap.
-- D22 Test coverage: Kover measures line coverage per module with a `koverVerify`
-  floor wired into `check`, so `./gradlew build` enforces it. Target is 95%+ for
-  every module (destination: all code under some test, with user-facing scenario
-  tests for every case and corner case); floors only ever rise. Achieved:
-  core-format ~97%, cli ~98%, app ~91% (up from 78% once the LocalAppContainer
-  seam let screens render against a fake container); enforced floors 95/95/88 with
-  headroom for Compose-timing coverage variance. Tests are integration/scenario-
-  first over isolated unit tests, and integration coverage counts: the cli number
-  comes entirely from its integrationTest suite. Kover cannot measure on-device
-  instrumented tests, so counted coverage is JVM plus Robolectric only; the thin
-  real platform adapters (MediaStore, SAF, SpeechRecognizer, MediaRecorder,
-  Geocoder), the debug LabScreen, and device-only Compose marked `@DeviceOnly`
-  (MediaPlayer playback, dictation, SAF result callbacks) are excluded from the
-  number and exercised by a separate instrumented androidTest layer (Gradle
-  Managed Devices) that is a confidence net, not part of the percentage. The
-  aggregate sits at ~95%; the residual is that device-only Compose plus timing
-  variance, not untested logic.
+- D22 Testing and coverage.
+
+  Policy: integration/scenario tests are the primary, required way to cover new
+  functionality; unit tests are a narrow supplement. Every change ships with tests,
+  and coverage is measured, floored, and gated.
+
+  Why integration-first: what we want confidence in is that real, user-facing flows
+  work, so tests drive the real surface as close to end to end as possible rather than
+  isolated units, and that integration coverage is what counts toward the number (the
+  cli figure comes entirely from its integrationTest suite). Unit tests earn their
+  place only when (a) the behavior is impractical to reach through an integration test
+  and a unit test is materially faster or simpler (deep format-guard branches, awkward
+  error injection), or (b) they guard a critical invariant we want to fail fast on when
+  it is broken accidentally. They are a targeted supplement, never the default, and are
+  not added for code an integration test already covers.
+
+  Structure, two layers. (1) JVM + Robolectric, run under `./gradlew build`, measured
+  by Kover, gated by the floors: core-format commonTest/jvmTest drive the codecs on
+  real bytes (SyntheticMedia fixtures); cli integrationTest drives `cliMain` end to
+  end; app test covers ViewModels, workers, and Compose screens rendered against a
+  fake container. (2) Instrumented androidTest on a Gradle Managed Device
+  (instrumented.yml, every PR) exercises the real platform adapters Kover cannot
+  measure on-device; it is a confidence net, not part of the percentage, and it has
+  already caught bugs the JVM layer could not (a coroutines version skew that only
+  surfaced in the packaged APK).
+
+  Key decisions. Screens resolve their AppContainer from the LocalAppContainer
+  CompositionLocal, so a test hands them `fakeContainer()` (in-memory Room +
+  FakeContentAccess + rows seeded via seedItem/seedMemory) and asserts populated
+  renders and interactions; that seam took app from 78% to ~92%. Device-only Compose
+  (MediaPlayer playback, SpeechRecognizer dictation, SAF result callbacks) is marked
+  `@DeviceOnly` and excluded, along with the thin real platform adapters (MediaStore,
+  SAF, MediaRecorder, Geocoder) and the debug LabScreen; the instrumented layer covers
+  them. Counted coverage is therefore JVM + Robolectric only.
+
+  Enforcement. Per-module `koverVerify` floors (core-format/cli 97, app 90) run inside
+  `check`; the root `koverVerifyAggregate` task defends the combined 95%; both run in
+  CI. Achieved ~98/98/92 per module, aggregate ~95.4%. Floors only ever rise, and they
+  sit below the achieved numbers on purpose: Compose async timing gives ~0.5% run-to-
+  run coverage variance, so a floor must clear the low end of a run, not its average.
 
 ## 5. Assumptions register
 
