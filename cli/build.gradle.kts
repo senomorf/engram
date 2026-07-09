@@ -45,7 +45,7 @@ tasks.named("check") {
 kover {
     reports {
         // coverage comes entirely from the integrationTest suite (there is no unit test suite)
-        verify { rule { minBound(95) } }
+        verify { rule { minBound(97) } }
     }
 }
 
