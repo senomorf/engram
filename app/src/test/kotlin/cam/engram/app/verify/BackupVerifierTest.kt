@@ -38,6 +38,18 @@ class BackupVerifierTest {
             EngramRecord(RecordKind.Audio, 2, AudioPayload.encode("audio/ogg", ByteArray(20) { 4 })),
         )
 
+    private fun oneNote() = listOf(EngramRecord(RecordKind.Note, 1, "at the lake".encodeToByteArray()))
+
+    // corrupt the first record's payload in place: keeps the frame length so the record
+    // still decodes, but its CRC no longer matches (a bad-CRC record, not a missing one)
+    private fun corruptFirstRecordPayload(bytes: ByteArray): ByteArray {
+        val magic = EngramRecord.MAGIC
+        val at = (0..bytes.size - magic.size).first { i -> magic.indices.all { bytes[i + it] == magic[it] } }
+        return bytes.copyOf().also {
+            it[at + EngramRecord.HEADER_LEN] = (it[at + EngramRecord.HEADER_LEN] + 1).toByte()
+        }
+    }
+
     private fun verify(
         uri: String,
         bytes: ByteArray,
@@ -104,5 +116,28 @@ class BackupVerifierTest {
         assertEquals(Survival.FULL, report.summary)
         assertTrue(report.hasNote)
         assertEquals(1, report.audioClips)
+    }
+
+    @Test
+    fun pngWithCorruptRecordReportsDamagedNotFull() {
+        val bytes = PngEmbedder(XmpCoreEngine()).embed(SyntheticMedia.png1x1(), oneNote(), null)
+        val report = verify("content://x/7", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
+        assertFalse(report.hasNote)
+    }
+
+    @Test
+    fun mp4WithCorruptRecordReportsDamagedNotFull() {
+        val bytes = Mp4Codec.embed(SyntheticMedia.mp4MoovLast(), oneNote())
+        val report = verify("content://x/8", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
+        assertFalse(report.hasNote)
+    }
+
+    @Test
+    fun jpegWithCorruptRecordReportsDamaged() {
+        val bytes = JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), oneNote(), null)
+        val report = verify("content://x/9", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
     }
 }
