@@ -153,6 +153,17 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   sit below the achieved numbers on purpose: Compose async timing gives ~0.5% run-to-
   run coverage variance, so a floor must clear the low end of a run, not its average.
 
+- D23 Dependency security posture. Shipped artifacts carry only their declared runtime
+  graphs (app AndroidX/Compose/Room/coroutines, cli core-format + kotlinx, core-format
+  pure Kotlin). Dependabot alerts attributed to settings.gradle.kts are Android Gradle
+  Plugin build/plugin-classpath transitives (netty, bouncycastle, logback, jose4j,
+  jdom2, opentelemetry): build-time only, never shipped, and their vulnerable paths
+  (GOST cipher, JWE parse, XXE, netty TLS/HTTP2 to attacker endpoints) are not invoked
+  by a build that talks only to trusted repos over TLS. Not fixable via Dependabot (no
+  manifest to bump), and force-pinning AGP transitives is fragile for no user benefit.
+  Triage: dismiss as tolerable_risk with a comment; do not add buildscript pins or
+  chase AGP for them.
+
 ## 5. Assumptions register
 
 - A1 All target devices run Android 13+. Verify by collecting the
