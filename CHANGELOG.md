@@ -6,6 +6,27 @@ change lands under Unreleased at merge time.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-10
+
+### Fixed
+
+- Write-back recovery no longer deletes a memory's backup when a crash leaves the media
+  file parseable but missing its records; recovery now confirms the expected records are
+  present before clearing the backup.
+- The backup verifier no longer reports a file with CRC-corrupted records as fully
+  survived: it flags corrupted-but-present memories as damaged across JPEG, PNG, and MP4.
+- Engram Archive export names each entry by the media content hash so it stays matchable
+  across reinstall, and reports a failed write instead of silently counting it a success.
+- Records of a kind a newer version might add are preserved through the strip-recovery
+  cache and re-embed, so restoring memories can no longer drop them.
+- Enrichment degrades gracefully when the device place-name backend errors: it no longer
+  stalls, and weather still attaches.
+
+### Changed
+
+- Network enrichment (weather and place names) is now opt-in and off by default; the
+  setting discloses that enabling it sends the photo's location to an online provider.
+
 ## [0.1.0] - 2026-07-09
 
 ### Changed
