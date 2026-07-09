@@ -1,6 +1,7 @@
 package cam.engram.app
 
 import androidx.test.core.app.ApplicationProvider
+import cam.engram.app.data.EngramSettings
 import cam.engram.app.data.SettingsStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -27,5 +28,15 @@ class SettingsStoreTest {
         runBlocking {
             store.setOnboardingDone(true)
             assertEquals(true, store.current().onboardingDone)
+        }
+
+    @Test
+    fun enrichmentNetworkIsOffByDefaultAndOptsIn() =
+        runBlocking {
+            // privacy default: photo GPS never leaves the device until the user opts in (finding C)
+            assertEquals(false, EngramSettings().enrichmentNetworkEnabled)
+            assertEquals(false, store.current().enrichmentNetworkEnabled)
+            store.setEnrichmentNetwork(true)
+            assertEquals(true, store.current().enrichmentNetworkEnabled)
         }
 }
