@@ -162,7 +162,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   by a build that talks only to trusted repos over TLS. Not fixable via Dependabot (no
   manifest to bump), and force-pinning AGP transitives is fragile for no user benefit.
   Triage: dismiss as tolerable_risk with a comment; do not add buildscript pins or
-  chase AGP for them.
+  chase AGP for them. To keep them out of the graph in the first place, GitHub's
+  Automatic Dependency Submission is disabled and .github/workflows/dependency-submission.yml
+  submits only the shipped runtime configurations (app releaseRuntimeClasspath, cli
+  runtimeClasspath), so build-classpath libraries are no longer reported.
 
 - D24 Release pipeline (satisfies D17). Releases are tag-driven: pushing `vX.Y.Z` runs
   `.github/workflows/release.yml`, which builds and signs a single universal APK (pure
