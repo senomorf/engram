@@ -38,7 +38,23 @@ class GeocoderPlaceProvider(
         nullOnError {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 suspendCancellableCoroutine { cont ->
-                    geocoder.getFromLocation(lat, lon, 1) { list -> cont.resume(list.firstOrNull()?.toName()) }
+                    geocoder.getFromLocation(
+                        lat,
+                        lon,
+                        1,
+                        object : Geocoder.GeocodeListener {
+                            override fun onGeocode(addresses: List<android.location.Address>) {
+                                if (cont.isActive) cont.resume(addresses.firstOrNull()?.toName())
+                            }
+
+                            // resume instead of hanging until the enrichment timeout when the
+                            // platform geocoder backend errors (common on no-backend devices), so a
+                            // place failure no longer stalls the request or blocks weather enrichment
+                            override fun onError(errorMessage: String?) {
+                                if (cont.isActive) cont.resume(null)
+                            }
+                        },
+                    )
                 }
             } else {
                 withContext(Dispatchers.IO) {
