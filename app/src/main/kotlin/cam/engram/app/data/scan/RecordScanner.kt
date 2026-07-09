@@ -23,27 +23,46 @@ class RecordScanner(
         uri: String,
         isVideo: Boolean,
         mime: String,
-    ): ScanOutcome? = if (isVideo) scanVideo(uri) else scanPhoto(uri, mime)
+    ): ScanOutcome? = decodedRecords(uri, isVideo, mime)?.let { outcome(it) }
 
-    private fun scanPhoto(
+    /**
+     * The idHexes of the CRC-valid records currently in the target. Write-back
+     * recovery uses this to tell a completed write (every expected id present)
+     * from an interrupted one (records missing), instead of merely re-parsing
+     * the container.
+     */
+    fun presentIds(
+        uri: String,
+        isVideo: Boolean,
+        mime: String,
+    ): Set<String> =
+        (decodedRecords(uri, isVideo, mime) ?: emptyList())
+            .filter { it.crcOk && it.record != null }
+            .map { it.record!!.idHex }
+            .toSet()
+
+    private fun decodedRecords(
+        uri: String,
+        isVideo: Boolean,
+        mime: String,
+    ): List<DecodedRecord>? = if (isVideo) videoRecords(uri) else photoRecords(uri, mime)
+
+    private fun photoRecords(
         uri: String,
         mime: String,
-    ): ScanOutcome? {
+    ): List<DecodedRecord>? {
         val bytes = access.readBytes(uri) ?: return null
-        val decoded: List<DecodedRecord> =
-            if (mime == "image/png") {
-                runCatching { PngCodec.engramRecords(PngCodec.parse(bytes)) }
-                    .getOrElse { return outcome(emptyList()) }
-            } else {
-                // carve scan works for jpeg and any unknown image container
-                RecordStream.scan(bytes).map { it.decoded }
-            }
-        return outcome(decoded)
+        return if (mime == "image/png") {
+            runCatching { PngCodec.engramRecords(PngCodec.parse(bytes)) }.getOrElse { emptyList() }
+        } else {
+            // carve scan works for jpeg and any unknown image container
+            RecordStream.scan(bytes).map { it.decoded }
+        }
     }
 
-    private fun scanVideo(uri: String): ScanOutcome? =
+    private fun videoRecords(uri: String): List<DecodedRecord>? =
         access.withChannel(uri) { ch ->
-            outcome(runCatching { Mp4Channels.readRecords(ch).map { it.decoded } }.getOrElse { emptyList() })
+            runCatching { Mp4Channels.readRecords(ch).map { it.decoded } }.getOrElse { emptyList() }
         }
 
     private fun outcome(decoded: List<DecodedRecord>): ScanOutcome {
