@@ -21,6 +21,9 @@ change lands under Unreleased at merge time.
 
 ### Added
 
+- Automated signed-APK releases: push a version tag to build, sign, and publish the
+  APK to GitHub Releases with a SHA-256 checksum and build-provenance attestation; the
+  landing page Download button links to the latest release.
 - In-app language switch (English and Russian) with per-app locale, plus complete
   Russian coverage across every screen.
 - Voice dictation in the annotate flow: on-device, offline-preferred speech to
