@@ -49,10 +49,12 @@ class PlatformAdaptersInstrumentedTest {
     }
 
     @Test
-    fun mediaStoreSourceSnapshotQueriesRealProvider() =
+    fun mediaStoreSourceSnapshotQueriesRealProvider() {
+        // block body (not = runBlocking): a JUnit4 @Test method must return void
         runBlocking {
             // exercises the real MediaStore projection/paging path; the store may be empty
             val items = MediaStoreSource(resolver).snapshot(includeScreenshots = true)
             assertNotNull(items)
         }
+    }
 }
