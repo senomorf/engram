@@ -144,8 +144,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   renders and interactions; that seam took app from 78% to ~92%. Device-only Compose
   (MediaPlayer playback, SpeechRecognizer dictation, SAF result callbacks) is marked
   `@DeviceOnly` and excluded, along with the thin real platform adapters (MediaStore,
-  SAF, MediaRecorder, Geocoder) and the debug LabScreen; the instrumented layer covers
-  them. Counted coverage is therefore JVM + Robolectric only.
+  SAF, MediaRecorder, Geocoder) and the debug LabScreen. The instrumented layer covers
+  the app-owned MediaStore adapters and the SAF archive sink; MediaRecorder, Geocoder,
+  Open-Meteo, SpeechRecognizer, and MediaPlayer playback stay manual device-QA
+  (docs/device-qa.md), because they need real hardware, a network, or an OEM backend a
+  headless CI emulator cannot provide deterministically. Counted coverage is therefore
+  JVM + Robolectric only.
 
   Enforcement. Per-module `koverVerify` floors (core-format/cli 97, app 90) run inside
   `check`; the root `koverVerifyAggregate` task defends the combined 95%; both run in

@@ -32,7 +32,8 @@ pass/fail per section.
       `engram verify`); confirm the memory survives, or degrades exactly as expected.
 - [ ] Browse timeline, full-text search over notes and transcripts, memory detail with
       note history and audio playback.
-- [ ] Enrichment: place (Geocoder) and weather (Open-Meteo) attach on the next save.
+- [ ] Enrichment (opt-in: turn it on in Settings first, which discloses the GPS it sends):
+      place (Geocoder) and weather (Open-Meteo) attach on the next save.
 - [ ] Digest and nudge: evening digest notification at the set hour; post-burst nudge.
 - [ ] Export: Engram Archive to a SAF folder; re-open or verify the exported files.
 - [ ] Onboarding: all screens including the backup-honesty page render and dismiss.
