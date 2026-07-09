@@ -34,6 +34,7 @@ object Mp4Files {
         output: File,
         newRecords: List<EngramRecord>,
         caption: String? = null,
+        carryFrames: List<ByteArray> = emptyList(),
     ): CaptionOutcome {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         require(input.canonicalPath != output.canonicalPath) { "output must differ from input" }
@@ -69,7 +70,10 @@ object Mp4Files {
                 captionOutcome = writeCaption(raf, caption)
             }
             raf.seek(raf.length())
-            raf.write(Mp4Codec.buildEngramBox(oldRecords + RecordStream.encode(newRecords)))
+            // carryFrames are already-encoded frames (e.g. unknown kinds) preserved verbatim
+            var recordBytes = oldRecords + RecordStream.encode(newRecords)
+            carryFrames.forEach { recordBytes += it }
+            raf.write(Mp4Codec.buildEngramBox(recordBytes))
         }
         return captionOutcome
     }

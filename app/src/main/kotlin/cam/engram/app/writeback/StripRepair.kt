@@ -38,13 +38,19 @@ class StripRepair(
         val hits = RecordStream.decodeSequence(cache.recordsBlob)
         val records = hits.mapNotNull { it.decoded.record }
         if (records.isEmpty()) return WriteOutcome.Failed("cache is empty or corrupt")
+        // CRC-valid frames we cannot model as records (unknown/future kinds) ride along
+        // verbatim so this rewriter does not drop them (spec: unknown kinds preserved)
+        val carryFrames =
+            hits
+                .filter { it.decoded.crcOk && it.decoded.record == null }
+                .map { cache.recordsBlob.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
         val mirror =
             records
                 .filter { it.kind == RecordKind.Note }
                 .maxByOrNull { it.tsMillis }
                 ?.payload
                 ?.decodeToString()
-        return writeBack.writeRecords(item, records, mirror)
+        return writeBack.writeRecords(item, records, mirror, carryFrames)
     }
 
     // identityTakenAt of 0 predates the identity field (legacy cache row): treat

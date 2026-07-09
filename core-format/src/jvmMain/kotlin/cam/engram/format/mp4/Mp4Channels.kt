@@ -48,6 +48,25 @@ object Mp4Channels {
         return RecordStream.decodeSequence(payload.array())
     }
 
+    // raw bytes of every CRC-valid record frame in the engram box, for callers that
+    // must preserve unknown/future kinds verbatim (readRecords drops the bytes)
+    fun readRawFrames(ch: SeekableByteChannel): List<ByteArray> {
+        val engram = topLevel(ch).lastOrNull { Mp4Codec.isEngramBox(it) } ?: return emptyList()
+        val payloadLen = engram.boxLength - engram.headerLength
+        if (payloadLen > MAX_RECORD_BOX_BYTES) throw Mp4FormatException("engram box too large: $payloadLen")
+        val payload = ByteBuffer.allocate(payloadLen.toInt())
+        ch.position(engram.offset + engram.headerLength)
+        while (payload.hasRemaining() && ch.read(payload) > 0) {
+            // fill fully
+        }
+        if (payload.hasRemaining()) throw Mp4FormatException("engram box truncated")
+        val bytes = payload.array()
+        return RecordStream
+            .decodeSequence(bytes)
+            .filter { it.decoded.crcOk }
+            .map { bytes.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
+    }
+
     fun readMoovBox(ch: SeekableByteChannel): ByteArray? {
         val moov = topLevel(ch).lastOrNull { it.type == "moov" } ?: return null
         val buf = ByteBuffer.allocate(moov.boxLength.toInt())

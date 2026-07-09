@@ -105,6 +105,14 @@ object PngCodec {
             .filter { it.type == ENGRAM_CHUNK }
             .mapNotNull { c -> EngramRecord.decodeAt(c.data, 0)?.takeIf { it.byteLength == c.data.size } }
 
+    // raw bytes of every CRC-valid engram frame, for callers that must preserve
+    // unknown/future kinds verbatim (the DecodedRecord list cannot round-trip them)
+    fun engramFrames(file: PngFile): List<ByteArray> =
+        file.chunks
+            .filter { it.type == ENGRAM_CHUNK }
+            .filter { c -> EngramRecord.decodeAt(c.data, 0)?.let { it.crcOk && it.byteLength == c.data.size } == true }
+            .map { it.data }
+
     fun engramChunkCount(file: PngFile): Int = file.chunks.count { it.type == ENGRAM_CHUNK }
 }
 
@@ -115,17 +123,20 @@ class PngEmbedder(
         source: ByteArray,
         newRecords: List<EngramRecord>,
         mirrorDescription: String?,
+        carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val file = PngCodec.parse(source)
         val chunks = file.chunks.toMutableList()
         val existing = PngCodec.engramRecords(file).filter { it.crcOk }
-        val newBytes = newRecords.map { it.encode() }
+        // carryFrames are already-encoded frames (e.g. unknown kinds from the cache)
+        // appended verbatim so a re-embed preserves them (spec: unknown kinds preserved)
+        val newBytes = newRecords.map { it.encode() } + carryFrames
         val update =
             XmpUpdate(
                 mirrorDescription = mirrorDescription,
                 payloadLength = existing.sumOf { it.byteLength.toLong() } + newBytes.sumOf { it.size.toLong() },
-                recordCount = existing.size + newRecords.size,
+                recordCount = existing.size + newBytes.size,
             )
         val xmpIdx = chunks.indexOfFirst { PngCodec.xmpPacket(it) != null }
         // iTXt has no segment size limit, so the packet never needs an ExtendedXMP split

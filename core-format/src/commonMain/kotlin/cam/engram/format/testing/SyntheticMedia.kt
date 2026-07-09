@@ -1,9 +1,12 @@
 package cam.engram.format.testing
 
 import cam.engram.format.ByteArrayBuilder
+import cam.engram.format.Crc32
 import cam.engram.format.jpeg.XMP_APP1_HEADER
 import cam.engram.format.png.PngChunk
 import cam.engram.format.png.PngCodec
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.RecordKind
 
 /**
  * Tiny handcrafted files: structurally valid for parsers, not meant for image
@@ -11,6 +14,24 @@ import cam.engram.format.png.PngCodec
  */
 @Suppress("TooManyFunctions") // fixture catalog: one small builder per file shape
 object SyntheticMedia {
+    /**
+     * A CRC-valid record frame with an unknown/future kind byte: readers must
+     * surface it (crcOk, no high-level record) and rewriters must preserve it
+     * (spec: unknown kinds preserved). Encodes a Note, then patches the kind byte
+     * and repairs the trailing CRC so the frame stays wire-valid.
+     */
+    fun unknownKindFrame(kindCode: Int = 7): ByteArray {
+        val frame = EngramRecord(RecordKind.Note, 1L, "future".encodeToByteArray()).encode().copyOf()
+        frame[5] = kindCode.toByte() // the kind byte sits at offset 5 in the wire frame
+        val bodyLen = frame.size - 4
+        val crc = Crc32.of(frame, 0, bodyLen)
+        frame[bodyLen] = (crc ushr 24 and 0xFF).toByte()
+        frame[bodyLen + 1] = (crc ushr 16 and 0xFF).toByte()
+        frame[bodyLen + 2] = (crc ushr 8 and 0xFF).toByte()
+        frame[bodyLen + 3] = (crc and 0xFF).toByte()
+        return frame
+    }
+
     fun jpegPlain(entropyByte: Int = 0x12): ByteArray {
         val b = ByteArrayBuilder()
         soi(b)
