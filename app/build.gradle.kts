@@ -51,6 +51,9 @@ android {
 
 dependencies {
     implementation(project(":core-format"))
+    // explicit coroutines at the catalog version so the app packages the same version the
+    // (androidTest) coroutines-test compiles against; transitive resolution otherwise lags
+    implementation(libs.coroutines.android)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.material3)
     implementation(libs.compose.ui)
