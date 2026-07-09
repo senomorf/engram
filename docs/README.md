@@ -19,3 +19,4 @@ Three rules keep this documentation useful:
 | [roadmap.md](roadmap.md) | Future versions and gated ideas | Scope moves in or out |
 | [../lab/survivability-matrix.md](../lab/survivability-matrix.md) | Phase 0 ground truth | Each lab run |
 | [../spec/engram-spec-v0.md](../spec/engram-spec-v0.md) | Engram format specification (open, CC BY 4.0) | Wire or binding changes |
+| [device-qa.md](device-qa.md) | Manual device QA checklist for releases (M9) | Release flows or platform adapters change |
