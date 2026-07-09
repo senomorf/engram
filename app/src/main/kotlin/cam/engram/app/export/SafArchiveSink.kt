@@ -9,7 +9,7 @@ import androidx.documentfile.provider.DocumentFile
  * by androidTest). Resolves the user-chosen tree, then writes each blob fail-closed:
  * a null DocumentFile or output stream returns false instead of silently no-op.
  */
-class SafArchiveSink private constructor(
+class SafArchiveSink internal constructor(
     private val context: Context,
     private val dir: DocumentFile,
 ) : ArchiveSink {
