@@ -20,6 +20,14 @@ class CliInspectTest {
     }
 
     @Test
+    fun inspectsJpegWithStandaloneMarker() {
+        // a standalone TEM marker (0xFF01) drives markerName's unknown-marker fallthrough
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0x01, 0xFF.toByte(), 0xD9.toByte())
+        val f = File(dir, "tem.jpg").apply { writeBytes(jpeg) }
+        assertEquals(0, cliMain(arrayOf("inspect", "--in", f.path)))
+    }
+
+    @Test
     fun inspectsMp4WithRecords() {
         val mp4 = File(dir, "v.mp4").apply { writeBytes(SyntheticMedia.mp4MoovLast()) }
         val out = File(dir, "v-out.mp4")

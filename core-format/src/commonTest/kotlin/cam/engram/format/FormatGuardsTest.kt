@@ -64,6 +64,14 @@ class FormatGuardsTest {
     }
 
     @Test
+    fun pngRejectsChunkLengthOverrunningFile() {
+        // header fits, but the declared chunk length runs past the end of the file
+        val bytes =
+            PngCodec.SIGNATURE + byteArrayOf(0, 0, 0, 100, 0x49, 0x48, 0x44, 0x52) + ByteArray(4)
+        assertFailsWith<PngFormatException> { PngCodec.parse(bytes) }
+    }
+
+    @Test
     fun recordRejectsWrongIdLength() {
         assertFailsWith<IllegalArgumentException> {
             EngramRecord(RecordKind.Note, 1, ByteArray(0), id = ByteArray(4))
