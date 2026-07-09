@@ -1,0 +1,29 @@
+name: actionlint
+
+# Lint the workflow files themselves (YAML, expression syntax, and the embedded shell via
+# the runner's shellcheck). Runs only when workflows change.
+on:
+  pull_request:
+    paths: [".github/workflows/**"]
+  push:
+    branches: [main]
+    paths: [".github/workflows/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Run actionlint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTIONLINT_VERSION: v1.7.12 # bump to adopt newer actionlint
+        run: |
+          gh release download "$ACTIONLINT_VERSION" --repo rhysd/actionlint \
+            --pattern '*linux_amd64.tar.gz' --clobber
+          tar xzf actionlint_*_linux_amd64.tar.gz actionlint
+          ./actionlint -color # actionlint auto-runs the preinstalled shellcheck on run: blocks
