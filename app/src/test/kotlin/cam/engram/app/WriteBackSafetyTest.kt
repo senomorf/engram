@@ -116,4 +116,47 @@ class WriteBackSafetyTest {
             assertTrue(repair.strippedItems().none { it.mediaId == 4L }, "identity mismatch must not list as stripped")
             assertTrue(repair.repair(reused) is WriteOutcome.Failed)
         }
+
+    @Test
+    fun recoveryRestoresAParseableButRecordlessTarget() =
+        runBlocking {
+            // a pristine original that already carries a memory becomes the lingering backup
+            val donor = seed(10, SyntheticMedia.jpegPlain())
+            assertIs<WriteOutcome.Success>(writeBack.write(donor, Annotation("memory", null)))
+            val pristine = access.files[donor.uri]!!.copyOf()
+            val ids = RecordStream.scan(pristine).filter { it.decoded.crcOk }.mapNotNull { it.decoded.record?.idHex }
+            assertTrue(ids.isNotEmpty())
+
+            // a crash truncated the records tail: the target still parses as a JPEG but lost the memory
+            val uri = "content://media/11"
+            access.files[uri] = SyntheticMedia.jpegPlain()
+            File(backupDir, "11.bak").writeBytes(pristine)
+            File(backupDir, "11.meta").writeText("$uri\nfalse\nimage/jpeg\n${ids.joinToString(",")}")
+
+            writeBack.recoverPending()
+
+            // the target is missing the expected records, so recovery must restore the backup
+            assertContentEquals(pristine, access.files[uri])
+        }
+
+    @Test
+    fun recoveryKeepsATargetThatHasTheExpectedIds() =
+        runBlocking {
+            val donor = seed(12, SyntheticMedia.jpegPlain())
+            assertIs<WriteOutcome.Success>(writeBack.write(donor, Annotation("memory", null)))
+            val complete = access.files[donor.uri]!!.copyOf()
+            val ids = RecordStream.scan(complete).filter { it.decoded.crcOk }.mapNotNull { it.decoded.record?.idHex }
+
+            // a crash after the write finished but before cleanup: the target already has the records
+            val uri = "content://media/13"
+            access.files[uri] = complete
+            File(backupDir, "13.bak").writeBytes(SyntheticMedia.jpegPlain()) // the pre-write original
+            File(backupDir, "13.meta").writeText("$uri\nfalse\nimage/jpeg\n${ids.joinToString(",")}")
+
+            writeBack.recoverPending()
+
+            // the target carries the expected ids, so recovery keeps it and clears the backup
+            assertContentEquals(complete, access.files[uri])
+            assertTrue(!File(backupDir, "13.bak").exists(), "completed write should clear the backup")
+        }
 }

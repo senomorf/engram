@@ -19,8 +19,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Transactional write-back (design sec 8): backup, write, verify by re-parse,
- * restore on failure. Invariants (review F3, F4): a crash or a failed write may
+ * Transactional write-back (design sec 8): backup, write, verify the records
+ * landed, restore on failure. Invariants (review F3, F4): a crash or a failed write may
  * lose the pending note, never the photo. The backup survives until either the
  * new file verifies intact or the original is restored; if restore itself fails
  * the backup is kept for [recoverPending] on next start.
@@ -54,7 +54,7 @@ class MediaWriteBack(
         withContext(io) {
             backupDir.mkdirs()
             val backup = File(backupDir, "${item.mediaId}.bak")
-            writeSidecar(item)
+            writeSidecar(item, records)
             if (!access.copyToFile(item.uri, backup)) {
                 return@withContext WriteOutcome.Failed("cannot back up original")
             }
@@ -198,15 +198,22 @@ class MediaWriteBack(
         File(backupDir, "$mediaId.meta").delete()
     }
 
-    private fun writeSidecar(item: MediaItemEntity) {
-        File(backupDir, "${item.mediaId}.meta").writeText("${item.uri}\n${item.isVideo}\n${item.mime}")
+    private fun writeSidecar(
+        item: MediaItemEntity,
+        records: List<EngramRecord>,
+    ) {
+        // the expected record ids let recoverPending tell a finished write from an
+        // interrupted one, instead of trusting a bare container parse (finding A)
+        val ids = records.joinToString(",") { it.idHex }
+        File(backupDir, "${item.mediaId}.meta").writeText("${item.uri}\n${item.isVideo}\n${item.mime}\n$ids")
     }
 
     /**
-     * Startup safety net: for each lingering backup, restore the original only
-     * if the target no longer parses as a valid container. A completed-and-
-     * verified write parses fine and is kept, so a good write is never rolled
-     * back (review F3).
+     * Startup safety net: for each lingering backup, restore the original unless
+     * the target actually carries every record the write meant to add (verified
+     * by id and CRC, [writeCompleted]). A parseable container that lost its
+     * records is treated as an interrupted write and rolled back, so the only
+     * pristine copy is never dropped on a crash mid-write (finding A, review F3).
      */
     suspend fun recoverPending() =
         withContext(io) {
@@ -218,11 +225,33 @@ class MediaWriteBack(
                 if (uri != null) {
                     val isVideo = meta.getOrNull(1)?.toBoolean() ?: false
                     val mime = meta.getOrNull(2) ?: "image/jpeg"
-                    if (!targetParses(uri, isVideo, mime)) access.writeFromFile(uri, backup)
+                    val expectedIds =
+                        meta
+                            .getOrNull(3)
+                            ?.split(",")
+                            ?.filter { it.isNotBlank() }
+                            ?.toSet()
+                            .orEmpty()
+                    // restore failed: keep the only pristine copy for the next startup
+                    if (!writeCompleted(uri, isVideo, mime, expectedIds) && !restore(uri, backup)) continue
                 }
                 backup.delete()
                 File(backupDir, "$mediaId.meta").delete()
             }
+        }
+
+    // a write finished only if the target carries every expected record with a valid
+    // CRC; a legacy sidecar without ids falls back to a bare container parse
+    private fun writeCompleted(
+        uri: String,
+        isVideo: Boolean,
+        mime: String,
+        expectedIds: Set<String>,
+    ): Boolean =
+        if (expectedIds.isEmpty()) {
+            targetParses(uri, isVideo, mime)
+        } else {
+            scanner.presentIds(uri, isVideo, mime).containsAll(expectedIds)
         }
 
     private fun targetParses(
