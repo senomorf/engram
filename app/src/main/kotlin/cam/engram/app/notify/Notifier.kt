@@ -22,6 +22,9 @@ class Notifier(
         if (NotificationManagerCompat.from(context).areNotificationsEnabled().not()) return
         val intent =
             Intent(context, MainActivity::class.java).apply {
+                // pin the target package so the PendingIntent can never resolve to another app
+                // (belt-and-suspenders with the explicit component and FLAG_IMMUTABLE below)
+                setPackage(context.packageName)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra(EXTRA_OPEN_QUEUE, true)
             }
