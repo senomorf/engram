@@ -70,7 +70,7 @@
     <string name="settings_digest">Вечерняя сводка</string>
     <string name="settings_digest_hour">Час сводки: %1$d:00</string>
     <string name="settings_burst">Напоминать вскоре после съёмки</string>
-    <string name="settings_enrichment_network">Погода и названия мест (использует сеть)</string>
+    <string name="settings_enrichment_network">Погода и названия мест (отправляет местоположение фото онлайн-сервису)</string>
     <string name="settings_dynamic_color">Динамические цвета (Material You)</string>
     <string name="settings_language">Язык</string>
     <string name="settings_language_system">Системный</string>
