@@ -25,6 +25,7 @@ is separately CC BY 4.0 so Engram files stay readable by any tool.
 - Everything: `./gradlew build` (compiles, unit + integration tests, ktlint, detekt, AGP
   lint, coverage gate).
 - Autofix formatting after editing Kotlin: `./gradlew ktlintFormat`.
+- Optional pre-commit hook (ktlintFormat + detekt on staged Kotlin): `git config core.hooksPath .githooks`.
 - iOS portability tripwire: `./gradlew :core-format:compileKotlinIosArm64`.
 - CLI selftest: `./gradlew :cli:run --args="selftest"`.
 - More commands (emulator, coverage reports): AGENTS.md.
