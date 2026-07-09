@@ -66,6 +66,27 @@ jobs:
           sha256sum engram.apk > engram.apk.sha256
           cat engram.apk.sha256
 
+      # Boot the actual signed artifact on an emulator and assert it launches without
+      # crashing; a failure here blocks the release (the publish step below is skipped).
+      - name: Smoke-test the signed APK on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: aosp_atd
+          disable-animations: true
+          script: |
+            adb install -r engram.apk
+            adb logcat -c
+            adb shell monkey -p cam.engram.app -c android.intent.category.LAUNCHER 1 || true
+            sleep 5
+            adb logcat -d > logcat.txt
+            if grep -E "FATAL EXCEPTION|ANR in cam.engram.app" logcat.txt; then
+              echo "::error::release APK crashed on launch"; tail -60 logcat.txt; exit 1
+            fi
+            adb shell pidof cam.engram.app >/dev/null || { echo "::error::app not running after launch"; tail -60 logcat.txt; exit 1; }
+            echo "smoke ok: cam.engram.app launched without crash"
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
