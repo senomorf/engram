@@ -53,8 +53,10 @@ milestone was: build green, CHANGELOG updated, docs touched.
   enrichment (named in D4) is not built.
 - Audio codec is Opus only; the "AAC via advanced setting" option (D6) is not
   exposed.
-- Distribution (M9): no release keystore, signing config, or signed APK on
-  GitHub Releases yet (D17); the landing page Download button awaits it.
+- Distribution (M9): signing config and the tag-driven release workflow now exist
+  (D24); the signed APK on GitHub Releases awaits the owner provisioning the keystore
+  secrets and cutting the first tag. The landing Download button points at the
+  latest-release asset.
 - Not built, were nice-to-haves: share-sheet inbound "annotate this" target;
   home-screen widget (widget was already roadmap, not v1).
 
@@ -85,9 +87,10 @@ milestone was: build green, CHANGELOG updated, docs touched.
 - M8 Export and verifier: Engram Archive export to a SAF location, in-app
   backup verifier reusing the cli extraction logic, size-cap warnings (D13),
   RU + EN strings (D20), onboarding screens incl. the backup-honesty page.
-- M9 Release prep [OWNER]: release keystore and signing config, a signed APK on
-  GitHub Releases (D17) linked from engram.cam, device QA script. Owner: sign and
-  publish the release, install on target devices.
+- M9 Release prep [OWNER]: signing config + tag-driven release workflow implemented
+  (D24), landing button wired to the latest-release asset. Remaining owner steps:
+  provision the keystore secrets, cut the first tag (trial with vX.Y.Z-rc1), device QA,
+  install on target devices.
 
 Milestone order is dependency-driven: M2 before M3 before M4; M5 to M8 can
 interleave after M4. Matrix verdicts (track A) may inject work into M4/M8

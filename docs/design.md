@@ -164,6 +164,20 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   Triage: dismiss as tolerable_risk with a comment; do not add buildscript pins or
   chase AGP for them.
 
+- D24 Release pipeline (satisfies D17). Releases are tag-driven: pushing `vX.Y.Z` runs
+  `.github/workflows/release.yml`, which builds and signs a single universal APK (pure
+  JVM/ART bytecode, no ABI splits; no AAB until Play, deferred) and publishes it to
+  GitHub Releases. Signing keys live only in CI secrets (ENGRAM_KEYSTORE_BASE64,
+  ENGRAM_KEYSTORE_PASSWORD, ENGRAM_KEY_ALIAS, ENGRAM_KEY_PASSWORD); app/build.gradle.kts
+  reads them from env or a git-ignored keystore.properties and stays unsigned when
+  absent, so contributor builds and PR CI are unaffected. versionName comes from the tag
+  and versionCode is major*1000000 + minor*1000 + patch (monotonic, Play-compatible),
+  injected via -P. The asset is a stable `engram.apk` (so the landing button can use
+  releases/latest/download/engram.apk) plus a SHA-256 and an SLSA build-provenance
+  attestation (gh attestation verify). A hyphen tag (vX.Y.Z-rc1) publishes a prerelease.
+  Release notes come from the matching CHANGELOG section. R8/shrink is off until a
+  release-build device-test path exists.
+
 ## 5. Assumptions register
 
 - A1 All target devices run Android 13+. Verify by collecting the

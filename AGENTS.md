@@ -20,6 +20,11 @@ rationale. Docs map and update rules: docs/README.md.
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
 - survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
 
+## Releasing
+
+- Tag-driven signed APK (D24). To cut a release: promote CHANGELOG `[Unreleased]` to `## [X.Y.Z] - <date>`, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` builds, signs, and publishes the APK + SHA-256 + SLSA provenance to GitHub Releases. Trial first with `vX.Y.Z-rc1` (hyphen = prerelease).
+- versionName/Code come from the tag (versionCode = major*1000000+minor*1000+patch); never hand-bump the literals in app/build.gradle.kts. Signing secrets (owner-provisioned, never committed): `ENGRAM_KEYSTORE_BASE64`, `ENGRAM_KEYSTORE_PASSWORD`, `ENGRAM_KEY_ALIAS`, `ENGRAM_KEY_PASSWORD`. Local signed build: copy `keystore.properties.example` to `keystore.properties` (git-ignored).
+
 ## Environment gotchas
 
 - SDK at ~/Android/Sdk; local.properties points to it. Set ANDROID_HOME for CLI gradle runs.
