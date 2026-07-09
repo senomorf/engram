@@ -16,7 +16,7 @@ rationale. Docs map and update rules: docs/README.md.
 - iOS portability tripwire: `./gradlew :core-format:compileKotlinIosArm64` (also in CI)
 - autofix formatting: `./gradlew ktlintFormat` (run after editing Kotlin, before commit)
 - android debug apk + unit tests: `./gradlew :app:assembleDebug :app:testDebugUnitTest`
-- coverage gate + reports: `koverVerify` runs inside `check`; HTML via `:core-format:koverHtmlReport`, `:cli:koverHtmlReport`, `:app:koverHtmlReportDebug`
+- coverage gates + reports: `koverVerify` (per-module floors) runs inside `check`, `./gradlew koverVerifyAggregate` enforces the combined 95% (both in CI); HTML via `:core-format:koverHtmlReport`, `:cli:koverHtmlReport`, `:app:koverHtmlReportDebug`
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
 - survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
 
@@ -43,7 +43,8 @@ rationale. Docs map and update rules: docs/README.md.
 - lab/corpus/ holds private family media: never commit contents, never weaken its .gitignore.
 - Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). New code vs spec files go under the right one.
 - Bug fix flow: reproduce with a failing test in core-format first.
-- Coverage (D22): Kover per-module line gate (`koverVerify` in `check`); floors core-format/cli 95, app 88, floor only rises toward the 95%+ target (achieved ~97/98/91). Integration/scenario tests over unit tests. Counted coverage is JVM/Robolectric only (Kover cannot measure on-device); real platform adapters (MediaStore, SAF, SpeechRecognizer, MediaRecorder, Geocoder), LabScreen, and device-only Compose marked `@DeviceOnly` (MediaPlayer/dictation/SAF callbacks) are excluded and covered by the instrumented androidTest layer. New code ships with tests.
+- Testing (D22): integration/scenario tests are the primary, required way to cover new functionality: drive the real surface end to end (cli via `cliMain`, screens via `fakeContainer()` + `setScreen` with `seedItem`/`seedMemory`, codecs on real bytes via `SyntheticMedia`). Every feature or fix ships integration coverage. Unit tests are a narrow supplement, only when (a) a behavior is impractical to reach via integration and a unit test is materially faster/simpler (deep guard branches, awkward error paths), or (b) it guards a critical invariant we want to fail fast on. Never add broad unit suites for code integration tests already cover. Structure, patterns, rationale: design.md D22.
+- Coverage (D22): per-module `koverVerify` floors (core-format/cli 97, app 90) run in `check`; root `koverVerifyAggregate` defends the combined 95% (both enforced in CI). Floors only rise, kept below achieved ~98/98/92 to absorb ~0.5% Compose-timing variance. Counted coverage is JVM/Robolectric only (Kover cannot measure on-device); real platform adapters (MediaStore, SAF, SpeechRecognizer, MediaRecorder, Geocoder), LabScreen, and device-only Compose marked `@DeviceOnly` are excluded and covered by the instrumented androidTest layer.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). No overlapping rules.
 - Localization: user-facing strings via stringResource; keep values/ and values-ru/ in sync (only translatable=false and app_name differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics exempt.
 - Offline: annotate, browse, search, verify, export must work with no network. Only enrichment uses the network, best-effort and graceful.
