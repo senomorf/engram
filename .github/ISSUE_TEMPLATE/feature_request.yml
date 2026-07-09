@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Check docs/roadmap.md first; some ideas are already planned or explicitly deferred.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or need
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed direction
+      description: Optional. How you imagine it working.
+  - type: checkboxes
+    id: offline
+    attributes:
+      label: Offline-first
+      options:
+        - label: This works with no network, or degrades gracefully when offline (D10)
