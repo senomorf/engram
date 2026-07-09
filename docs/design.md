@@ -175,8 +175,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   injected via -P. The asset is a stable `engram.apk` (so the landing button can use
   releases/latest/download/engram.apk) plus a SHA-256 and an SLSA build-provenance
   attestation (gh attestation verify). A hyphen tag (vX.Y.Z-rc1) publishes a prerelease.
-  Release notes come from the matching CHANGELOG section. R8/shrink is off until a
-  release-build device-test path exists.
+  Release notes come from the matching CHANGELOG section. Before publishing, the workflow
+  boots the signed APK on an emulator and fails the release if it crashes on launch (a
+  release-artifact smoke gate; manual on-device QA is docs/device-qa.md). R8/shrink is
+  off until a release-build device-test path exists.
 
 ## 5. Assumptions register
 
