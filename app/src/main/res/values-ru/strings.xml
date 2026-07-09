@@ -57,6 +57,7 @@
     <string name="tools_exporting">Экспорт…</string>
     <string name="tools_export_done">Экспортировано воспоминаний: %1$d, голосовых: %2$d.</string>
     <string name="tools_export_failed">Ошибка экспорта: %1$s</string>
+    <string name="tools_export_partial">Не удалось записать: %1$d (пропущено).</string>
     <string name="tools_verify_title">Проверить бэкап</string>
     <string name="tools_verify_hint">Выберите фото, скачанное из облака или чата. Engram покажет, что сохранилось.</string>
     <string name="tools_verify_button">Выбрать файл для проверки</string>

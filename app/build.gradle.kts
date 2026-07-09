@@ -171,7 +171,7 @@ kover {
                     "cam.engram.app.data.media.MediaStoreSource",
                     "cam.engram.app.audio.MediaVoiceRecorder",
                     "cam.engram.app.ui.SpeechInputKt*",
-                    "cam.engram.app.export.ArchiveExporter*",
+                    "cam.engram.app.export.SafArchiveSink*",
                     "cam.engram.app.enrich.GeocoderPlaceProvider*",
                     "cam.engram.app.enrich.OpenMeteoWeatherProvider*",
                     "cam.engram.app.work.MediaObserverService*",
