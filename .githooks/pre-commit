@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Format Kotlin and check smells before committing. Enable once with:
+#   git config core.hooksPath .githooks
+# Runs the full ktlintFormat + detekt via Gradle, so the first commit after a cold daemon
+# is slow; it skips entirely when no Kotlin is staged.
+set -euo pipefail
+
+staged="$(git diff --cached --name-only --diff-filter=ACM -- '*.kt' '*.kts')"
+[ -z "$staged" ] && exit 0
+
+echo "pre-commit: ktlintFormat + detekt"
+./gradlew --quiet ktlintFormat detekt
+
+# Re-stage any originally-staged Kotlin files that ktlintFormat reformatted.
+printf '%s\n' "$staged" | while IFS= read -r f; do
+  [ -n "$f" ] && git add -- "$f"
+done

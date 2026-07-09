@@ -19,6 +19,7 @@ rationale. Docs map and update rules: docs/README.md.
 - coverage gates + reports: `koverVerify` (per-module floors) runs inside `check`, `./gradlew koverVerifyAggregate` enforces the combined 95% (both in CI); HTML via `:core-format:koverHtmlReport`, `:cli:koverHtmlReport`, `:app:koverHtmlReportDebug`
 - e2e selfcheck: `./gradlew :cli:run --args="selftest"`
 - survivability check: `engram verify --in <file> [--expect <sidecar>] --json` (exit 0/3/4 = intact/degraded/damaged)
+- optional pre-commit hook: `git config core.hooksPath .githooks` (ktlintFormat + detekt on staged Kotlin before commit)
 
 ## Releasing
 
