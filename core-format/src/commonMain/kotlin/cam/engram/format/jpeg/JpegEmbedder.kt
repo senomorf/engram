@@ -1,5 +1,6 @@
 package cam.engram.format.jpeg
 
+import cam.engram.format.ByteArrayBuilder
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordStream
 import cam.engram.format.xmp.XmpEngine
@@ -12,6 +13,7 @@ class JpegEmbedder(
         source: ByteArray,
         newRecords: List<EngramRecord>,
         mirrorDescription: String?,
+        carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val parts = JpegCodec.parse(source).toMutableList()
@@ -27,12 +29,17 @@ class JpegEmbedder(
                 .filterIsInstance<TrailerData>()
                 .flatMap { RecordStream.scan(it.raw) }
                 .filter { it.decoded.crcOk }
-        val added = RecordStream.encode(newRecords)
+        // carryFrames are already-encoded frames (e.g. unknown kinds from the cache)
+        // appended verbatim so a re-embed preserves them (spec: unknown kinds preserved)
+        val addedBuilder = ByteArrayBuilder()
+        addedBuilder.append(RecordStream.encode(newRecords))
+        carryFrames.forEach { addedBuilder.append(it) }
+        val added = addedBuilder.toByteArray()
         val update =
             XmpUpdate(
                 mirrorDescription = mirrorDescription,
                 payloadLength = existing.sumOf { it.decoded.byteLength.toLong() } + added.size,
-                recordCount = existing.size + newRecords.size,
+                recordCount = existing.size + newRecords.size + carryFrames.size,
             )
         val result =
             xmp.apply(

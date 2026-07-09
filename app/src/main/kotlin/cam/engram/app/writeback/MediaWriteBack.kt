@@ -50,6 +50,7 @@ class MediaWriteBack(
         item: MediaItemEntity,
         records: List<EngramRecord>,
         mirrorText: String?,
+        carryFrames: List<ByteArray> = emptyList(),
     ): WriteOutcome =
         withContext(io) {
             backupDir.mkdirs()
@@ -61,9 +62,9 @@ class MediaWriteBack(
             val attempt =
                 runCatching {
                     if (item.isVideo) {
-                        writeVideo(item, backup, records, mirrorText)
+                        writeVideo(item, backup, records, mirrorText, carryFrames)
                     } else {
-                        writePhoto(item, backup, records, mirrorText)
+                        writePhoto(item, backup, records, mirrorText, carryFrames)
                     }
                 }.getOrElse { e ->
                     // an exception mid-write may have left a partial file: restore
@@ -115,14 +116,15 @@ class MediaWriteBack(
         backup: File,
         records: List<EngramRecord>,
         mirrorText: String?,
+        carryFrames: List<ByteArray>,
     ): Attempt {
         val source = backup.readBytes()
         val engine = XmpCoreEngine()
         val out =
             if (item.mime == "image/png") {
-                PngEmbedder(engine).embed(source, records, mirrorText)
+                PngEmbedder(engine).embed(source, records, mirrorText, carryFrames)
             } else {
-                JpegEmbedder(engine).embed(source, records, mirrorText)
+                JpegEmbedder(engine).embed(source, records, mirrorText, carryFrames)
             }
         if (!access.writeBytes(item.uri, out)) return Attempt.Rejected
         return Attempt.Written(verify(item))
@@ -133,10 +135,11 @@ class MediaWriteBack(
         backup: File,
         records: List<EngramRecord>,
         mirrorText: String?,
+        carryFrames: List<ByteArray>,
     ): Attempt {
         val rebuilt = File(backupDir, "${item.mediaId}.new.mp4")
         try {
-            Mp4Files.appendRecords(backup, rebuilt, records, mirrorText)
+            Mp4Files.appendRecords(backup, rebuilt, records, mirrorText, carryFrames)
             if (!access.writeFromFile(item.uri, rebuilt)) return Attempt.Rejected
         } finally {
             rebuilt.delete()

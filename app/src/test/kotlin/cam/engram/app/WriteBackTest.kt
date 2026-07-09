@@ -3,6 +3,7 @@ package cam.engram.app
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
+import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.scan.RecordScanner
 import cam.engram.app.writeback.Annotation
 import cam.engram.app.writeback.MediaWriteBack
@@ -182,5 +183,44 @@ class WriteBackTest {
                     .decoded.record!!
             assertEquals(originalId, restored.idHex, "repair must restore history, not invent it")
             assertEquals(0, repair.strippedItems().size)
+        }
+
+    @Test
+    fun repairPreservesUnknownKindRecords() =
+        runBlocking {
+            val scanner = RecordScanner(access)
+            val item = seed(6, SyntheticMedia.jpegPlain())
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("note", null)))
+
+            // the file now also carries a forward-compat unknown-kind record after ours
+            val withUnknown = access.files[item.uri]!! + SyntheticMedia.unknownKindFrame()
+            access.files[item.uri] = withUnknown
+            assertTrue(
+                RecordStream.scan(withUnknown).any { it.decoded.crcOk && it.decoded.record == null },
+                "fixture must contain an unknown-kind record",
+            )
+
+            // scanning caches the records; then a cloud pipeline strips the file
+            val scanned = scanner.scan(item.uri, false, "image/jpeg")!!
+            db.recordCache().upsert(
+                RecordCacheEntity(
+                    6,
+                    item.takenAtMillis,
+                    withUnknown.size.toLong(),
+                    scanned.recordsBlob!!,
+                    scanned.recordCount,
+                    0,
+                ),
+            )
+            db.media().upsert(listOf(db.media().byId(6)!!.copy(recordCount = 0)))
+            access.files[item.uri] = SyntheticMedia.jpegPlain()
+
+            assertIs<WriteOutcome.Success>(StripRepair(db, writeBack).repair(db.media().byId(6)!!))
+
+            // strip-repair is a rewriter: the spec says it must preserve unknown kinds, not drop them
+            assertTrue(
+                RecordStream.scan(access.files[item.uri]!!).any { it.decoded.crcOk && it.decoded.record == null },
+                "unknown-kind record must survive strip-repair",
+            )
         }
 }

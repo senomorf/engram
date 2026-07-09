@@ -8,8 +8,26 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class Mp4ChannelsTest {
+    @Test
+    fun readRawFramesReturnsCrcOkFrames() {
+        val out =
+            Mp4Codec.embed(
+                SyntheticMedia.mp4MoovLast(),
+                listOf(EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())),
+                listOf(SyntheticMedia.unknownKindFrame()),
+            )
+        val path = Files.createTempFile("engram", ".mp4")
+        path.writeBytes(out)
+        Files.newByteChannel(path).use { ch ->
+            val frames = Mp4Channels.readRawFrames(ch)
+            assertEquals(2, frames.size)
+            assertTrue(frames.any { EngramRecord.decodeAt(it, 0)?.record == null }, "unknown-kind frame preserved")
+        }
+    }
+
     @Test
     fun readsRecordsAndMoovThroughChannel() {
         val withCaption = Mp4Caption.tryWrite(SyntheticMedia.mp4MoovLast(), "channel caption")!!

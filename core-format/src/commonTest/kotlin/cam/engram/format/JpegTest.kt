@@ -20,6 +20,20 @@ import kotlin.test.assertTrue
 
 class JpegTest {
     @Test
+    fun carryFramesPreserveUnknownKindRecords() {
+        val out =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.jpegPlain(),
+                listOf(EngramRecord(RecordKind.Note, 1, "note".encodeToByteArray())),
+                "note",
+                listOf(SyntheticMedia.unknownKindFrame()),
+            )
+        val hits = RecordStream.scan(out).filter { it.decoded.crcOk }
+        assertEquals(2, hits.size, "the note and the carried unknown frame both survive")
+        assertTrue(hits.any { it.decoded.record == null }, "the unknown-kind frame is preserved verbatim")
+    }
+
+    @Test
     fun parseRoundTripIsByteIdentical() {
         for (fixture in listOf(SyntheticMedia.jpegPlain(), SyntheticMedia.jpegWithMpfSecondary())) {
             assertContentEquals(fixture, JpegCodec.serialize(JpegCodec.parse(fixture)))

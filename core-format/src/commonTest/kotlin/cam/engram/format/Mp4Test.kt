@@ -10,6 +10,19 @@ import kotlin.test.assertTrue
 
 class Mp4Test {
     @Test
+    fun carryFramesPreserveUnknownKindRecords() {
+        val out =
+            Mp4Codec.embed(
+                SyntheticMedia.mp4MoovLast(),
+                listOf(EngramRecord(RecordKind.Note, 1, "z".encodeToByteArray())),
+                listOf(SyntheticMedia.unknownKindFrame()),
+            )
+        val hits = Mp4Codec.readRecords(out)
+        assertEquals(2, hits.size)
+        assertTrue(hits.any { it.decoded.crcOk && it.decoded.record == null }, "unknown-kind frame preserved")
+    }
+
+    @Test
     fun topLevelBoxes() {
         val boxes = Mp4Codec.topLevel(SyntheticMedia.mp4Minimal())
         assertEquals(listOf("ftyp", "free", "mdat"), boxes.map { it.type })

@@ -5,7 +5,7 @@ import cam.engram.format.ByteArrayBuilder
 import cam.engram.format.mp4.Mp4Channels
 import cam.engram.format.png.PngCodec
 import cam.engram.format.read.Memory
-import cam.engram.format.records.DecodedRecord
+import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordStream
 
 class ScanOutcome(
@@ -23,7 +23,7 @@ class RecordScanner(
         uri: String,
         isVideo: Boolean,
         mime: String,
-    ): ScanOutcome? = decodedRecords(uri, isVideo, mime)?.let { outcome(it) }
+    ): ScanOutcome? = rawFrames(uri, isVideo, mime)?.let { outcome(it) }
 
     /**
      * The idHexes of the CRC-valid records currently in the target. Write-back
@@ -36,46 +36,52 @@ class RecordScanner(
         isVideo: Boolean,
         mime: String,
     ): Set<String> =
-        (decodedRecords(uri, isVideo, mime) ?: emptyList())
-            .filter { it.crcOk && it.record != null }
-            .map { it.record!!.idHex }
+        (rawFrames(uri, isVideo, mime) ?: emptyList())
+            .mapNotNull { EngramRecord.decodeAt(it, 0)?.record?.idHex }
             .toSet()
 
-    private fun decodedRecords(
+    /**
+     * The raw bytes of every CRC-valid record frame in the target, in file order.
+     * Keeping the raw frame bytes (rather than re-encoding decoded records) preserves
+     * unknown/future kinds, which a rewriter must not silently drop (spec: unknown
+     * kinds preserved). null only when the target could not be read at all.
+     */
+    private fun rawFrames(
         uri: String,
         isVideo: Boolean,
         mime: String,
-    ): List<DecodedRecord>? = if (isVideo) videoRecords(uri) else photoRecords(uri, mime)
+    ): List<ByteArray>? = if (isVideo) videoFrames(uri) else photoFrames(uri, mime)
 
-    private fun photoRecords(
+    private fun photoFrames(
         uri: String,
         mime: String,
-    ): List<DecodedRecord>? {
+    ): List<ByteArray>? {
         val bytes = access.readBytes(uri) ?: return null
         return if (mime == "image/png") {
-            runCatching { PngCodec.engramRecords(PngCodec.parse(bytes)) }.getOrElse { emptyList() }
+            runCatching { PngCodec.engramFrames(PngCodec.parse(bytes)) }.getOrElse { emptyList() }
         } else {
             // carve scan works for jpeg and any unknown image container
-            RecordStream.scan(bytes).map { it.decoded }
+            RecordStream
+                .scan(bytes)
+                .filter { it.decoded.crcOk }
+                .map { bytes.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
         }
     }
 
-    private fun videoRecords(uri: String): List<DecodedRecord>? =
+    private fun videoFrames(uri: String): List<ByteArray>? =
         access.withChannel(uri) { ch ->
-            runCatching { Mp4Channels.readRecords(ch).map { it.decoded } }.getOrElse { emptyList() }
+            runCatching { Mp4Channels.readRawFrames(ch) }.getOrElse { emptyList() }
         }
 
-    private fun outcome(decoded: List<DecodedRecord>): ScanOutcome {
-        val valid = decoded.filter { it.crcOk && it.record != null }
-        if (valid.isEmpty()) return ScanOutcome(0, 0, null, "")
+    private fun outcome(frames: List<ByteArray>): ScanOutcome {
+        if (frames.isEmpty()) return ScanOutcome(0, 0, null, "")
         val blob = ByteArrayBuilder()
         var payload = 0L
-        valid.forEach {
-            val encoded = it.record!!.encode()
-            blob.append(encoded)
-            payload += encoded.size
+        frames.forEach {
+            blob.append(it)
+            payload += it.size
         }
-        val text = Memory.fromRecords(valid.mapNotNull { it.record }).searchableText()
-        return ScanOutcome(valid.size, payload, blob.toByteArray(), text)
+        val text = Memory.fromRecords(frames.mapNotNull { EngramRecord.decodeAt(it, 0)?.record }).searchableText()
+        return ScanOutcome(frames.size, payload, blob.toByteArray(), text)
     }
 }

@@ -12,6 +12,33 @@ import kotlin.test.assertTrue
 
 class PngTest {
     @Test
+    fun carryFramesPreserveUnknownKindRecords() {
+        val out =
+            PngEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.png1x1(),
+                listOf(EngramRecord(RecordKind.Note, 1, "n".encodeToByteArray())),
+                null,
+                listOf(SyntheticMedia.unknownKindFrame()),
+            )
+        val decoded = PngCodec.engramRecords(PngCodec.parse(out))
+        assertEquals(2, decoded.size)
+        assertTrue(decoded.any { it.crcOk && it.record == null }, "unknown kind preserved as an egRm chunk")
+    }
+
+    @Test
+    fun engramFramesReturnsRawCrcOkFrames() {
+        val out =
+            PngEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.png1x1(),
+                listOf(EngramRecord(RecordKind.Note, 1, "n".encodeToByteArray())),
+                null,
+            )
+        val frames = PngCodec.engramFrames(PngCodec.parse(out))
+        assertEquals(1, frames.size)
+        assertTrue(EngramRecord.decodeAt(frames.single(), 0)?.crcOk == true)
+    }
+
+    @Test
     fun parseRoundTrip() {
         val src = SyntheticMedia.png1x1()
         assertContentEquals(src, PngCodec.serialize(PngCodec.parse(src)))

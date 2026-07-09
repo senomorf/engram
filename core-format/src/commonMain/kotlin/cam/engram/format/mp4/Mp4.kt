@@ -85,6 +85,7 @@ object Mp4Codec {
     fun embed(
         bytes: ByteArray,
         newRecords: List<EngramRecord>,
+        carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
         require(newRecords.isNotEmpty()) { "nothing to embed" }
         val boxes = topLevel(bytes)
@@ -117,7 +118,12 @@ object Mp4Codec {
                 else -> keep.append(bytes, start, end)
             }
         }
-        keep.append(buildEngramBox(old.toByteArray() + RecordStream.encode(newRecords)))
+        // carryFrames are already-encoded frames (e.g. unknown kinds) preserved verbatim
+        val records = ByteArrayBuilder()
+        records.append(old.toByteArray())
+        records.append(RecordStream.encode(newRecords))
+        carryFrames.forEach { records.append(it) }
+        keep.append(buildEngramBox(records.toByteArray()))
         return keep.toByteArray()
     }
 
