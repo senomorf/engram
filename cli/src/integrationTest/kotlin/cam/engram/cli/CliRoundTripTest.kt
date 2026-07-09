@@ -20,6 +20,17 @@ class CliRoundTripTest {
     private val dir = createTempDirectory("engram-it").toFile()
 
     @Test
+    fun generateRejectsAudioWithUnknownExtensionAndNoMime() {
+        val src = File(dir, "s.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
+        val audio = File(dir, "clip.xyz").apply { writeBytes(ByteArray(16)) }
+        val out = File(dir, "o.jpg")
+        // no --mime and an unrecognized extension: the cli must refuse rather than guess
+        val code =
+            cliMain(arrayOf("generate", "--in", src.path, "--out", out.path, "--note", "n", "--audio", audio.path))
+        assertTrue(code != 0)
+    }
+
+    @Test
     fun jpegGenerateThenInspect() {
         val src = File(dir, "src.jpg").apply { writeBytes(SyntheticMedia.jpegWithMpfSecondary()) }
         val audio = File(dir, "note.ogg").apply { writeBytes(ByteArray(256) { it.toByte() }) }

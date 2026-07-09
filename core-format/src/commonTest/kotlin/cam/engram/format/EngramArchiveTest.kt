@@ -57,6 +57,21 @@ class EngramArchiveTest {
     }
 
     @Test
+    fun quoteEscapesCarriageReturnAndLowControlChars() {
+        // carriage return and a sub-0x20 control char take the \r and \uXXXX branches of quote()
+        val transcript = "a" + 13.toChar() + "b" + 1.toChar() + "c"
+        val item =
+            EngramArchive.Item(
+                contentHashHex = "c0ffee",
+                originalName = "x.jpg",
+                records = listOf(EngramRecord(RecordKind.Transcript, 1, transcript.encodeToByteArray())),
+            )
+        val json = EngramArchive.render(item).json
+        val bs = 92.toChar() // backslash, built from its code to keep no backslash literals in the fixture
+        assertTrue(json.contains("a${bs}rb${bs}u0001c"), json)
+    }
+
+    @Test
     fun manifestIsValidJson() {
         assertEquals(
             "{\"archive\":\"engram\",\"manifestVersion\":1,\"itemCount\":3}",
