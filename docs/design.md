@@ -22,7 +22,7 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 
 ## 2. Targets and definition of done
 
-- v1 done when: owner, family, and select friends use it happily on their own
+- v1 done when: the owner and early adopters use it happily on their own
   phones, installed via a signed APK on GitHub Releases (D17).
 - Secondary target: owner learns Android development end to end; all code stays
   reviewable Kotlin, written agentically, gated by tests.
@@ -58,7 +58,7 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 - D7 Stack: Kotlin everywhere. :core-format pure Kotlin (KMP-compilable),
   :app Jetpack Compose, :cli JVM tool from the same core.
 - D8 Identity: name Engram; domain engram.cam (registered 2026-07-08);
-  XMP namespace https://ns.engram.cam/1.0/, now frozen (no real family photo
+  XMP namespace https://ns.engram.cam/1.0/, now frozen (no real photo
   written yet, so the pre-first-photo rename from the unregistered
   engram.photos was free); package prefix cam.engram, Android applicationId
   cam.engram.app; binary record magic EGRM.
@@ -89,10 +89,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   Audio is always recorded and stored regardless, so a weak transcript never costs
   the voice clip.
 - D16 Archive model: each person annotates their own media on their own phone.
-  No sync, no conflicts. Shared family pool: roadmap, far. Spec carries writer id
+  No sync, no conflicts. Shared pool: roadmap, far. Spec carries writer id
   from day one so that future does not require a format migration.
-- D17 Distribution: signed APK on GitHub Releases (install by link) for family
-  and friends, linked from the landing page at engram.cam (GitHub Pages). Play
+- D17 Distribution: signed APK on GitHub Releases (install by link), linked
+  from the landing page at engram.cam (GitHub Pages). Play
   and F-Droid are deferred, not v1 goals.
 - D18 License: app and library code under PolyForm Noncommercial 1.0.0
   (source-available; noncommercial use free, commercial rights reserved to the
@@ -155,7 +155,7 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 
 ## 5. Assumptions register
 
-- A1 All family and friends devices run Android 13+. Verify by collecting the
+- A1 All target devices run Android 13+. Verify by collecting the
   device list before first install; raising minSdk later is trivial, lowering
   is not.
 - A2 Digest defaults (evening on, burst off) are right for this audience. Verify
@@ -167,10 +167,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
 - A4 RU + EN strings cover the whole audience.
 - A5 License decision finalized at spec publication, not before.
 - A6 Screenshots bucket is detectable via MediaStore relative path on the
-  audience's OEMs. Verify on family devices [P0].
+  audience's OEMs. Verify on target devices [P0].
 - A7 Voice notes are mono speech; Opus at roughly 24 to 32 kbps is sufficient.
 - A8 Pixel screenshots are PNG; some OEMs use JPEG. Both bindings exist in v1
-  (see 6). Verify actual formats on family devices [P0].
+  (see 6). Verify actual formats on target devices [P0].
 
 ## 6. Format overview (the Engram format)
 
@@ -291,7 +291,7 @@ iOS is pushed far back (roadmap) but stays cheap to keep possible:
   cached, provenance recorded.
 - Engram Archive export is plaintext by design at a user-chosen location;
   encrypted export is on the roadmap; the app says this plainly at export time.
-- Voice of family and friends is personal data: on-device processing only.
+- Voice recordings are personal data: on-device processing only.
 
 ## 12. Backup guidance (user-facing)
 
@@ -320,7 +320,7 @@ memory sessions, shared pool, iOS, spec publication, production release.
 ## 14. Top risks
 
 1. Behavioral: annotation cost is daily, value arrives years later. Mitigation:
-   sub-15s flow, digest ritual, family install base. Still the most likely
+   sub-15s flow, digest ritual, an engaged install base. Still the most likely
    failure mode.
 2. Google Photos duplicate-on-rewrite of backed-up files [P0]. Could make the
    core loop feel broken; fallback is annotate-before-backup guidance or a
@@ -331,14 +331,14 @@ memory sessions, shared pool, iOS, spec publication, production release.
 5. Scope creep from three bindings (JPEG, PNG, MP4) in v1. Bounded: PNG chunks
    and MP4 boxes are far simpler than JPEG's segment surgery; JPEG carries the
    real risk (MPF, Motion).
-6. Bus factor for a family archive: mitigated by dual-write (D9), plaintext
+6. Bus factor for a personal archive: mitigated by dual-write (D9), plaintext
    Archive export (D14), the spec, and the CLI extractor.
 
 ## 15. Phase 0 gates feeding this document
 
 Survivability matrix (appendix A), Google Photos rewrite behavior, Ultra HDR
 and Motion Photo coexistence, Russian transcription verdict, engram.cam
-registration and namespace freeze, family device list (A1, A6, A8).
+registration and namespace freeze, target device list (A1, A6, A8).
 
 ## Appendices
 

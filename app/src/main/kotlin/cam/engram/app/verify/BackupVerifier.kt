@@ -30,7 +30,7 @@ enum class Survival { FULL, CAPTION_ONLY, GONE, UNREADABLE }
 /**
  * In-app backup verifier (design D14): the user picks a file that round-tripped
  * a cloud or messenger, and this reports what survived, turning the
- * survivability story into something the family can see.
+ * survivability story into something the user can see.
  */
 class BackupVerifier(
     private val context: Context,

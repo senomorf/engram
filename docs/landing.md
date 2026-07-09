@@ -5,8 +5,8 @@ source, `.github/workflows/pages.yml`; custom domain in `site/CNAME`).
 
 ## Motivation
 
-Engram installs by APK, not through an app store, so the page gives friends and
-family a plain, trustworthy first impression and one obvious Download button. It
+Engram installs by APK, not through an app store, so the page gives new users
+a plain, trustworthy first impression and one obvious Download button. It
 states the honest metadata-survival limit up front instead of burying it.
 
 ## What's there (`site/`)
