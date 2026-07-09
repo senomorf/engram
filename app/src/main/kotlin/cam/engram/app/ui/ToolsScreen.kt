@@ -141,6 +141,7 @@ private fun VerifyStatus(state: VerifyState) {
             Text(
                 when (state.survival) {
                     Survival.FULL -> stringResource(R.string.tools_survival_full, state.audioClips)
+                    Survival.DAMAGED -> stringResource(R.string.tools_survival_damaged)
                     Survival.CAPTION_ONLY -> stringResource(R.string.tools_survival_caption)
                     Survival.GONE -> stringResource(R.string.tools_survival_gone)
                     Survival.UNREADABLE -> stringResource(R.string.tools_survival_unreadable)

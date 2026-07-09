@@ -25,7 +25,7 @@ class VerifyReport(
     val summary: Survival,
 )
 
-enum class Survival { FULL, CAPTION_ONLY, GONE, UNREADABLE }
+enum class Survival { FULL, DAMAGED, CAPTION_ONLY, GONE, UNREADABLE }
 
 /**
  * In-app backup verifier (design D14): the user picks a file that round-tripped
@@ -49,7 +49,8 @@ class BackupVerifier(
         }
 
     private fun verifyJpeg(bytes: ByteArray): VerifyReport {
-        val records = RecordStream.scan(bytes).filter { it.decoded.crcOk }
+        val all = RecordStream.scan(bytes)
+        val records = all.filter { it.decoded.crcOk }
         val memory = Memory.from(records)
         val caption =
             runCatching {
@@ -60,14 +61,15 @@ class BackupVerifier(
                     ?.let { XmpCoreEngine().read(it.xmpPacket()).description }
             }.getOrNull()
         val mpf = runCatching { MpfInspector.inspect(bytes) }.getOrNull()
-        return report(records.size, memory, caption, mpf?.takeIf { it.present }?.valid)
+        return report(records.size, all.size - records.size, memory, caption, mpf?.takeIf { it.present }?.valid)
     }
 
     private fun verifyPng(bytes: ByteArray): VerifyReport {
         val file =
             runCatching { PngCodec.parse(bytes) }.getOrNull()
                 ?: return VerifyReport(0, false, 0, false, null, Survival.UNREADABLE)
-        val records = PngCodec.engramRecords(file)
+        val all = PngCodec.engramRecords(file)
+        val records = all.filter { it.crcOk }
         val memory = Memory.fromRecords(records.mapNotNull { it.record })
         val caption =
             file.chunks
@@ -76,22 +78,24 @@ class BackupVerifier(
                         it,
                     )
                 }?.let { XmpCoreEngine().read(it).description }
-        return report(records.size, memory, caption, null)
+        return report(records.size, all.size - records.size, memory, caption, null)
     }
 
     private fun verifyMp4(bytes: ByteArray): VerifyReport {
-        val records = runCatching { Mp4Codec.readRecords(bytes) }.getOrDefault(emptyList())
+        val all = runCatching { Mp4Codec.readRecords(bytes) }.getOrDefault(emptyList())
+        val records = all.filter { it.decoded.crcOk }
         val memory = Memory.from(records)
         val caption =
             runCatching {
                 cam.engram.format.mp4.Mp4Caption
                     .readCaption(bytes)
             }.getOrNull()
-        return report(records.size, memory, caption, null)
+        return report(records.size, all.size - records.size, memory, caption, null)
     }
 
     private fun report(
         recordCount: Int,
+        corruptCount: Int,
         memory: Memory,
         caption: String?,
         mpfIntact: Boolean?,
@@ -99,6 +103,8 @@ class BackupVerifier(
         val survival =
             when {
                 recordCount > 0 -> Survival.FULL
+                // records are present but every one failed its CRC: the memory is there but broken
+                corruptCount > 0 -> Survival.DAMAGED
                 !caption.isNullOrBlank() -> Survival.CAPTION_ONLY
                 else -> Survival.GONE
             }
