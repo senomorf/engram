@@ -159,4 +159,66 @@ class WriteBackSafetyTest {
             assertContentEquals(complete, access.files[uri])
             assertTrue(!File(backupDir, "13.bak").exists(), "completed write should clear the backup")
         }
+
+    // finding 2, mechanism 2: a write that opened and truncated the target then failed must
+    // restore from backup, not be misread as "target untouched" and drop the pristine copy
+    @Test
+    fun truncateThenFailWriteRestoresFromBackup() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(20, original)
+            access.failWriteAfterTruncate = true
+            assertIs<WriteOutcome.Failed>(writeBack.write(item, Annotation("note", null)))
+            assertContentEquals(original, access.files[item.uri])
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared after a successful restore")
+        }
+
+    @Test
+    fun truncateThenFailKeepsBackupWhenRestoreAlsoFails() =
+        runBlocking {
+            val item = seed(21, SyntheticMedia.jpegPlain())
+            access.failWriteAfterTruncate = true
+            access.rejectRestore = true
+            val outcome = writeBack.write(item, Annotation("note", null))
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("backup"), outcome.reason)
+            assertTrue(File(backupDir, "21.bak").exists(), "an uncertain write must never delete the backup")
+        }
+
+    // finding 2, mechanism 1: a partial backup copy must never be published under the .bak
+    // name, so recovery cannot later restore a truncated backup over an intact original
+    @Test
+    fun partialBackupIsNeverPublished() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(22, original)
+            access.partialCopyToFile = true
+            assertEquals(
+                "cannot back up original",
+                assertIs<WriteOutcome.Failed>(writeBack.write(item, Annotation("note", null))).reason,
+            )
+            assertTrue(backupDir.listFiles()!!.none { it.name == "22.bak" }, "partial backup must not be published")
+            assertContentEquals(original, access.files[item.uri])
+            writeBack.recoverPending()
+            assertContentEquals(original, access.files[item.uri])
+        }
+
+    // finding 2, mechanism 3: a same-session retry must rebuild from the committed backup,
+    // never re-copy the now-corrupt target over the last pristine copy
+    @Test
+    fun sameSessionRetryReusesPristineBackup() =
+        runBlocking {
+            val item = seed(23, SyntheticMedia.jpegPlain())
+            access.failWriteAfterTruncate = true
+            access.rejectRestore = true
+            assertIs<WriteOutcome.Failed>(writeBack.write(item, Annotation("note", null)))
+            assertTrue(File(backupDir, "23.bak").exists())
+            val copiesAfterFirst = access.copyToFileCount
+
+            access.failWriteAfterTruncate = false
+            access.rejectRestore = false
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("note", null)))
+            assertEquals(copiesAfterFirst, access.copyToFileCount, "retry must reuse the backup, not re-copy")
+            assertEquals(1, RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk })
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared after the successful retry")
+        }
 }
