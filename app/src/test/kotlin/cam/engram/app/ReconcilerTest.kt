@@ -50,6 +50,8 @@ class ReconcilerTest {
     private fun addPhoto(
         id: Long,
         bytes: ByteArray,
+        mime: String = "image/jpeg",
+        isVideo: Boolean = false,
     ) {
         val uri = "content://media/images/$id"
         files[uri] = bytes
@@ -57,8 +59,8 @@ class ReconcilerTest {
             SourceItem(
                 mediaId = id,
                 uri = uri,
-                isVideo = false,
-                mime = "image/jpeg",
+                isVideo = isVideo,
+                mime = mime,
                 relativePath = "DCIM/Camera/",
                 takenAtMillis = id,
                 sizeBytes = bytes.size.toLong(),
@@ -151,6 +153,53 @@ class ReconcilerTest {
             reconciler.reconcile()
 
             // the cache must keep the superset {A, B}, not shrink to {A}
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
+        }
+
+    // the superset merge runs on the record-frame blob, not the container, so it must hold on
+    // every codec, not only JPEG (finding 4, codec uniformity)
+    @Test
+    fun partialStripKeepsTheCachedSupersetForPng() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.png
+                    .PngEmbedder(FakeXmp())
+            val a = EngramRecord(RecordKind.Note, 1, "keep-a".encodeToByteArray())
+            val b = EngramRecord(RecordKind.Note, 2, "keep-b".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.png1x1(), listOf(a, b), "keep-b"), mime = "image/png")
+            reconciler.reconcile()
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount)
+
+            val stripped = embedder.embed(SyntheticMedia.png1x1(), listOf(a), "keep-a")
+            files["content://media/images/1"] = stripped
+            snapshot[0] = snapshot[0].copy(sizeBytes = stripped.size.toLong(), dateModified = 2)
+            reconciler.reconcile()
+
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
+        }
+
+    @Test
+    fun partialStripKeepsTheCachedSupersetForMp4() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "keep-a".encodeToByteArray())
+            val b = EngramRecord(RecordKind.Note, 2, "keep-b".encodeToByteArray())
+            addPhoto(
+                1,
+                cam.engram.format.mp4.Mp4Codec
+                    .embed(SyntheticMedia.mp4MoovLast(), listOf(a, b)),
+                mime = "video/mp4",
+                isVideo = true,
+            )
+            reconciler.reconcile()
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount)
+
+            val stripped =
+                cam.engram.format.mp4.Mp4Codec
+                    .embed(SyntheticMedia.mp4MoovLast(), listOf(a))
+            files["content://media/images/1"] = stripped
+            snapshot[0] = snapshot[0].copy(sizeBytes = stripped.size.toLong(), dateModified = 2)
+            reconciler.reconcile()
+
             assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
         }
 }
