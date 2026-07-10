@@ -13,6 +13,9 @@ data class SourceItem(
     val takenAtMillis: Long,
     val sizeBytes: Long,
     val dateModified: Long,
+    // MediaStore DISPLAY_NAME: the real file name, so archives name entries after the
+    // photo instead of its folder (finding: originalName used to store relativePath)
+    val displayName: String = "",
 )
 
 interface MediaSource {
@@ -37,6 +40,7 @@ class MediaStoreSource(
                 MediaStore.MediaColumns._ID,
                 MediaStore.MediaColumns.MIME_TYPE,
                 MediaStore.MediaColumns.RELATIVE_PATH,
+                MediaStore.MediaColumns.DISPLAY_NAME,
                 MediaStore.MediaColumns.DATE_TAKEN,
                 MediaStore.MediaColumns.DATE_ADDED,
                 MediaStore.MediaColumns.DATE_MODIFIED,
@@ -65,6 +69,7 @@ class MediaStoreSource(
                 val id = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
                 val mime = c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
                 val rel = c.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+                val displayName = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
                 val taken = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
                 val added = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
                 val modified = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
@@ -79,6 +84,7 @@ class MediaStoreSource(
                             isVideo = isVideo,
                             mime = c.getString(mime) ?: if (isVideo) "video/mp4" else "image/jpeg",
                             relativePath = c.getString(rel).orEmpty(),
+                            displayName = c.getString(displayName).orEmpty(),
                             takenAtMillis = takenAt,
                             sizeBytes = c.getLong(size),
                             dateModified = c.getLong(modified),

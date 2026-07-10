@@ -44,4 +44,17 @@ class SafArchiveSinkInstrumentedTest {
         val audio = dir.listFiles()?.firstOrNull { it.isFile && it.readBytes().contentEquals(byteArrayOf(7, 7, 7)) }
         assertNotNull(audio, "the audio blob must be persisted to the real tree")
     }
+
+    @Test
+    fun eachOpenCreatesAFreshExportDirectory() {
+        val root = DocumentFile.fromFile(dir)
+        val first = SafArchiveSink.openIn(context, root, clock = { 1111L })
+        val second = SafArchiveSink.openIn(context, root, clock = { 2222L })
+        assertNotNull(first, "first export run must open")
+        assertNotNull(second, "second export run must open")
+        assertTrue(first.write("manifest.json", byteArrayOf(1)))
+        assertTrue(second.write("manifest.json", byteArrayOf(2)))
+        val runs = dir.listFiles().orEmpty().filter { it.isDirectory && it.name.startsWith("engram-archive-") }
+        assertTrue(runs.size == 2, "each export run gets its own directory, none reused: ${runs.map { it.name }}")
+    }
 }

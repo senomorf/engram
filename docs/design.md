@@ -229,10 +229,15 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   disaster-recovery overstated it. Each item now also writes a byte-exact
   `<hash>.records` sidecar (the CRC-valid frames concatenated in log order, wire
   format of spec sec 2) which the ordinary frame decoder reads back losslessly,
-  opaque frames included; the manifest (v2) inventories every file with its md5 so
+  opaque frames included; the manifest (v3) inventories every file with its sha-256 so
   completeness is checkable. The JSON stays as the human-readable view. The app
   exports from the strip-recovery cache (superset semantics, D3); the cli exports
-  from the file. Hash identity stays md5 for naming and dedup, not security.
+  from the file. Identity hashing is sha-256, a pure-Kotlin streaming digest, so
+  videos hash without being loaded whole; md5 remains only where the ExtendedXMP
+  spec mandates it. Cache rows hashed before the switch refresh on their next scan.
+  Entries are named by that hash plus the photo's MediaStore DISPLAY_NAME (captured
+  at reconcile into media_items.displayName), and every export writes into a fresh
+  directory, so a manifest is always authoritative for exactly the files beside it.
 
 ## 5. Assumptions register
 

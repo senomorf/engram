@@ -3,6 +3,7 @@ package cam.engram.app.export
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.media.ContentAccess
+import cam.engram.format.Digests
 import cam.engram.format.archive.EngramArchive
 import cam.engram.format.records.FrameLog
 import cam.engram.format.records.RecordStream
@@ -63,12 +64,13 @@ class ArchiveExporter(
         // prefer the live media hash; fall back to the hash + name stored at scan time so a cache
         // orphan (the media file moved or was deleted) still exports, never a silent skip (finding 9)
         val item = db.media().byId(entry.mediaId)
-        val liveBytes = item?.let { access.readBytes(it.uri) }
+        // hash by streaming the channel: exporting a video must not load it whole
+        val liveHash = item?.let { i -> access.withChannel(i.uri) { Digests.sha256Hex(it) } }
         val hash: String
         val name: String
-        if (item != null && liveBytes != null) {
-            hash = EngramArchive.contentHashName(liveBytes)
-            name = item.relativePath
+        if (item != null && liveHash != null) {
+            hash = liveHash
+            name = item.displayName.ifEmpty { item.relativePath }
         } else {
             hash = entry.contentHash
             name = entry.originalName

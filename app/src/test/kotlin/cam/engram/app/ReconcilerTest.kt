@@ -157,6 +157,42 @@ class ReconcilerTest {
         }
 
     @Test
+    fun videoScanPopulatesAStreamingContentHash() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "clip".encodeToByteArray())
+            val bytes =
+                cam.engram.format.mp4.Mp4Codec
+                    .embed(SyntheticMedia.mp4MoovLast(), listOf(a))
+            addPhoto(1, bytes, mime = "video/mp4", isVideo = true)
+            reconciler.reconcile()
+            assertEquals(
+                cam.engram.format.archive.EngramArchive
+                    .contentHashName(bytes),
+                db.recordCache().byId(1)!!.contentHash,
+                "videos must be content-addressed at scan (streamed, not loaded whole)",
+            )
+        }
+
+    @Test
+    fun cacheEntryIsNamedAfterTheDisplayName() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "hi".encodeToByteArray())
+            addPhoto(
+                1,
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+                    .embed(SyntheticMedia.jpegPlain(), listOf(a), "hi"),
+            )
+            snapshot[0] = snapshot[0].copy(displayName = "IMG_0042.jpg")
+            reconciler.reconcile()
+            assertEquals(
+                "IMG_0042.jpg",
+                db.recordCache().byId(1)!!.originalName,
+                "the archive entry name must be the real file name, not its folder",
+            )
+        }
+
+    @Test
     fun scanCommitsMediaRowAndCacheTogether() =
         runBlocking {
             val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())

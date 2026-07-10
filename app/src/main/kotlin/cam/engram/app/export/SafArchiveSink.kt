@@ -26,18 +26,26 @@ class SafArchiveSink internal constructor(
         }.getOrDefault(false)
 
     companion object {
-        private const val FOLDER = "engram-archive"
+        private const val FOLDER_PREFIX = "engram-archive"
 
-        /** Opens (or creates) the archive folder under [treeUri]; null if it cannot. */
+        /**
+         * Creates a fresh archive folder under [treeUri]; null if it cannot. Each
+         * export gets its own directory so runs never mix and every manifest stays
+         * authoritative for exactly the files beside it (D28).
+         */
         fun open(
             context: Context,
             treeUri: Uri,
+            clock: () -> Long = System::currentTimeMillis,
+        ): SafArchiveSink? = DocumentFile.fromTreeUri(context, treeUri)?.let { openIn(context, it, clock) }
+
+        // seam for the instrumented test: a raw DocumentFile root stands in for the tree
+        internal fun openIn(
+            context: Context,
+            root: DocumentFile,
+            clock: () -> Long,
         ): SafArchiveSink? {
-            val root = DocumentFile.fromTreeUri(context, treeUri) ?: return null
-            val dir =
-                root.findFile(FOLDER)?.takeIf { it.isDirectory }
-                    ?: root.createDirectory(FOLDER)
-                    ?: return null
+            val dir = root.createDirectory("$FOLDER_PREFIX-${clock()}") ?: return null
             return SafArchiveSink(context, dir)
         }
     }

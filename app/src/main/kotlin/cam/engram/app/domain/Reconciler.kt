@@ -134,7 +134,7 @@ class Reconciler(
             recordsBlob = scannedBlob,
             recordCount = scannedCount,
             updatedMillis = clock(),
-            originalName = item.relativePath,
+            originalName = item.displayName.ifEmpty { item.relativePath },
             contentHash = contentHash,
         )
 
@@ -151,6 +151,7 @@ class Reconciler(
             recordCount = -1,
             payloadLength = 0,
             lastScanMillis = 0,
+            displayName = displayName,
         )
 
     private companion object {

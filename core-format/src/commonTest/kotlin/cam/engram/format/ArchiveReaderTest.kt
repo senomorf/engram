@@ -23,10 +23,20 @@ class ArchiveReaderTest {
                 ),
             )
         val m = ArchiveReader.parseManifest(json)
-        assertEquals(2, m.manifestVersion)
+        assertEquals(3, m.manifestVersion)
         assertEquals(2, m.itemCount)
         assertEquals(listOf("a.json", "a.records"), m.files.map { it.name })
-        assertEquals(listOf("11aa", "22bb"), m.files.map { it.md5 })
+        assertEquals(listOf("11aa", "22bb"), m.files.map { it.hash })
+    }
+
+    @Test
+    fun v2ManifestWithMd5FieldStillParses() {
+        val m =
+            ArchiveReader.parseManifest(
+                """{"archive":"engram","manifestVersion":2,"itemCount":1,"files":[{"name":"a.json","md5":"cafe"}]}""",
+            )
+        assertEquals(2, m.manifestVersion)
+        assertEquals("cafe", m.files.single().hash)
     }
 
     @Test

@@ -2,6 +2,7 @@ package cam.engram.app.data.scan
 
 import cam.engram.app.data.media.ContentAccess
 import cam.engram.format.ByteArrayBuilder
+import cam.engram.format.Digests
 import cam.engram.format.archive.EngramArchive
 import cam.engram.format.mp4.Mp4Channels
 import cam.engram.format.png.PngCodec
@@ -15,8 +16,8 @@ class ScanOutcome(
     val payloadLength: Long,
     val recordsBlob: ByteArray?,
     val searchableText: String,
-    // md5 content hash of the media for cache-orphan export (finding 9); empty for videos,
-    // which stream rather than load whole, so scanning never pulls a whole video into memory
+    // sha-256 content hash of the media for cache-orphan export (finding 9); videos are
+    // hashed by streaming the channel, never by loading them whole
     val contentHash: String,
 )
 
@@ -30,8 +31,13 @@ class RecordScanner(
         mime: String,
     ): ScanOutcome? {
         val (frames, bytes) = readTarget(uri, isVideo, mime) ?: return null
-        return outcome(frames, bytes?.let { EngramArchive.contentHashName(it) }.orEmpty())
+        val hash = bytes?.let { EngramArchive.contentHashName(it) } ?: videoHash(uri).orEmpty()
+        return outcome(frames, hash)
     }
+
+    // one extra streaming pass on the scans that already decided to read the file, so a
+    // video cache orphan can still export by identity (finding 9); constant memory
+    private fun videoHash(uri: String): String? = access.withChannel(uri) { Digests.sha256Hex(it) }
 
     /**
      * The idHexes of the CRC-valid frames currently in the target, opaque

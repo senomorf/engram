@@ -20,6 +20,8 @@ data class MediaItemEntity(
     val recordCount: Int,
     val payloadLength: Long,
     val lastScanMillis: Long,
+    // MediaStore DISPLAY_NAME captured at reconcile: names archive entries (D28)
+    val displayName: String = "",
 )
 
 /**

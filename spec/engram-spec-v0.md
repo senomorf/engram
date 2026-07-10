@@ -166,10 +166,10 @@ The disaster-recovery serialization (design D14, D28): one directory holding,
 per media item, a byte-exact record log, a readable JSON view, and any audio
 blobs, plus a manifest inventory. All fields are append-only.
 
-- `manifest.json`: `{"archive":"engram","manifestVersion":2,"itemCount":N,
-  "files":[{"name":...,"md5":...},...]}`. The `files` array inventories every
-  written file with its md5, so a validator can prove the archive complete.
-  Version 1 manifests (itemCount only) predate the inventory.
+- `manifest.json`: `{"archive":"engram","manifestVersion":3,"itemCount":N,
+  "files":[{"name":...,"sha256":...},...]}`. The `files` array inventories every
+  written file with its sha-256, so a validator can prove the archive complete.
+  Version 2 inventoried with md5; version 1 (itemCount only) had no inventory.
 - `<contentHash>.records`: the authoritative record log: the item's CRC-valid
   frames concatenated byte-exact in log order, exactly the wire format of
   section 2. Opaque frames (unknown kinds, future wire versions) are carried
@@ -179,5 +179,6 @@ blobs, plus a manifest inventory. All fields are append-only.
   transcripts, latest enrichment, audio file names, `recordLog` file name,
   `frameCount`). The view may lose detail; the record log never does.
 - `<contentHash>_<n>.<ext>`: audio payloads extracted for direct playback.
-- `<contentHash>` is the md5 of the source media file (naming and dedup, not
-  a security boundary).
+- `<contentHash>` is the sha-256 of the source media file: it names the entry
+  and doubles as the import identity key. Archives written before manifest v3
+  used md5 names; they stay valid within their own directories.

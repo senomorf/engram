@@ -47,7 +47,7 @@ class ArchiveCliTest {
             "note + audio frames decode from the sidecar",
         )
         val manifest = File(archiveDir, "manifest.json").readText()
-        assertTrue(manifest.contains("\"manifestVersion\":2"), manifest)
+        assertTrue(manifest.contains("\"manifestVersion\":3"), manifest)
         assertTrue(manifest.contains(log.name), "manifest inventories the record log: $manifest")
 
         // export-import identity: the validator proves the archive complete, and the

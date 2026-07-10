@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DraftEntity::class,
         MemoryFts::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class EngramDb : RoomDatabase() {
@@ -45,6 +45,14 @@ abstract class EngramDb : RoomDatabase() {
                 }
             }
 
+        // media_items gains the real file name so archives are named after the photo (D28)
+        val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(connection: SupportSQLiteDatabase) {
+                    connection.execSQL("ALTER TABLE media_items ADD COLUMN displayName TEXT NOT NULL DEFAULT ''")
+                }
+            }
+
         // record_cache gains the stable identity a cache orphan needs to export (finding 9)
         val MIGRATION_2_3 =
             object : Migration(2, 3) {
@@ -57,7 +65,7 @@ abstract class EngramDb : RoomDatabase() {
         fun build(context: Context): EngramDb =
             Room
                 .databaseBuilder(context, EngramDb::class.java, "engram.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
         fun inMemory(context: Context): EngramDb =

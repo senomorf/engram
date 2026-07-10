@@ -143,7 +143,7 @@ class ArchiveExporterTest {
             }
             val manifest = written["manifest.json"]!!.decodeToString()
             written.filterKeys { it != "manifest.json" }.forEach { (name, data) ->
-                val expected = """{"name":"$name","md5":"${EngramArchive.contentHashName(data)}"}"""
+                val expected = """{"name":"$name","sha256":"${EngramArchive.contentHashName(data)}"}"""
                 assertTrue(manifest.contains(expected), "manifest must list $name with its hash: $manifest")
             }
         }

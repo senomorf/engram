@@ -40,6 +40,14 @@ change lands under Unreleased at merge time.
   and readable (every inventoried file present with its checksum, every record log
   fully decodable with counts matching the readable view, every audio blob present).
 
+### Changed
+
+- Archive identity hardened: entries are named by sha-256 (was md5) so the name can
+  double as an import identity key, videos are content-addressed by streaming (a
+  scan or export never loads a video whole), entries carry the photo's real file
+  name instead of its folder, and each export writes into its own fresh directory
+  so runs never mix.
+
 ## [0.1.1] - 2026-07-10
 
 ### Fixed
