@@ -69,6 +69,7 @@ class AppContainer(
             db = db,
             source = source,
             scanner = scanner,
+            access = access,
             includeScreenshots = { settings.current().includeScreenshots },
             io = io,
             enrichmentPrefetch = { enrichmentGateway.fetch(it)?.encode() },

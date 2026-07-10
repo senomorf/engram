@@ -5,9 +5,11 @@ import cam.engram.app.data.db.EnrichmentCacheEntity
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import cam.engram.app.data.db.RecordCacheEntity
+import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.MediaSource
 import cam.engram.app.data.media.SourceItem
 import cam.engram.app.data.scan.RecordScanner
+import cam.engram.format.archive.EngramArchive
 import cam.engram.format.records.RecordStream
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -28,6 +30,7 @@ class Reconciler(
     private val db: EngramDb,
     private val source: MediaSource,
     private val scanner: RecordScanner,
+    private val access: ContentAccess,
     private val includeScreenshots: suspend () -> Boolean,
     private val io: CoroutineDispatcher,
     // background enrichment prefetch (review F5): returns the encoded enrichment
@@ -131,6 +134,10 @@ class Reconciler(
             } else {
                 scannedBlob to scannedCount
             }
+        // content-address the media now, while it is still readable, so a later cache orphan
+        // (media removed) can still be exported by name and hash (finding 9)
+        val hash =
+            access.readBytes(item.uri)?.let { EngramArchive.contentHashName(it) } ?: existing?.contentHash.orEmpty()
         return RecordCacheEntity(
             mediaId = item.mediaId,
             identityTakenAt = item.takenAtMillis,
@@ -138,6 +145,8 @@ class Reconciler(
             recordsBlob = blob,
             recordCount = count,
             updatedMillis = clock(),
+            originalName = item.relativePath,
+            contentHash = hash,
         )
     }
 
