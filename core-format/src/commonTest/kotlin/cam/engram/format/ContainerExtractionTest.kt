@@ -151,6 +151,24 @@ class ContainerExtractionTest {
     }
 
     @Test
+    fun rawFramesReturnsTheByteExactLogPerContainer() {
+        val opaque = SyntheticMedia.unknownVersionFrame()
+        val jpeg = JpegEmbedder(xmp).embed(SyntheticMedia.jpegPlain(), listOf(note()), null, listOf(opaque))
+        val jpegFrames = ContainerExtraction.rawFrames(jpeg)
+        assertEquals(2, jpegFrames.size)
+        assertTrue(jpegFrames.any { it.contentEquals(opaque) }, "opaque frames ride byte-exact")
+        assertEquals(
+            1,
+            ContainerExtraction.rawFrames(PngEmbedder(xmp).embed(SyntheticMedia.png1x1(), listOf(note()), null)).size,
+        )
+        assertEquals(
+            1,
+            ContainerExtraction.rawFrames(Mp4Codec.embed(SyntheticMedia.mp4MoovLast(), listOf(note()))).size,
+        )
+        assertEquals(0, ContainerExtraction.rawFrames(ByteArray(32) { 0x42 }).size)
+    }
+
+    @Test
     fun opaqueFramesCountTowardFull() {
         val out =
             JpegEmbedder(xmp).embed(

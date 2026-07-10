@@ -91,6 +91,33 @@ object ContainerExtraction {
         }
 
     /**
+     * Raw bytes of every CRC-valid frame, in file order: the byte-exact record
+     * log an archive must carry (typed and opaque frames alike). Unreadable or
+     * unrecognized containers yield an empty list.
+     */
+    fun rawFrames(bytes: ByteArray): List<ByteArray> =
+        when (detect(bytes)) {
+            ContainerType.JPEG ->
+                runCatching { JpegCodec.parse(bytes) }
+                    .getOrNull()
+                    ?.filterIsInstance<TrailerData>()
+                    ?.flatMap { t ->
+                        RecordStream
+                            .scan(t.raw)
+                            .filter { it.decoded.crcOk }
+                            .map { t.raw.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
+                    }.orEmpty()
+            ContainerType.PNG ->
+                runCatching { PngCodec.parse(bytes) }.getOrNull()?.let { PngCodec.engramFrames(it) }.orEmpty()
+            ContainerType.MP4 ->
+                runCatching { Mp4Codec.readRecords(bytes) }
+                    .getOrDefault(emptyList())
+                    .filter { it.decoded.crcOk }
+                    .map { bytes.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
+            null -> emptyList()
+        }
+
+    /**
      * Absolute survival verdict. Order matters: a damaged carrier or any
      * CRC-corrupt record downgrades the verdict, so a partial backup is never
      * reported as fully survived.

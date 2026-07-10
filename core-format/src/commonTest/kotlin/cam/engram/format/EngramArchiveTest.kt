@@ -5,11 +5,45 @@ import cam.engram.format.records.AudioPayload
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.EnrichmentPayload
 import cam.engram.format.records.RecordKind
+import cam.engram.format.records.RecordStream
+import cam.engram.format.testing.SyntheticMedia
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class EngramArchiveTest {
+    @Test
+    fun recordLogCarriesEveryFrameByteExact() {
+        val note = EngramRecord(RecordKind.Note, 10, "kept".encodeToByteArray())
+        val frames = listOf(note.encode(), SyntheticMedia.unknownKindFrame(), SyntheticMedia.unknownVersionFrame())
+        val rendered = EngramArchive.render(EngramArchive.Item("abc123", "IMG_1.jpg", listOf(note), frames))
+        val log = rendered.recordLog!!
+        assertEquals("abc123.records", rendered.recordLogName)
+        // the sidecar is the concatenated wire frames, byte for byte
+        assertContentEquals(frames[0] + frames[1] + frames[2], log)
+        val hits = RecordStream.decodeSequence(log)
+        assertEquals(3, hits.size, "the log round-trips through the ordinary decoder")
+        assertEquals(2, hits.count { it.decoded.record == null }, "opaque frames survive")
+        assertTrue(rendered.json.contains("\"recordLog\":\"abc123.records\""), rendered.json)
+        assertTrue(rendered.json.contains("\"frameCount\":3"), rendered.json)
+    }
+
+    @Test
+    fun manifestListsTheInventoryWithHashes() {
+        val manifest =
+            EngramArchive.manifest(
+                1,
+                listOf(
+                    EngramArchive.ManifestFile("a.json", "11aa"),
+                    EngramArchive.ManifestFile("a.records", "22bb"),
+                ),
+            )
+        assertTrue(manifest.contains("\"manifestVersion\":2"), manifest)
+        assertTrue(manifest.contains("""{"name":"a.json","md5":"11aa"}"""), manifest)
+        assertTrue(manifest.contains("""{"name":"a.records","md5":"22bb"}"""), manifest)
+    }
+
     @Test
     fun rendersNotesHistoryAndAudioBlobs() {
         val item =
@@ -74,7 +108,7 @@ class EngramArchiveTest {
     @Test
     fun manifestIsValidJson() {
         assertEquals(
-            "{\"archive\":\"engram\",\"manifestVersion\":1,\"itemCount\":3}",
+            "{\"archive\":\"engram\",\"manifestVersion\":2,\"itemCount\":3,\"files\":[]}",
             EngramArchive.manifest(3),
         )
     }

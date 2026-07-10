@@ -14,12 +14,15 @@ import cam.engram.format.toHex
  * Minimal hand-rolled JSON so :core-format stays dependency-free and KMP-safe.
  */
 object EngramArchive {
-    const val MANIFEST_VERSION = 1
+    const val MANIFEST_VERSION = 2
 
     class Item(
         val contentHashHex: String,
         val originalName: String,
         val records: List<EngramRecord>,
+        // byte-exact CRC-valid frames in log order, typed and opaque alike: the
+        // authoritative record log (spec sec 11); the JSON is a readable view of it
+        val rawFrames: List<ByteArray> = emptyList(),
     )
 
     class AudioBlob(
@@ -30,16 +33,33 @@ object EngramArchive {
     class Rendered(
         val json: String,
         val audio: List<AudioBlob>,
+        /** concatenated wire frames for the .records sidecar; null when the item carries none */
+        val recordLog: ByteArray? = null,
+        val recordLogName: String? = null,
     )
 
-    fun manifest(itemCount: Int): String =
+    class ManifestFile(
+        val name: String,
+        val md5: String,
+    )
+
+    /**
+     * Manifest v2: the archive inventory. Every written file is listed with its
+     * md5 so a validator can prove the archive complete without guessing from
+     * directory contents. Fields are append-only (spec sec 11).
+     */
+    fun manifest(
+        itemCount: Int,
+        files: List<ManifestFile> = emptyList(),
+    ): String =
         buildJson {
             field("archive", "engram")
             field("manifestVersion", MANIFEST_VERSION.toString(), raw = true)
             field("itemCount", itemCount.toString(), raw = true)
+            arrayField("files", files) { """{"name":${quote(it.name)},"md5":${quote(it.md5)}}""" }
         }
 
-    /** Renders one item's JSON document and its audio blobs. */
+    /** Renders one item's JSON view, its audio blobs, and its byte-exact record log. */
     fun render(item: Item): Rendered {
         val memory = Memory.fromRecords(item.records)
         val audioBlobs = mutableListOf<AudioBlob>()
@@ -47,6 +67,9 @@ object EngramArchive {
             val ext = if (clip.mime.contains("mp4") || clip.mime.contains("aac")) "m4a" else "ogg"
             audioBlobs += AudioBlob("${item.contentHashHex}_$i.$ext", clip.data)
         }
+        val recordLog =
+            if (item.rawFrames.isEmpty()) null else item.rawFrames.fold(ByteArray(0)) { acc, f -> acc + f }
+        val recordLogName = recordLog?.let { "${item.contentHashHex}.records" }
         val json =
             buildJson {
                 field("contentHash", item.contentHashHex)
@@ -56,8 +79,10 @@ object EngramArchive {
                 arrayField("transcripts", memory.transcripts) { quote(it.text) }
                 objectField("enrichment", memory.enrichment)
                 arrayField("audio", audioBlobs) { quote(it.fileName) }
+                rawField("recordLog", recordLogName?.let { quote(it) } ?: "null")
+                rawField("frameCount", item.rawFrames.size.toString())
             }
-        return Rendered(json, audioBlobs)
+        return Rendered(json, audioBlobs, recordLog, recordLogName)
     }
 
     private class JsonBuilder {

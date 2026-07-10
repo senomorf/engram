@@ -223,6 +223,16 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   unknown-version candidate advances one byte so a real frame inside its claimed span
   is still found. decodeAt also does its length checks in Long so a hostile payload
   length cannot wrap the bounds and crash the reader.
+- D28 Archive record log. The Engram Archive is a commitment, not a convenience: spec
+  sec 11 now defines it. The JSON view alone lost record order, ids, writers,
+  timestamps, enrichment history, and every opaque frame, so calling it
+  disaster-recovery overstated it. Each item now also writes a byte-exact
+  `<hash>.records` sidecar (the CRC-valid frames concatenated in log order, wire
+  format of spec sec 2) which the ordinary frame decoder reads back losslessly,
+  opaque frames included; the manifest (v2) inventories every file with its md5 so
+  completeness is checkable. The JSON stays as the human-readable view. The app
+  exports from the strip-recovery cache (superset semantics, D3); the cli exports
+  from the file. Hash identity stays md5 for naming and dedup, not security.
 
 ## 5. Assumptions register
 

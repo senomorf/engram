@@ -37,5 +37,17 @@ class ArchiveCliTest {
         val json = archiveDir.listFiles { f -> f.name.endsWith(".json") && f.name != "manifest.json" }!!.single()
         assertTrue(json.readText().contains("archived memory"))
         assertTrue(archiveDir.listFiles { f -> f.name.endsWith(".ogg") }!!.isNotEmpty())
+        // the byte-exact record log rides beside the JSON view and round-trips
+        val log = archiveDir.listFiles { f -> f.name.endsWith(".records") }!!.single()
+        assertEquals(
+            2,
+            cam.engram.format.records.RecordStream
+                .decodeSequence(log.readBytes())
+                .size,
+            "note + audio frames decode from the sidecar",
+        )
+        val manifest = File(archiveDir, "manifest.json").readText()
+        assertTrue(manifest.contains("\"manifestVersion\":2"), manifest)
+        assertTrue(manifest.contains(log.name), "manifest inventories the record log: $manifest")
     }
 }
