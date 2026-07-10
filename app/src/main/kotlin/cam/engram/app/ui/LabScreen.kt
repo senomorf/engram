@@ -74,12 +74,13 @@ private fun SpikeSection() {
     val container = currentAppContainer()
     var result by remember { mutableStateOf("") }
 
-    suspend fun run(): String {
+    // returns the typed outcome (so consent routing never string-matches) plus the text
+    suspend fun run(): Pair<WriteOutcome?, String> {
         val item =
             container.db
                 .media()
                 .all()
-                .maxByOrNull { it.takenAtMillis } ?: return "no indexed media, open the queue first"
+                .maxByOrNull { it.takenAtMillis } ?: return null to "no indexed media, open the queue first"
         val started = System.currentTimeMillis()
         val outcome =
             container.writeBack.write(
@@ -87,23 +88,26 @@ private fun SpikeSection() {
                 Annotation(noteText = "engram spike $started", audioFile = null),
             )
         val took = System.currentTimeMillis() - started
-        return when (outcome) {
-            is WriteOutcome.Success -> "ok: ${outcome.recordCount} record(s) in ${took}ms, ${item.relativePath}"
-            is WriteOutcome.Failed -> outcome.reason
-        }
+        val text =
+            when (outcome) {
+                is WriteOutcome.Success -> "ok: ${outcome.recordCount} record(s) in ${took}ms, ${item.relativePath}"
+                WriteOutcome.NotOpened -> "media write rejected, consent needed"
+                is WriteOutcome.Failed -> outcome.reason
+            }
+        return outcome to text
     }
 
     val consent =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-            if (r.resultCode == android.app.Activity.RESULT_OK) scope.launch { result = run() }
+            if (r.resultCode == android.app.Activity.RESULT_OK) scope.launch { result = run().second }
         }
     Text(stringResource(R.string.lab_spike_title), style = MaterialTheme.typography.titleMedium)
     Button(
         onClick = {
             scope.launch {
-                val out = run()
-                result = out
-                if (out == "media write rejected") {
+                val (outcome, text) = run()
+                result = text
+                if (outcome is WriteOutcome.NotOpened) {
                     container.db
                         .media()
                         .all()

@@ -175,7 +175,7 @@ class WriteBackTest {
             val item = seed(2, original)
             access.rejectWrites = true
             val outcome = writeBack.write(item, Annotation("x", null))
-            assertEquals("media write rejected", assertIs<WriteOutcome.Failed>(outcome).reason)
+            assertIs<WriteOutcome.NotOpened>(outcome, "an unopened stream is its own typed outcome")
             assertContentEquals(original, access.files[item.uri]!!)
         }
 

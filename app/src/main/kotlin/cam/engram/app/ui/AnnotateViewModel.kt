@@ -122,12 +122,8 @@ class AnnotateViewModel(
                         s.audioPath?.let { File(it).delete() }
                         state.value.copy(save = SaveUi.Saved(overSoftCap = outcome.overSoftCap))
                     }
-                    is WriteOutcome.Failed ->
-                        if (outcome.reason == "media write rejected") {
-                            state.value.copy(save = SaveUi.Rejected)
-                        } else {
-                            state.value.copy(save = SaveUi.Error(outcome.reason))
-                        }
+                    WriteOutcome.NotOpened -> state.value.copy(save = SaveUi.Rejected)
+                    is WriteOutcome.Failed -> state.value.copy(save = SaveUi.Error(outcome.reason))
                 }
         }
     }

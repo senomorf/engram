@@ -94,7 +94,7 @@ class MediaWriteBack(
                     // the stream never opened, so the target is untouched: cleanup, no restore
                     is Attempt.Rejected -> {
                         cleanup(item.mediaId)
-                        WriteOutcome.Failed("media write rejected")
+                        WriteOutcome.NotOpened
                     }
                     is Attempt.Failed -> rollback(item, backup, attempt.reason)
                     is Attempt.Verified -> {
