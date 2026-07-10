@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ backup/transfer rules. The record-recovery cache (design D3) is
-     the one non-rebuildable store, so let settings, drafts and the cache ride
-     cloud backup and device transfer; the rest of the index is harmlessly rebuilt
-     on the next reconcile. -->
+<!-- Android 12+ backup/transfer rules. User memories (notes and audio live in the record
+     cache inside engram.db), voice drafts and the full photo/video write-back backups must
+     never leave the phone to the cloud, keeping the no-cloud promise (finding 5). A local
+     device-to-device transfer may still carry engram.db so a new phone keeps the
+     non-rebuildable record cache, but not the transient write-back backups or voice drafts. -->
 <data-extraction-rules>
-    <cloud-backup />
-    <device-transfer />
+    <cloud-backup>
+        <exclude domain="database" path="engram.db" />
+        <exclude domain="file" path="writeback/" />
+        <exclude domain="file" path="drafts/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="writeback/" />
+        <exclude domain="file" path="drafts/" />
+    </device-transfer>
 </data-extraction-rules>
