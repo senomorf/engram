@@ -9,9 +9,13 @@ import cam.engram.app.writeback.Annotation
 import cam.engram.app.writeback.MediaWriteBack
 import cam.engram.app.writeback.StripRepair
 import cam.engram.app.writeback.WriteOutcome
+import cam.engram.format.jpeg.JpegEmbedder
 import cam.engram.format.mp4.Mp4Caption
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
+import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -86,6 +90,30 @@ class WriteBackTest {
             assertEquals(2, db.media().byId(1)!!.recordCount)
             assertEquals(2, db.recordCache().byId(1)!!.recordCount)
             assertTrue(backupDir.listFiles()!!.isEmpty(), "backup must be cleaned after success")
+        }
+
+    @Test
+    fun userWriteNeverShrinksTheRecoveryCache() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray(), ByteArray(16) { 1 })
+            val b = EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray(), ByteArray(16) { 2 })
+            // the live file carries only A; the cache still holds A+B from before a partial strip
+            val item = seed(8, JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), listOf(a), "a"))
+            db.recordCache().upsert(
+                RecordCacheEntity(
+                    mediaId = 8,
+                    identityTakenAt = item.takenAtMillis,
+                    sizeBytesAtScan = item.sizeBytes,
+                    recordsBlob = RecordStream.encode(listOf(a, b)),
+                    recordCount = 2,
+                    updatedMillis = 0,
+                ),
+            )
+            writeBack.write(item, Annotation("c", null))
+            val cache = db.recordCache().byId(8)!!
+            assertEquals(3, cache.recordCount, "a new save must not shrink the recovery cache")
+            val ids = RecordStream.decodeSequence(cache.recordsBlob).mapNotNull { it.decoded.record?.idHex }
+            assertTrue(b.idHex in ids, "the cached-only record must survive the save")
         }
 
     @Test

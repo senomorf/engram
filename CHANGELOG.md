@@ -16,6 +16,9 @@ change lands under Unreleased at merge time.
 - A save interrupted while indexing can no longer mark a memory as indexed while the
   recovery cache misses it: the media row, the recovery cache, and the search index
   now commit together, fed by the same verification scan that approved the write.
+- Saving a new memory no longer shrinks the strip-recovery cache when the file had
+  earlier lost records the cache still held: every index path now merges the cache
+  as a superset, atomically per item, keyed by each record's id and checksum.
 
 ## [0.1.1] - 2026-07-10
 

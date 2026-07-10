@@ -156,6 +156,25 @@ class ReconcilerTest {
             assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
         }
 
+    @Test
+    fun scanCommitsMediaRowAndCacheTogether() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())
+            addPhoto(
+                1,
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+                    .embed(SyntheticMedia.jpegPlain(), listOf(a), "a"),
+            )
+            // a dying record_cache insert must not leave the media row claiming the item
+            // was scanned: the item stays unscanned so the next reconcile retries it
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_cache BEFORE INSERT ON record_cache BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            )
+            runCatching { reconciler.reconcile() }
+            assertEquals(-1, db.media().byId(1)!!.recordCount, "a failed cache insert must not mark the item scanned")
+        }
+
     // the superset merge runs on the record-frame blob, not the container, so it must hold on
     // every codec, not only JPEG (finding 4, codec uniformity)
     @Test
