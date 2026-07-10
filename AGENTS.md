@@ -37,6 +37,7 @@ rationale. Docs map and update rules: docs/README.md.
 - Compose PascalCase functions are exempt from ktlint/detekt naming via config; do not rename them.
 - git remote is HTTPS with gh as credential helper (no ssh-agent needed); push and fetch use the gh token.
 - CI beyond `./gradlew build`: codeql (manual build mode, needs `--rerun-tasks` or Kotlin does not extract), dependency-review (PRs), pages (site/).
+- claude-code-review.yml: the code-review plugin posts to PRs only when the prompt has --comment (stock scaffold omits it, anthropics/claude-code-action#1087); keep the flag. PRs that edit this workflow file are skipped by OIDC validation (green run, warning in log) until merged to main.
 
 ## Rules
 
