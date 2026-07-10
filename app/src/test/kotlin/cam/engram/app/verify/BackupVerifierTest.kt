@@ -140,4 +140,15 @@ class BackupVerifierTest {
         val report = verify("content://x/9", corruptFirstRecordPayload(bytes))
         assertEquals(Survival.DAMAGED, report.summary)
     }
+
+    @Test
+    fun jpegWithMixedCorruptionReportsDamagedNotFull() {
+        val bytes = JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), records(), "at the lake")
+        // corrupting the first of two records leaves one valid and one corrupt (a mix): the
+        // verdict must not be FULL, or the user trusts a partial backup (finding 8)
+        val report = verify("content://x/10", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
+        assertEquals(1, report.recordCount, "the surviving valid record is still counted")
+        assertEquals(1, report.corruptCount, "the corrupt record is surfaced")
+    }
 }

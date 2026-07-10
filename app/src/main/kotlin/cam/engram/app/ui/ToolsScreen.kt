@@ -53,6 +53,7 @@ private sealed interface VerifyState {
     data class Done(
         val survival: Survival,
         val audioClips: Int,
+        val corruptCount: Int,
     ) : VerifyState
 }
 
@@ -93,7 +94,7 @@ fun ToolsScreen(onBack: () -> Unit) {
                 scope.launch {
                     verify = VerifyState.Running
                     val report = BackupVerifier(context).verify(uri)
-                    verify = VerifyState.Done(report.summary, report.audioClips)
+                    verify = VerifyState.Done(report.summary, report.audioClips, report.corruptCount)
                 }
             }
         }
@@ -149,7 +150,7 @@ private fun VerifyStatus(state: VerifyState) {
             Text(
                 when (state.survival) {
                     Survival.FULL -> stringResource(R.string.tools_survival_full, state.audioClips)
-                    Survival.DAMAGED -> stringResource(R.string.tools_survival_damaged)
+                    Survival.DAMAGED -> stringResource(R.string.tools_survival_damaged, state.corruptCount)
                     Survival.CAPTION_ONLY -> stringResource(R.string.tools_survival_caption)
                     Survival.GONE -> stringResource(R.string.tools_survival_gone)
                     Survival.UNREADABLE -> stringResource(R.string.tools_survival_unreadable)

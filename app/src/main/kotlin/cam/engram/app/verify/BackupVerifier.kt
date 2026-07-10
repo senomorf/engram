@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 
 class VerifyReport(
     val recordCount: Int,
+    val corruptCount: Int,
     val hasNote: Boolean,
     val audioClips: Int,
     val captionVisible: Boolean,
@@ -39,12 +40,12 @@ class BackupVerifier(
         withContext(Dispatchers.IO) {
             val bytes =
                 runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-                    ?: return@withContext VerifyReport(0, false, 0, false, null, Survival.UNREADABLE)
+                    ?: return@withContext VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
             when {
                 bytes.size > 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> verifyJpeg(bytes)
                 bytes.startsWith(PngCodec.SIGNATURE) -> verifyPng(bytes)
                 bytes.size >= 12 && bytes.copyOfRange(4, 8).decodeToString() == "ftyp" -> verifyMp4(bytes)
-                else -> VerifyReport(0, false, 0, false, null, Survival.UNREADABLE)
+                else -> VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
             }
         }
 
@@ -67,7 +68,7 @@ class BackupVerifier(
     private fun verifyPng(bytes: ByteArray): VerifyReport {
         val file =
             runCatching { PngCodec.parse(bytes) }.getOrNull()
-                ?: return VerifyReport(0, false, 0, false, null, Survival.UNREADABLE)
+                ?: return VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
         val all = PngCodec.engramRecords(file)
         val records = all.filter { it.crcOk }
         val memory = Memory.fromRecords(records.mapNotNull { it.record })
@@ -102,14 +103,16 @@ class BackupVerifier(
     ): VerifyReport {
         val survival =
             when {
-                recordCount > 0 -> Survival.FULL
-                // records are present but every one failed its CRC: the memory is there but broken
+                // any CRC-corrupt record downgrades the verdict: a mix of valid and corrupt
+                // records is not FULL, so the user is never told a partial backup fully survived
                 corruptCount > 0 -> Survival.DAMAGED
+                recordCount > 0 -> Survival.FULL
                 !caption.isNullOrBlank() -> Survival.CAPTION_ONLY
                 else -> Survival.GONE
             }
         return VerifyReport(
             recordCount = recordCount,
+            corruptCount = corruptCount,
             hasNote = memory.currentNote != null,
             audioClips = memory.audio.size,
             captionVisible = !caption.isNullOrBlank(),
