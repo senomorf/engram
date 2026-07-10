@@ -44,9 +44,11 @@ rationale. Docs map and update rules: docs/README.md.
 - Conventional commits, one line, no body. Rebase over merge (D19).
 - No em or en dashes anywhere (code, comments, docs, commits). Use commas, colons, hyphens.
 - :core-format commonMain stays pure Kotlin: no java.* or android.* imports (iOS tripwire, design sec 10).
-- Every JPEG write must leave MpfInspector valid; never bypass the post-write check (Ultra HDR survival).
+- Every JPEG write must leave MpfInspector valid; never bypass the post-write check (Ultra HDR survival). Any insertion that grows the primary must patch the MPF primary MP-entry Individual Image Size to the new SOI..EOI span (MpfInspector now enforces it).
 - XMP namespace https://ns.engram.cam/1.0/ is frozen; wire-format changes need a spec version bump and a design decision.
-- Records are append-only; nothing may silently drop or rewrite existing payload.
+- Records are append-only; nothing may silently drop or rewrite existing payload. The IPTC caption upsert likewise preserves other IIM datasets (keywords, by-line, copyright); only 2:120 is replaced.
+- Reads of user media go through ResolverContentAccess.readUri (MediaStore.setRequireOriginal, gated on ACCESS_MEDIA_LOCATION); a new reader that opens the URI directly strips a camera photo's GPS (design.md D25).
+- Content writes are a WriteResult tri-state (NotOpened/OpenedUncertain/Ok), not Boolean; durable .meta-before-.bak backup, the .bak is deleted only after the new file verifies intact or the original is restored, a Mutex serializes write and recovery (design.md D26).
 - Escape NUL as `\u0000` in source, never literal control bytes.
 - lab/corpus/ holds private personal media: never commit contents, never weaken its .gitignore.
 - Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). New code vs spec files go under the right one.
@@ -56,7 +58,7 @@ rationale. Docs map and update rules: docs/README.md.
 - Dependency security (D23): Dependabot alerts on the AGP build classpath (settings.gradle.kts, scope null: netty/bouncycastle/logback/jose4j/jdom2/opentelemetry) are build-time only, not shipped; dismiss as tolerable_risk, never add buildscript pins. Graph submission (dependency-submission.yml) is scoped to shipped runtime configs and the repo's Automatic Dependency Submission is OFF, so the build classpath is no longer graphed. Rationale: design.md D23. Gotcha: `gh api .../dependabot/alerts` paginates at 30, use `--paginate` to see all.
 - Linter split: ktlint owns formatting (.editorconfig), detekt owns smells (config/detekt/detekt.yml). No overlapping rules.
 - Localization: user-facing strings via stringResource; keep values/ and values-ru/ in sync (only translatable=false and app_name differ), enforced by LocalizationTest and lint MissingTranslation. Lab debug diagnostics exempt.
-- Offline: annotate, browse, search, verify, export must work with no network. Only enrichment uses the network, best-effort and graceful.
+- Offline: annotate, browse, search, verify, export must work with no network. Only enrichment and consented remote dictation use the network, best-effort and graceful.
 - Material: M3 only (no androidx.compose.material.* components), dynamic color, top bars via EngramScaffold, edge-to-edge; no hardcoded Color/TextStyle outside the theme. MaterialExpressiveTheme is internal in stable material3 1.4.0 (public only in 1.5.0-alpha); do not attempt until 1.5.0 stable (roadmap).
 
 ## Docs upkeep

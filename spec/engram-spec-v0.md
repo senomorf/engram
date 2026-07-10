@@ -81,12 +81,16 @@ destroying camera metadata is never acceptable.
   u32be full length, u32be offset per segment.
 - IPTC caption mirror: APP13 `Photoshop 3.0` resource 0x0404, IIM datasets
   1:90 (UTF-8 marker), 2:00 (version 4), 2:120 (caption, capped 2000 bytes).
-  Other Photoshop resources are preserved byte-exact.
+  Other Photoshop resources are preserved byte-exact, and other IIM datasets
+  inside 0x0404 (keywords, by-line, copyright, and so on) are carried forward
+  unchanged; only 2:120 is replaced.
 - Binary records: appended after the last existing post-EOI byte (after any
   vendor trailer), concatenated frames, no container wrapper.
 - Insertion safety rules (normative): all segment insertions and replacements
-  happen before the MPF APP2 segment so MPF relative offsets keep meaning;
-  writes are re-validated with an MPF inspector afterwards; layouts that
+  happen before the MPF APP2 segment so MPF relative offsets keep meaning; the
+  primary MP-entry Individual Image Size is rewritten to the new SOI..EOI span on
+  any insertion that grows the primary; writes are re-validated with an MPF
+  inspector afterwards (which checks both the offset and that size); layouts that
   would require MPF offset rewriting are refused; files whose XMP carries
   MotionPhoto or MicroVideo markers are refused until coexistence rules are
   verified (plan track A); EXIF is never rewritten in v0 (maker note safety,
