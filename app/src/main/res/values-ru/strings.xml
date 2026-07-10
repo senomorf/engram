@@ -65,7 +65,7 @@
     <string name="tools_verify_hint">Выберите фото, скачанное из облака или чата. Engram покажет, что сохранилось.</string>
     <string name="tools_verify_button">Выбрать файл для проверки</string>
     <string name="tools_verifying">Проверка…</string>
-    <string name="tools_survival_full">Сохранилось всё: заметки и голосовые (%1$d) внутри.</string>
+    <string name="tools_survival_full">Заметки и голосовые (%1$d) внутри, все читаются без повреждений.</string>
     <string name="tools_survival_damaged">Часть воспоминаний повреждена: %1$d запис(ей) испорчены на этом пути и не читаются.</string>
     <string name="tools_survival_caption">Сохранилась только текстовая подпись. Голос и история вырезаны этим путём.</string>
     <string name="tools_survival_gone">Ничего не сохранилось. Этот путь пережал фото и удалил воспоминания.</string>
