@@ -36,7 +36,7 @@ object Mp4Files {
         caption: String? = null,
         carryFrames: List<ByteArray> = emptyList(),
     ): CaptionOutcome {
-        require(newRecords.isNotEmpty()) { "nothing to embed" }
+        require(newRecords.isNotEmpty() || carryFrames.isNotEmpty()) { "nothing to embed" }
         require(input.canonicalPath != output.canonicalPath) { "output must differ from input" }
         val boxes = topLevel(input)
         boxes.forEachIndexed { idx, b ->

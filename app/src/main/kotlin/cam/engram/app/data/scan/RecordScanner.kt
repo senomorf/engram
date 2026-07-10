@@ -8,6 +8,7 @@ import cam.engram.format.png.PngCodec
 import cam.engram.format.read.Memory
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordStream
+import cam.engram.format.toHex
 
 class ScanOutcome(
     val recordCount: Int,
@@ -33,10 +34,10 @@ class RecordScanner(
     }
 
     /**
-     * The idHexes of the CRC-valid records currently in the target. Write-back
-     * recovery uses this to tell a completed write (every expected id present)
-     * from an interrupted one (records missing), instead of merely re-parsing
-     * the container.
+     * The idHexes of the CRC-valid frames currently in the target, opaque
+     * (unknown kind or version) frames included. Write-back recovery uses this
+     * to tell a completed write (every expected id present) from an interrupted
+     * one (frames missing), instead of merely re-parsing the container.
      */
     fun presentIds(
         uri: String,
@@ -44,7 +45,9 @@ class RecordScanner(
         mime: String,
     ): Set<String> =
         (readTarget(uri, isVideo, mime)?.first ?: emptyList())
-            .mapNotNull { EngramRecord.decodeAt(it, 0)?.record?.idHex }
+            // the id sits at frame offset 8..24 (frozen envelope), so no decode is needed
+            // and carried opaque frames count toward completion like typed records
+            .map { it.copyOfRange(8, 24).toHex() }
             .toSet()
 
     /**

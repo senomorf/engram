@@ -89,5 +89,5 @@ class AppContainer(
             },
         )
 
-    val stripRepair: StripRepair = StripRepair(db, writeBack)
+    val stripRepair: StripRepair = StripRepair(db, writeBack, scanner)
 }

@@ -112,7 +112,7 @@ class WriteBackSafetyTest {
             db.media().upsert(listOf(reused))
             access.files[item.uri] = SyntheticMedia.jpegPlain() // stripped/other photo
 
-            val repair = StripRepair(db, writeBack)
+            val repair = StripRepair(db, writeBack, RecordScanner(access))
             assertTrue(repair.strippedItems().none { it.mediaId == 4L }, "identity mismatch must not list as stripped")
             assertTrue(repair.repair(reused) is WriteOutcome.Failed)
         }

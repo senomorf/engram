@@ -87,7 +87,7 @@ object Mp4Codec {
         newRecords: List<EngramRecord>,
         carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
-        require(newRecords.isNotEmpty()) { "nothing to embed" }
+        require(newRecords.isNotEmpty() || carryFrames.isNotEmpty()) { "nothing to embed" }
         val boxes = topLevel(bytes)
         boxes.forEachIndexed { idx, b ->
             if (b.sizeFieldWasZero && idx != boxes.lastIndex) {

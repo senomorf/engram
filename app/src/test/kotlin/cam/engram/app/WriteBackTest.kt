@@ -15,6 +15,7 @@ import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
+import cam.engram.format.toHex
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -202,6 +203,56 @@ class WriteBackTest {
         }
 
     @Test
+    fun repairAppendsOnlyTheMissingFrames() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray(), ByteArray(16) { 1 })
+            val b = EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray(), ByteArray(16) { 2 })
+            // a partial strip left A in the file while the cache still holds A+B
+            val item = seed(11, JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), listOf(a), "a"))
+            db.recordCache().upsert(
+                RecordCacheEntity(11, item.takenAtMillis, item.sizeBytes, RecordStream.encode(listOf(a, b)), 2, 0),
+            )
+            val outcome = StripRepair(db, writeBack, RecordScanner(access)).repair(item)
+            assertIs<WriteOutcome.Success>(outcome)
+            val hits = RecordStream.scan(access.files[item.uri]!!).filter { it.decoded.crcOk }
+            assertEquals(2, hits.size, "repair must add the missing record without duplicating the survivor")
+            assertEquals(setOf(a.idHex, b.idHex), hits.mapNotNull { it.decoded.record?.idHex }.toSet())
+        }
+
+    @Test
+    fun opaqueOnlyCacheRepairsByteExact() =
+        runBlocking {
+            val opaque = SyntheticMedia.unknownVersionFrame()
+            val item = seed(12, SyntheticMedia.jpegPlain())
+            db.recordCache().upsert(RecordCacheEntity(12, item.takenAtMillis, item.sizeBytes, opaque, 1, 0))
+            val outcome = StripRepair(db, writeBack, RecordScanner(access)).repair(item)
+            assertIs<WriteOutcome.Success>(outcome)
+            val hit = RecordStream.scan(access.files[item.uri]!!).single { it.decoded.crcOk }
+            assertEquals(null, hit.decoded.record)
+            assertContentEquals(
+                opaque,
+                access.files[item.uri]!!.copyOfRange(hit.offset, hit.offset + hit.decoded.byteLength),
+                "the future-format frame must survive repair byte-exact",
+            )
+        }
+
+    @Test
+    fun recoveryKeepsATargetWhoseCarriedOpaqueFrameLanded() =
+        runBlocking {
+            val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray(), ByteArray(16) { 3 })
+            val opaque = SyntheticMedia.unknownVersionFrame()
+            val repaired =
+                JpegEmbedder(XmpCoreEngine()).embed(SyntheticMedia.jpegPlain(), listOf(a), "a", listOf(opaque))
+            val uri = "content://media/61"
+            access.files[uri] = repaired
+            File(backupDir, "61.bak").writeBytes(SyntheticMedia.jpegPlain())
+            val opaqueId = opaque.copyOfRange(8, 24).toHex()
+            File(backupDir, "61.meta").writeText("$uri\nfalse\nimage/jpeg\n${a.idHex},$opaqueId")
+            writeBack.recoverPending()
+            assertContentEquals(repaired, access.files[uri]!!, "a completed carry write must not be rolled back")
+        }
+
+    @Test
     fun stripDetectionAndRepairRestoreSameRecords() =
         runBlocking {
             val item = seed(5, SyntheticMedia.jpegPlain())
@@ -217,7 +268,7 @@ class WriteBackTest {
             access.files[item.uri] = SyntheticMedia.jpegPlain()
             db.media().upsert(listOf(db.media().byId(5)!!.copy(recordCount = 0)))
 
-            val repair = StripRepair(db, writeBack)
+            val repair = StripRepair(db, writeBack, RecordScanner(access))
             assertEquals(listOf(5L), repair.strippedItems().map { it.mediaId })
             assertIs<WriteOutcome.Success>(repair.repair(db.media().byId(5)!!))
             val restored =
@@ -259,7 +310,9 @@ class WriteBackTest {
             db.media().upsert(listOf(db.media().byId(6)!!.copy(recordCount = 0)))
             access.files[item.uri] = SyntheticMedia.jpegPlain()
 
-            assertIs<WriteOutcome.Success>(StripRepair(db, writeBack).repair(db.media().byId(6)!!))
+            assertIs<WriteOutcome.Success>(
+                StripRepair(db, writeBack, RecordScanner(access)).repair(db.media().byId(6)!!),
+            )
 
             // strip-repair is a rewriter: the spec says it must preserve unknown kinds, not drop them
             assertTrue(
@@ -275,6 +328,9 @@ class WriteBackTest {
             // the file now carries 1 record but the cache holds 2 for the same capture (finding 4)
             db.media().upsert(listOf(db.media().byId(7)!!.copy(recordCount = 1)))
             db.recordCache().upsert(RecordCacheEntity(7, item.takenAtMillis, 0, ByteArray(0), 2, 0))
-            assertEquals(listOf(7L), StripRepair(db, writeBack).strippedItems().map { it.mediaId })
+            assertEquals(
+                listOf(7L),
+                StripRepair(db, writeBack, RecordScanner(access)).strippedItems().map { it.mediaId },
+            )
         }
 }
