@@ -67,7 +67,7 @@
     <string name="tools_verify_button">Pick a file to check</string>
     <string name="tools_verifying">Checking…</string>
     <string name="tools_survival_full">Everything survived: notes and %1$d voice clip(s) are still inside.</string>
-    <string name="tools_survival_damaged">The memories are still inside but damaged: that path corrupted them and they cannot be read back.</string>
+    <string name="tools_survival_damaged">Some memories are damaged: %1$d record(s) were corrupted on that path and cannot be read back.</string>
     <string name="tools_survival_caption">Only the text caption survived. Voice and history were stripped by that path.</string>
     <string name="tools_survival_gone">Nothing survived. That path recompressed the photo and removed the memories.</string>
     <string name="tools_survival_unreadable">Could not read that file.</string>
