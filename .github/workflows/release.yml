@@ -36,8 +36,11 @@ jobs:
           CORE="${VER%%-*}" # drop any -rc1 suffix for the numeric code
           IFS=. read -r MAJ MIN PAT <<< "$CORE"
           CODE=$(( 10#$MAJ * 1000000 + 10#$MIN * 1000 + 10#$PAT )) # 10# forces base-10 (avoid octal on 0-padded parts)
-          echo "name=$VER" >> "$GITHUB_OUTPUT"
-          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          {
+            echo "name=$VER"
+            echo "core=$CORE"
+            echo "code=$CODE"
+          } >> "$GITHUB_OUTPUT"
           if [[ "$TAG" == *-* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
           echo "version=$VER code=$CODE tag=$TAG"
 
@@ -104,7 +107,9 @@ jobs:
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
-          VER="${{ steps.ver.outputs.name }}"
+          # the CHANGELOG heading is always the base X.Y.Z (promoted before an rc trial,
+          # AGENTS Releasing), so rc tags must look up the core version, not the full name
+          VER="${{ steps.ver.outputs.core }}"
           awk -v v="$VER" '
             $0 ~ "^## \\[" v "\\]" { f = 1; next }
             f && /^## \[/ { exit }
