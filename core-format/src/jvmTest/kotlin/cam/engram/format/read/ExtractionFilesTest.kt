@@ -56,4 +56,69 @@ class ExtractionFilesTest {
         val file = File(dir, "x.bin").apply { writeBytes(ByteArray(32) { 0x24 }) }
         assertNull(ExtractionFiles.inspect(file, xmp))
     }
+
+    private fun <T> onChannel(
+        bytes: ByteArray,
+        block: (java.nio.channels.SeekableByteChannel) -> T,
+    ): T {
+        val f = File(dir, "ch-${bytes.size}-${bytes.hashCode()}.mp4").apply { writeBytes(bytes) }
+        return java.io
+            .FileInputStream(f)
+            .channel
+            .use(block)
+    }
+
+    @Test
+    fun channelInspectionStreamsRecordsAndCaption() {
+        val src = File(dir, "cin.mp4").apply { writeBytes(SyntheticMedia.mp4MoovLast()) }
+        val out = File(dir, "cout.mp4")
+        Mp4Files.appendRecords(src, out, listOf(note()), "по каналу")
+        val x =
+            java.io
+                .FileInputStream(out)
+                .channel
+                .use { ExtractionFiles.inspectMp4(it) }
+        assertIs<CarrierIntegrity.Readable>(x.integrity)
+        assertEquals(1, x.records.size)
+        assertEquals("по каналу", x.mp4Caption)
+    }
+
+    @Test
+    fun channelInspectionFlagsAnUndecodableBoxTail() {
+        val bytes =
+            SyntheticMedia.mp4MoovLast() +
+                cam.engram.format.mp4.Mp4Codec
+                    .buildEngramBox(note().encode() + byteArrayOf(9, 9, 9))
+        val x = onChannel(bytes) { ExtractionFiles.inspectMp4(it) }
+        assertEquals(1, x.records.size)
+        assertIs<CarrierIntegrity.CarrierDamaged>(x.integrity)
+    }
+
+    @Test
+    fun channelInspectionReportsUnparseableMp4() {
+        val bytes = SyntheticMedia.mp4Minimal().copyOf().also { it[3] = 99 } // ftyp claims a bogus size
+        val x = onChannel(bytes) { ExtractionFiles.inspectMp4(it) }
+        assertIs<CarrierIntegrity.Unreadable>(x.integrity)
+    }
+
+    @Test
+    fun channelInspectionSkipsAnOversizedMoov() {
+        val src = File(dir, "cin2.mp4").apply { writeBytes(SyntheticMedia.mp4MoovLast()) }
+        val out = File(dir, "cout2.mp4")
+        Mp4Files.appendRecords(src, out, listOf(note()), "скрыто")
+        val x =
+            java.io
+                .FileInputStream(out)
+                .channel
+                .use { ExtractionFiles.inspectMp4(it, moovCap = 8) }
+        assertNull(x.mp4Caption, "an implausibly large moov is skipped, not loaded")
+        assertEquals(1, x.records.size)
+    }
+
+    @Test
+    fun channelInspectionWithoutAnEngramBoxIsReadableAndEmpty() {
+        val x = onChannel(SyntheticMedia.mp4MoovLast()) { ExtractionFiles.inspectMp4(it) }
+        assertIs<CarrierIntegrity.Readable>(x.integrity)
+        assertEquals(0, x.records.size)
+    }
 }

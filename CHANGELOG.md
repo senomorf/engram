@@ -23,6 +23,11 @@ change lands under Unreleased at merge time.
   appends only the missing frames, byte-exact, and now also restores files whose
   cache holds only future-format records. Crash recovery counts carried
   future-format frames toward a completed write instead of rolling it back.
+- The backup verifier reports damage more honestly: media that no longer parses is
+  "could not read" instead of "nothing survived", a record container that lost
+  frames counts as damaged even when the remaining records read back, and
+  record-like bytes hiding inside photo metadata no longer count as survived
+  memories. Verifying a video now streams it instead of loading it whole.
 
 ## [0.1.1] - 2026-07-10
 

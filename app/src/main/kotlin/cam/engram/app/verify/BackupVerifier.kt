@@ -1,20 +1,17 @@
 package cam.engram.app.verify
 
-import android.content.Context
-import android.net.Uri
-import cam.engram.format.jpeg.JpegCodec
-import cam.engram.format.jpeg.MpfInspector
-import cam.engram.format.jpeg.Segment
-import cam.engram.format.jpeg.isXmpApp1
-import cam.engram.format.jpeg.xmpPacket
-import cam.engram.format.mp4.Mp4Codec
-import cam.engram.format.png.PngCodec
+import cam.engram.app.data.media.ContentAccess
+import cam.engram.format.read.CarrierIntegrity
+import cam.engram.format.read.ContainerExtraction
+import cam.engram.format.read.ContainerType
+import cam.engram.format.read.Extraction
+import cam.engram.format.read.ExtractionFiles
 import cam.engram.format.read.Memory
-import cam.engram.format.records.RecordStream
-import cam.engram.format.startsWith
+import cam.engram.format.read.Survival
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.ByteBuffer
 
 class VerifyReport(
     val recordCount: Int,
@@ -26,98 +23,66 @@ class VerifyReport(
     val summary: Survival,
 )
 
-enum class Survival { FULL, DAMAGED, CAPTION_ONLY, GONE, UNREADABLE }
-
 /**
  * In-app backup verifier (design D14): the user picks a file that round-tripped
  * a cloud or messenger, and this reports what survived, turning the
- * survivability story into something the user can see.
+ * survivability story into something the user can see. Reading and
+ * classification live in core-format (ContainerExtraction); this adapter only
+ * wires the ContentAccess seam and shapes the report.
  */
 class BackupVerifier(
-    private val context: Context,
+    private val access: ContentAccess,
 ) {
-    suspend fun verify(uri: Uri): VerifyReport =
+    suspend fun verify(uri: String): VerifyReport =
         withContext(Dispatchers.IO) {
-            val bytes =
-                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-                    ?: return@withContext VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
-            when {
-                bytes.size > 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> verifyJpeg(bytes)
-                bytes.startsWith(PngCodec.SIGNATURE) -> verifyPng(bytes)
-                bytes.size >= 12 && bytes.copyOfRange(4, 8).decodeToString() == "ftyp" -> verifyMp4(bytes)
-                else -> VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
-            }
+            report(inspect(uri))
         }
 
-    private fun verifyJpeg(bytes: ByteArray): VerifyReport {
-        val all = RecordStream.scan(bytes)
-        val records = all.filter { it.decoded.crcOk }
-        val memory = Memory.from(records)
-        val caption =
-            runCatching {
-                JpegCodec
-                    .parse(bytes)
-                    .filterIsInstance<Segment>()
-                    .firstOrNull { it.isXmpApp1() }
-                    ?.let { XmpCoreEngine().read(it.xmpPacket()).description }
-            }.getOrNull()
-        val mpf = runCatching { MpfInspector.inspect(bytes) }.getOrNull()
-        return report(records.size, all.size - records.size, memory, caption, mpf?.takeIf { it.present }?.valid)
+    private fun inspect(uri: String): Extraction? {
+        val head =
+            access.withChannel(uri) { ch ->
+                val buf = ByteBuffer.allocate(16)
+                while (buf.hasRemaining() && ch.read(buf) > 0) {
+                    // keep filling: a short read is not end of stream
+                }
+                buf.array().copyOf(buf.position())
+            } ?: return null
+        return when (ContainerExtraction.detect(head)) {
+            // videos stream through the channel so verifying one never loads it whole
+            ContainerType.MP4 -> access.withChannel(uri) { ExtractionFiles.inspectMp4(it) }
+            ContainerType.JPEG, ContainerType.PNG ->
+                access.readBytes(uri)?.let { ContainerExtraction.inspect(it, XmpCoreEngine()) }
+            null -> null
+        }
     }
 
-    private fun verifyPng(bytes: ByteArray): VerifyReport {
-        val file =
-            runCatching { PngCodec.parse(bytes) }.getOrNull()
-                ?: return VerifyReport(0, 0, false, 0, false, null, Survival.UNREADABLE)
-        val all = PngCodec.engramRecords(file)
-        val records = all.filter { it.crcOk }
-        val memory = Memory.fromRecords(records.mapNotNull { it.record })
-        val caption =
-            file.chunks
-                .firstNotNullOfOrNull {
-                    PngCodec.xmpPacket(
-                        it,
-                    )
-                }?.let { XmpCoreEngine().read(it).description }
-        return report(records.size, all.size - records.size, memory, caption, null)
-    }
-
-    private fun verifyMp4(bytes: ByteArray): VerifyReport {
-        val all = runCatching { Mp4Codec.readRecords(bytes) }.getOrDefault(emptyList())
-        val records = all.filter { it.decoded.crcOk }
-        val memory = Memory.from(records)
-        val caption =
-            runCatching {
-                cam.engram.format.mp4.Mp4Caption
-                    .readCaption(bytes)
-            }.getOrNull()
-        return report(records.size, all.size - records.size, memory, caption, null)
-    }
-
-    private fun report(
-        recordCount: Int,
-        corruptCount: Int,
-        memory: Memory,
-        caption: String?,
-        mpfIntact: Boolean?,
-    ): VerifyReport {
-        val survival =
-            when {
-                // any CRC-corrupt record downgrades the verdict: a mix of valid and corrupt
-                // records is not FULL, so the user is never told a partial backup fully survived
-                corruptCount > 0 -> Survival.DAMAGED
-                recordCount > 0 -> Survival.FULL
-                !caption.isNullOrBlank() -> Survival.CAPTION_ONLY
-                else -> Survival.GONE
+    private fun report(x: Extraction?): VerifyReport {
+        val all = x?.records.orEmpty()
+        val valid = all.count { it.crcOk }
+        // a damaged carrier lost frames beyond the CRC-bad ones: exact for png
+        // (undecodable chunks), at least one for an undecodable engram-box tail
+        val carrierLost =
+            if (x != null && x.integrity is CarrierIntegrity.CarrierDamaged) {
+                if (x.container == ContainerType.PNG) (x.pngEngramChunks - all.size).coerceAtLeast(1) else 1
+            } else {
+                0
             }
+        val memory = Memory.fromRecords(all.mapNotNull { d -> d.record.takeIf { d.crcOk } })
+        val caption =
+            when (x?.container) {
+                ContainerType.MP4 -> x.mp4Caption
+                ContainerType.JPEG, ContainerType.PNG -> x.xmpSummary?.description
+                null -> null
+            }
+        val captionVisible = !caption.isNullOrBlank()
         return VerifyReport(
-            recordCount = recordCount,
-            corruptCount = corruptCount,
+            recordCount = valid,
+            corruptCount = (all.size - valid) + carrierLost,
             hasNote = memory.currentNote != null,
             audioClips = memory.audio.size,
-            captionVisible = !caption.isNullOrBlank(),
-            mpfIntact = mpfIntact,
-            summary = survival,
+            captionVisible = captionVisible,
+            mpfIntact = x?.mpf?.takeIf { it.present }?.valid,
+            summary = ContainerExtraction.classify(x, captionVisible),
         )
     }
 }

@@ -3,12 +3,12 @@ package cam.engram.cli
 import cam.engram.format.jpeg.JpegEmbedder
 import cam.engram.format.mp4.CaptionOutcome
 import cam.engram.format.mp4.Mp4Files
-import cam.engram.format.png.PngCodec
 import cam.engram.format.png.PngEmbedder
+import cam.engram.format.read.ContainerExtraction
+import cam.engram.format.read.ContainerType
 import cam.engram.format.records.AudioPayload
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
-import cam.engram.format.startsWith
 import cam.engram.format.xmp.XmpCoreEngine
 import java.io.File
 import java.security.SecureRandom
@@ -80,12 +80,14 @@ internal class Args(
 
 internal enum class Container { JPEG, PNG, MP4 }
 
+// magic-byte detection lives in core-format (shared with the app verifier); the cli
+// keeps its own throwing contract for unknown files
 internal fun detect(head: ByteArray): Container =
-    when {
-        head.size > 2 && head[0] == 0xFF.toByte() && head[1] == 0xD8.toByte() -> Container.JPEG
-        head.size >= 8 && head.startsWith(PngCodec.SIGNATURE) -> Container.PNG
-        head.size >= 12 && head.copyOfRange(4, 8).decodeToString() == "ftyp" -> Container.MP4
-        else -> throw IllegalArgumentException("unrecognized container (jpeg, png, mp4 supported)")
+    when (ContainerExtraction.detect(head)) {
+        ContainerType.JPEG -> Container.JPEG
+        ContainerType.PNG -> Container.PNG
+        ContainerType.MP4 -> Container.MP4
+        null -> throw IllegalArgumentException("unrecognized container (jpeg, png, mp4 supported)")
     }
 
 internal fun readHead(file: File): ByteArray = file.inputStream().use { it.readNBytes(16) }

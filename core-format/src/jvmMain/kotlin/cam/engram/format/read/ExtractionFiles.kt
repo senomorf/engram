@@ -1,11 +1,13 @@
 package cam.engram.format.read
 
 import cam.engram.format.mp4.Mp4Caption
+import cam.engram.format.mp4.Mp4Channels
 import cam.engram.format.mp4.Mp4Codec
 import cam.engram.format.mp4.Mp4Files
 import cam.engram.format.xmp.XmpEngine
 import java.io.File
 import java.io.RandomAccessFile
+import java.nio.channels.SeekableByteChannel
 
 /**
  * File-based twin of [ContainerExtraction.inspect] for JVM tooling: photos are
@@ -27,6 +29,50 @@ object ExtractionFiles {
             ContainerType.MP4 -> inspectMp4(file, MOOV_READ_CAP)
             null -> null
         }
+    }
+
+    /**
+     * Channel twin for callers holding a content-resolver descriptor (the app's
+     * verifier): records, integrity, and caption without loading the video.
+     */
+    fun inspectMp4(
+        ch: SeekableByteChannel,
+        moovCap: Long = MOOV_READ_CAP,
+    ): Extraction {
+        val boxes =
+            runCatching { Mp4Channels.topLevel(ch) }
+                .getOrElse {
+                    return ContainerExtraction.unreadable(
+                        ContainerType.MP4,
+                        "mp4 does not parse: ${it.message}",
+                    )
+                }
+        val engram = boxes.lastOrNull { Mp4Codec.isEngramBox(it) }
+        // an oversized or truncated engram box reads as zero frames: the span check
+        // below then reports the carrier damaged instead of failing the whole file
+        val hits = runCatching { Mp4Channels.readRecords(ch) }.getOrDefault(emptyList())
+        val integrity =
+            ContainerExtraction.engramBoxIntegrity(
+                engram?.let { (it.boxLength - it.headerLength).toInt() },
+                hits.sumOf { it.decoded.byteLength },
+            )
+        val caption =
+            boxes
+                .lastOrNull { it.type == "moov" }
+                ?.takeIf { it.boxLength <= moovCap }
+                ?.let { runCatching { Mp4Channels.readMoovBox(ch) }.getOrNull() }
+                ?.let { Mp4Caption.readCaptionFromMoovBox(it) }
+        return Extraction(
+            container = ContainerType.MP4,
+            integrity = integrity,
+            records = hits.map { it.decoded },
+            xmpSummary = null,
+            extendedXmpStatus = "absent",
+            mpf = null,
+            motionMarkers = false,
+            iptcCaption = null,
+            mp4Caption = caption,
+        )
     }
 
     internal fun inspectMp4(
