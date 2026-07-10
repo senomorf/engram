@@ -29,6 +29,22 @@ class SpeechInput(
     val start: () -> Unit,
 )
 
+enum class RecognizerChoice { OnDevice, Remote, None }
+
+// pure consent gate so it is unit-testable off-device: dictation never uses the remote
+// recognizer (which may stream audio to a server) unless the user has consented (finding 6)
+internal fun chooseRecognizer(
+    recognitionAvailable: Boolean,
+    onDeviceAvailable: Boolean,
+    remoteConsent: Boolean,
+): RecognizerChoice =
+    when {
+        !recognitionAvailable -> RecognizerChoice.None
+        onDeviceAvailable -> RecognizerChoice.OnDevice
+        remoteConsent -> RecognizerChoice.Remote
+        else -> RecognizerChoice.None
+    }
+
 /**
  * Reusable on-device speech-to-text. The recognizer language is passed in
  * explicitly (decoupled from the UI language), prefers the offline model, and
@@ -39,10 +55,14 @@ class SpeechInput(
 @Composable
 fun rememberSpeechInput(
     languageTag: String,
+    remoteConsent: Boolean,
+    onRemoteConsentNeeded: () -> Unit,
     onResult: (String) -> Unit,
 ): SpeechInput {
     val context = LocalContext.current
     val available = remember { SpeechRecognizer.isRecognitionAvailable(context) }
+    val onDeviceAvailable = remember { available && SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }
+    val choice = chooseRecognizer(available, onDeviceAvailable, remoteConsent)
     val latestOnResult = rememberUpdatedState(onResult)
     val latestLang = rememberUpdatedState(languageTag)
     var status by remember {
@@ -50,12 +70,11 @@ fun rememberSpeechInput(
     }
 
     val recognizer =
-        remember {
-            when {
-                !available -> null
-                SpeechRecognizer.isOnDeviceRecognitionAvailable(context) ->
-                    SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-                else -> SpeechRecognizer.createSpeechRecognizer(context)
+        remember(choice) {
+            when (choice) {
+                RecognizerChoice.OnDevice -> SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                RecognizerChoice.Remote -> SpeechRecognizer.createSpeechRecognizer(context)
+                RecognizerChoice.None -> null
             }
         }
     DisposableEffect(recognizer) {
@@ -121,6 +140,9 @@ fun rememberSpeechInput(
             } else {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
+        } else if (available && !remoteConsent) {
+            // only a remote recognizer exists and the user has not consented yet: ask first
+            onRemoteConsentNeeded()
         }
     }
     // fresh holder each recomposition so callers observe the current status

@@ -83,6 +83,9 @@
     <string name="dictation_listening">Слушаю…</string>
     <string name="dictation_processing">Обработка…</string>
     <string name="dictation_error">Не расслышал. Попробуйте ещё раз.</string>
+    <string name="dictation_remote_consent_title">Использовать сетевую диктовку?</string>
+    <string name="dictation_remote_consent_body">На этом устройстве нет офлайн-модели распознавания, поэтому диктовка отправит ваш голос системному сервису распознавания речи. Включить?</string>
+    <string name="dictation_remote_consent_enable">Включить</string>
     <string name="dictation_language_unavailable">Этому языку нужна разовая загрузка; скачиваю.</string>
     <string name="error_unknown">неизвестная ошибка</string>
     <string name="digest_channel_name">Ежедневная сводка</string>

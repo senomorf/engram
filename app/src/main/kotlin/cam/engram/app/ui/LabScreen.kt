@@ -38,7 +38,9 @@ import kotlinx.coroutines.launch
 fun LabScreen(onBack: () -> Unit) {
     val transcripts = remember { mutableStateListOf<String>() }
     val uiTag = Dictation.recognizerLanguageTag(LocalConfiguration.current.locales[0].toLanguageTag())
-    val speech = rememberSpeechInput(uiTag) { transcripts.add(0, it) }
+    // the lab is a debug diagnostics screen for exercising whichever recognizer exists and it
+    // already surfaces the on-device/network state, so it opts in to remote recognition
+    val speech = rememberSpeechInput(uiTag, remoteConsent = true, onRemoteConsentNeeded = {}) { transcripts.add(0, it) }
     EngramScaffold(title = stringResource(R.string.lab_title), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), Arrangement.spacedBy(12.dp)) {
             Text(
