@@ -5,6 +5,7 @@ import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import cam.engram.app.data.db.RecordCacheEntity
+import cam.engram.app.data.db.upsertSuperset
 import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
@@ -226,7 +227,7 @@ class MediaWriteBack(
         // row claiming records the cache never received (D3)
         db.withTransaction {
             db.media().upsert(listOf(row))
-            cacheRow?.let { db.recordCache().upsert(it) }
+            cacheRow?.let { db.recordCache().upsertSuperset(it) }
             if (text.isBlank()) db.search().delete(item.mediaId) else db.search().upsert(MemoryFts(item.mediaId, text))
         }
     }

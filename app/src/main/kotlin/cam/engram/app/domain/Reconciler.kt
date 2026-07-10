@@ -1,14 +1,15 @@
 package cam.engram.app.domain
 
+import androidx.room.withTransaction
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.EnrichmentCacheEntity
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import cam.engram.app.data.db.RecordCacheEntity
+import cam.engram.app.data.db.upsertSuperset
 import cam.engram.app.data.media.MediaSource
 import cam.engram.app.data.media.SourceItem
 import cam.engram.app.data.scan.RecordScanner
-import cam.engram.format.records.RecordStream
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -66,20 +67,24 @@ class Reconciler(
             for (pending in db.media().unscanned()) {
                 val outcome = scanner.scan(pending.uri, pending.isVideo, pending.mime) ?: continue
                 scanned++
-                db.media().upsert(
-                    listOf(
-                        pending.copy(
-                            recordCount = outcome.recordCount,
-                            payloadLength = outcome.payloadLength,
-                            lastScanMillis = clock(),
-                        ),
-                    ),
-                )
-                val blob = outcome.recordsBlob
-                if (blob != null && outcome.recordCount > 0) {
-                    db.recordCache().upsert(cacheRow(pending, blob, outcome.recordCount, outcome.contentHash))
+                val row =
+                    pending.copy(
+                        recordCount = outcome.recordCount,
+                        payloadLength = outcome.payloadLength,
+                        lastScanMillis = clock(),
+                    )
+                // the media row, the recovery cache, and the search index commit together
+                // per item (D3): a failed cache write leaves the item unscanned for retry
+                db.withTransaction {
+                    db.media().upsert(listOf(row))
+                    val blob = outcome.recordsBlob
+                    if (blob != null && outcome.recordCount > 0) {
+                        db.recordCache().upsertSuperset(
+                            cacheRow(pending, blob, outcome.recordCount, outcome.contentHash),
+                        )
+                    }
+                    indexSearch(pending.mediaId, outcome.searchableText)
                 }
-                indexSearch(pending.mediaId, outcome.searchableText)
             }
             if (removedIds.isNotEmpty()) {
                 removedIds.forEach {
@@ -114,63 +119,24 @@ class Reconciler(
         if (text.isBlank()) db.search().delete(mediaId) else db.search().upsert(MemoryFts(mediaId, text))
     }
 
-    // keep the cache at the union of the just-scanned frames and any the cache already held for
-    // the same capture, so a partial strip never shrinks the recovery set below records once
-    // seen for this photo (finding 4)
-    private suspend fun cacheRow(
+    // the superset merge with any existing cache row happens in upsertSuperset, inside
+    // the caller's per-item transaction; this only shapes the freshly scanned row
+    private fun cacheRow(
         item: MediaItemEntity,
         scannedBlob: ByteArray,
         scannedCount: Int,
         contentHash: String,
-    ): RecordCacheEntity {
-        val existing = db.recordCache().byId(item.mediaId)
-        val identityMatches =
-            existing != null && (existing.identityTakenAt == 0L || existing.identityTakenAt == item.takenAtMillis)
-        val (blob, count) =
-            if (existing != null && identityMatches) {
-                mergeSuperset(scannedBlob, scannedCount, existing.recordsBlob)
-            } else {
-                scannedBlob to scannedCount
-            }
-        // the scanner content-addressed the media while it was still readable, so a later cache
-        // orphan (media removed) can still be exported; keep the prior hash when this scan had
-        // none (videos are not hashed at scan time)
-        val hash = contentHash.ifEmpty { existing?.contentHash.orEmpty() }
-        return RecordCacheEntity(
+    ): RecordCacheEntity =
+        RecordCacheEntity(
             mediaId = item.mediaId,
             identityTakenAt = item.takenAtMillis,
             sizeBytesAtScan = item.sizeBytes,
-            recordsBlob = blob,
-            recordCount = count,
+            recordsBlob = scannedBlob,
+            recordCount = scannedCount,
             updatedMillis = clock(),
             originalName = item.relativePath,
-            contentHash = hash,
+            contentHash = contentHash,
         )
-    }
-
-    // append every cached CRC-valid frame the new scan no longer carries so lost records survive
-    // in the cache for strip-repair; frames are matched by id + CRC to dedup identical ones
-    private fun mergeSuperset(
-        scannedBlob: ByteArray,
-        scannedCount: Int,
-        cachedBlob: ByteArray,
-    ): Pair<ByteArray, Int> {
-        val scannedKeys = crcOkFrames(scannedBlob).map { it.frameKey() }.toSet()
-        val missing = crcOkFrames(cachedBlob).filter { it.frameKey() !in scannedKeys }
-        if (missing.isEmpty()) return scannedBlob to scannedCount
-        val merged = missing.fold(scannedBlob) { acc, frame -> acc + frame }
-        return merged to (scannedCount + missing.size)
-    }
-
-    private fun crcOkFrames(blob: ByteArray): List<ByteArray> =
-        RecordStream
-            .decodeSequence(blob)
-            .filter { it.decoded.crcOk }
-            .map { blob.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
-
-    // the 16-byte id lives at frame offset 8 and the CRC in the last 4 bytes (wire format); the
-    // pair keys a frame so unknown kinds dedup too and distinct records never collide
-    private fun ByteArray.frameKey(): List<Byte> = (copyOfRange(8, 24) + copyOfRange(size - 4, size)).toList()
 
     private fun SourceItem.toEntity(): MediaItemEntity =
         MediaItemEntity(
