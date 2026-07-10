@@ -43,7 +43,7 @@ class QueueViewModel(
         viewModelScope.launch {
             for (item in strippedState.value) {
                 val outcome = container.stripRepair.repair(item)
-                if (outcome is WriteOutcome.Failed && outcome.reason == "media write rejected") {
+                if (outcome is WriteOutcome.NotOpened) {
                     // screen obtains batch consent for the remaining uris, then retries
                     repairState.value = item.uri
                     return@launch

@@ -12,6 +12,14 @@ sealed interface WriteOutcome {
         val overSoftCap: Boolean = false,
     ) : WriteOutcome
 
+    /**
+     * The target stream never opened (mirrors WriteResult.NotOpened): the file is
+     * byte-for-byte untouched. On scoped storage this usually means the user's
+     * write consent is needed, but the adapter cannot tell consent from provider
+     * death, so the consent interpretation stays at the UI call sites.
+     */
+    data object NotOpened : WriteOutcome
+
     data class Failed(
         val reason: String,
     ) : WriteOutcome
