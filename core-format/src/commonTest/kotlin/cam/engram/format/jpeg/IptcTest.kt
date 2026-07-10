@@ -56,4 +56,29 @@ class IptcTest {
         val read = Iptc.readCaption(payload)!!
         assertTrue(read.length in 1..2000, "caption should be truncated, was ${read.length}")
     }
+
+    @Test
+    fun upsertPreservesOtherIimDatasets() {
+        val keywords = byteArrayOf(0x1C, 0x02, 0x19, 0x00, 0x03) + "key".encodeToByteArray()
+        val byline = byteArrayOf(0x1C, 0x02, 0x50, 0x00, 0x03) + "byl".encodeToByteArray()
+        val iim = keywords + byline
+        // an 8BIM 0x0404 resource carrying keywords (2:25) and byline (2:80), even-length data (0x10)
+        val resource =
+            byteArrayOf(0x38, 0x42, 0x49, 0x4D, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10) + iim
+        val updated = Iptc.upsertCaption(Iptc.APP13_HEADER + resource, "new caption")
+        assertEquals("new caption", Iptc.readCaption(updated))
+        assertTrue(containsSubsequence(updated, keywords), "keywords 2:25 must survive the caption upsert")
+        assertTrue(containsSubsequence(updated, byline), "byline 2:80 must survive the caption upsert")
+    }
+
+    private fun containsSubsequence(
+        haystack: ByteArray,
+        needle: ByteArray,
+    ): Boolean {
+        outer@ for (start in 0..haystack.size - needle.size) {
+            for (j in needle.indices) if (haystack[start + j] != needle[j]) continue@outer
+            return true
+        }
+        return false
+    }
 }

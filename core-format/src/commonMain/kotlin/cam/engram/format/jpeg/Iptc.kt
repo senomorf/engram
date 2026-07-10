@@ -32,13 +32,15 @@ object Iptc {
         var replaced = false
         for ((id, raw) in resources) {
             if (id == IPTC_RESOURCE_ID) {
-                appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption))
+                // preserve every other IIM dataset (keywords, byline, copyright, ...) in the
+                // existing 0x0404, replacing only the caption (finding 7)
+                appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, resourceData(raw)))
                 replaced = true
             } else {
                 b.append(raw)
             }
         }
-        if (!replaced) appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption))
+        if (!replaced) appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, null))
         return b.toByteArray()
     }
 
@@ -110,14 +112,38 @@ object Iptc {
         if (data.size % 2 != 0) b.append(0)
     }
 
-    private fun iimCaption(caption: String): ByteArray {
+    private fun iimCaption(
+        caption: String,
+        existing: ByteArray?,
+    ): ByteArray {
         val b = ByteArrayBuilder()
         // 1:90 coded character set: ESC % G means UTF-8
         dataset(b, 1, 90, byteArrayOf(0x1B, 0x25, 0x47))
         // 2:00 record version 4
         dataset(b, 2, 0, byteArrayOf(0x00, 0x04))
+        // carry forward every dataset we do not own so annotation keeps prior IPTC metadata
+        existing?.let { carryDatasets(b, it) }
         dataset(b, 2, 120, truncateUtf8(caption, CAPTION_LIMIT_BYTES))
         return b.toByteArray()
+    }
+
+    // re-emit each IIM dataset except the ones iimCaption sets (1:90, 2:00, 2:120); mirrors
+    // readCaption's parse and degrades gracefully (stops) on a malformed or extended-length stream
+    private fun carryDatasets(
+        b: ByteArrayBuilder,
+        data: ByteArray,
+    ) {
+        var i = 0
+        while (i + 5 <= data.size) {
+            if (data.u8(i) != 0x1C) return
+            val record = data.u8(i + 1)
+            val datasetId = data.u8(i + 2)
+            val len = data.u16be(i + 3)
+            if (len and 0x8000 != 0 || i + 5 + len > data.size) return
+            val owned = (record == 1 && datasetId == 90) || (record == 2 && (datasetId == 0 || datasetId == 120))
+            if (!owned) dataset(b, record, datasetId, data.copyOfRange(i + 5, i + 5 + len))
+            i += 5 + len
+        }
     }
 
     private fun dataset(
