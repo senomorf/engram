@@ -19,6 +19,10 @@ change lands under Unreleased at merge time.
 - Saving a new memory no longer shrinks the strip-recovery cache when the file had
   earlier lost records the cache still held: every index path now merges the cache
   as a superset, atomically per item, keyed by each record's id and checksum.
+- Repairing a stripped file no longer duplicates the records that survived: repair
+  appends only the missing frames, byte-exact, and now also restores files whose
+  cache holds only future-format records. Crash recovery counts carried
+  future-format frames toward a completed write instead of rolling it back.
 
 ## [0.1.1] - 2026-07-10
 

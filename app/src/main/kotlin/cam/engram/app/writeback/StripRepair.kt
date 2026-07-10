@@ -3,7 +3,10 @@ package cam.engram.app.writeback
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.RecordCacheEntity
-import cam.engram.format.records.RecordKind
+import cam.engram.app.data.scan.RecordScanner
+import cam.engram.format.read.Memory
+import cam.engram.format.records.FrameLog
+import cam.engram.format.records.FrameLog.frameKey
 import cam.engram.format.records.RecordStream
 
 /**
@@ -15,6 +18,7 @@ import cam.engram.format.records.RecordStream
 class StripRepair(
     private val db: EngramDb,
     private val writeBack: MediaWriteBack,
+    private val scanner: RecordScanner,
 ) {
     suspend fun strippedItems(): List<MediaItemEntity> {
         val cached = db.recordCache().all().associateBy { it.mediaId }
@@ -36,22 +40,28 @@ class StripRepair(
         if (!sameIdentity(cache, item)) {
             return WriteOutcome.Failed("cached records belong to a different photo, refusing to graft")
         }
-        val hits = RecordStream.decodeSequence(cache.recordsBlob)
-        val records = hits.mapNotNull { it.decoded.record }
-        if (records.isEmpty()) return WriteOutcome.Failed("cache is empty or corrupt")
-        // CRC-valid frames we cannot model as records (unknown/future kinds) ride along
-        // verbatim so this rewriter does not drop them (spec: unknown kinds preserved)
-        val carryFrames =
-            hits
-                .filter { it.decoded.crcOk && it.decoded.record == null }
-                .map { cache.recordsBlob.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
+        val cachedFrames = FrameLog.crcOkFrames(cache.recordsBlob)
+        if (cachedFrames.isEmpty()) return WriteOutcome.Failed("cache is empty or corrupt")
+        // append only the frames the live file no longer carries, byte-exact and in cache
+        // order: embedders keep whatever the file still has, so resubmitting the whole
+        // cache would duplicate the survivors of a partial strip. Opaque frames (unknown
+        // kinds or versions) repair the same way since nothing is re-encoded.
+        val liveKeys =
+            scanner
+                .scan(item.uri, item.isVideo, item.mime)
+                ?.recordsBlob
+                ?.let { FrameLog.crcOkFrames(it) }
+                .orEmpty()
+                .map { it.frameKey() }
+                .toSet()
+        val missing = cachedFrames.filter { it.frameKey() !in liveKeys }
+        if (missing.isEmpty()) return WriteOutcome.Failed("nothing to repair, every cached record is present")
         val mirror =
-            records
-                .filter { it.kind == RecordKind.Note }
-                .maxByOrNull { it.tsMillis }
-                ?.payload
-                ?.decodeToString()
-        return writeBack.writeRecords(item, records, mirror, carryFrames)
+            Memory
+                .fromRecords(RecordStream.decodeSequence(cache.recordsBlob).mapNotNull { it.decoded.record })
+                .currentNote
+                ?.text
+        return writeBack.writeRecords(item, emptyList(), mirror, missing)
     }
 
     // identityTakenAt of 0 predates the identity field (legacy cache row): treat

@@ -125,7 +125,7 @@ class PngEmbedder(
         mirrorDescription: String?,
         carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
-        require(newRecords.isNotEmpty()) { "nothing to embed" }
+        require(newRecords.isNotEmpty() || carryFrames.isNotEmpty()) { "nothing to embed" }
         val file = PngCodec.parse(source)
         val chunks = file.chunks.toMutableList()
         val existing = PngCodec.engramRecords(file).filter { it.crcOk }

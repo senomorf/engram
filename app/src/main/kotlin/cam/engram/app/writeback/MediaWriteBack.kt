@@ -17,6 +17,7 @@ import cam.engram.format.mp4.Mp4Files
 import cam.engram.format.png.PngCodec
 import cam.engram.format.png.PngEmbedder
 import cam.engram.format.records.EngramRecord
+import cam.engram.format.toHex
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
@@ -66,7 +67,7 @@ class MediaWriteBack(
             mutex.withLock {
                 backupDir.mkdirs()
                 val backup = File(backupDir, "${item.mediaId}.bak")
-                writeSidecar(item, records)
+                writeSidecar(item, records, carryFrames)
                 // publish the backup atomically (copy to tmp, fsync inside copyToFile, rename) and
                 // never overwrite a committed one, so a partial copy is never restored over an intact
                 // original and a retry reuses the pristine copy instead of re-reading the corrupt
@@ -245,10 +246,12 @@ class MediaWriteBack(
     private fun writeSidecar(
         item: MediaItemEntity,
         records: List<EngramRecord>,
+        carryFrames: List<ByteArray>,
     ) {
-        // the expected record ids let recoverPending tell a finished write from an
-        // interrupted one, instead of trusting a bare container parse (finding A)
-        val ids = records.joinToString(",") { it.idHex }
+        // the expected record ids, carried opaque frames included, let recoverPending tell
+        // a finished write from an interrupted one, instead of trusting a bare container
+        // parse (finding A); opaque ids come from the frozen envelope offsets, no decode
+        val ids = (records.map { it.idHex } + carryFrames.map { it.copyOfRange(8, 24).toHex() }).joinToString(",")
         val content = "${item.uri}\n${item.isVideo}\n${item.mime}\n$ids"
         val meta = File(backupDir, "${item.mediaId}.meta")
         val tmp = File(backupDir, "${item.mediaId}.meta.tmp")

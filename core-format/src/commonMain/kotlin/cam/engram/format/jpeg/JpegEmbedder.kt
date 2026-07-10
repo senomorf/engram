@@ -16,7 +16,7 @@ class JpegEmbedder(
         mirrorDescription: String?,
         carryFrames: List<ByteArray> = emptyList(),
     ): ByteArray {
-        require(newRecords.isNotEmpty()) { "nothing to embed" }
+        require(newRecords.isNotEmpty() || carryFrames.isNotEmpty()) { "nothing to embed" }
         val parts = JpegCodec.parse(source).toMutableList()
         val xmpIdxBefore = parts.indexOfFirst { it is Segment && it.isXmpApp1() }
         val mpfIdxBefore = parts.indexOfFirst { it is Segment && it.isMpfApp2() }
