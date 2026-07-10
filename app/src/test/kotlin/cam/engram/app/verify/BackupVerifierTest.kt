@@ -151,4 +151,24 @@ class BackupVerifierTest {
         assertEquals(1, report.recordCount, "the surviving valid record is still counted")
         assertEquals(1, report.corruptCount, "the corrupt record is surfaced")
     }
+
+    // the MIXED verdict (some valid, some corrupt -> DAMAGED, not FULL) runs through the shared
+    // report(), so it must hold on every container, not only JPEG (finding 8, codec uniformity)
+    @Test
+    fun pngWithMixedCorruptionReportsDamagedNotFull() {
+        val bytes = PngEmbedder(XmpCoreEngine()).embed(SyntheticMedia.png1x1(), records(), "at the lake")
+        val report = verify("content://x/11", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
+        assertEquals(1, report.recordCount, "the surviving valid record is still counted")
+        assertEquals(1, report.corruptCount, "the corrupt record is surfaced")
+    }
+
+    @Test
+    fun mp4WithMixedCorruptionReportsDamagedNotFull() {
+        val bytes = Mp4Codec.embed(SyntheticMedia.mp4MoovLast(), records())
+        val report = verify("content://x/12", corruptFirstRecordPayload(bytes))
+        assertEquals(Survival.DAMAGED, report.summary)
+        assertEquals(1, report.recordCount, "the surviving valid record is still counted")
+        assertEquals(1, report.corruptCount, "the corrupt record is surfaced")
+    }
 }
