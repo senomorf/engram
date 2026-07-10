@@ -43,6 +43,9 @@
     <string name="detail_add_more">Add more to this memory</string>
     <string name="open_tools">Export and verify</string>
     <string name="annotate_over_cap">This photo now carries over 10MB of memories. Still fine, just larger.</string>
+    <string name="annotate_location_warning_title">Photo location will be removed</string>
+    <string name="annotate_location_warning_body">Location access is off, so saving your note removes the GPS location stored in this photo. Turn on location access to keep it.</string>
+    <string name="annotate_location_warning_confirm">Save anyway</string>
     <string name="onboard_1_title">Memories, in the photo itself</string>
     <string name="onboard_1_body">Add a note or your voice to a photo. Engram writes it into the file, so it travels wherever the photo goes.</string>
     <string name="onboard_2_title">Yours, always</string>

@@ -41,8 +41,13 @@ import cam.engram.app.R
 import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
 
-private val mediaPermissions =
+// READ_MEDIA_* gate entry; ACCESS_MEDIA_LOCATION rides along but is optional: its denial
+// only means annotating strips a photo's location, warned at save time (finding 1)
+private val requiredMediaPermissions =
     arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+
+private val requestedPermissions =
+    requiredMediaPermissions + Manifest.permission.ACCESS_MEDIA_LOCATION
 
 @Composable
 fun QueueScreen(
@@ -139,7 +144,7 @@ private fun QueueGrid(
 private fun PermissionGate(onGranted: () -> Unit) {
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            if (result.values.all { it }) onGranted()
+            if (requiredMediaPermissions.all { result[it] == true }) onGranted()
         }
     Scaffold { padding ->
         Column(
@@ -152,7 +157,7 @@ private fun PermissionGate(onGranted: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
             )
             Button(
-                onClick = { launcher.launch(mediaPermissions) },
+                onClick = { launcher.launch(requestedPermissions) },
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 Text(stringResource(R.string.grant_access))
@@ -162,6 +167,6 @@ private fun PermissionGate(onGranted: () -> Unit) {
 }
 
 private fun hasMediaPermissions(context: android.content.Context): Boolean =
-    mediaPermissions.all {
+    requiredMediaPermissions.all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }

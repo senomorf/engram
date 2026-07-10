@@ -42,6 +42,9 @@
     <string name="detail_add_more">Дополнить это воспоминание</string>
     <string name="open_tools">Экспорт и проверка</string>
     <string name="annotate_over_cap">В этом фото уже больше 10 МБ воспоминаний. Это нормально, просто файл больше.</string>
+    <string name="annotate_location_warning_title">Геоданные фото будут удалены</string>
+    <string name="annotate_location_warning_body">Доступ к геоданным выключен, поэтому сохранение заметки удалит GPS-координаты этого фото. Включите доступ к геоданным, чтобы сохранить их.</string>
+    <string name="annotate_location_warning_confirm">Всё равно сохранить</string>
     <string name="onboard_1_title">Воспоминания внутри самого фото</string>
     <string name="onboard_1_body">Добавьте заметку или голос к фото. Engram записывает это в файл, и оно едет туда же, куда и фото.</string>
     <string name="onboard_2_title">Всегда ваши</string>

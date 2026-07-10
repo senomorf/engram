@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -51,6 +52,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.DeviceOnly
 import cam.engram.app.R
+import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.io.File
@@ -181,24 +183,76 @@ private fun AnnotateCard(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            Button(
-                onClick = vm::save,
-                enabled = ui.save !is SaveUi.Saving,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) {
-                Text(
-                    stringResource(
-                        when {
-                            ui.save is SaveUi.Saving -> R.string.annotate_saving
-                            vm.hasContent() -> R.string.annotate_save
-                            else -> R.string.annotate_done
-                        },
-                    ),
-                )
-            }
+            SaveWithLocationGuard(
+                saveState = ui.save,
+                labelRes =
+                    when {
+                        ui.save is SaveUi.Saving -> R.string.annotate_saving
+                        vm.hasContent() -> R.string.annotate_save
+                        else -> R.string.annotate_done
+                    },
+                stripsLocation = stripsLocation(context, ui.item),
+                onSave = vm::save,
+            )
         }
     }
 }
+
+@Composable
+private fun SaveWithLocationGuard(
+    saveState: SaveUi,
+    labelRes: Int,
+    stripsLocation: Boolean,
+    onSave: () -> Unit,
+) {
+    var warned by remember { mutableStateOf(false) }
+    var showWarning by remember { mutableStateOf(false) }
+    Button(
+        onClick = { if (stripsLocation && !warned) showWarning = true else onSave() },
+        enabled = saveState !is SaveUi.Saving,
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+    ) { Text(stringResource(labelRes)) }
+    if (showWarning) {
+        LocationWarningDialog(
+            onConfirm = {
+                warned = true
+                showWarning = false
+                onSave()
+            },
+            onDismiss = { showWarning = false },
+        )
+    }
+}
+
+// warns that saving strips a photo's location; the save proceeds only on confirm
+@Composable
+private fun LocationWarningDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.annotate_location_warning_title)) },
+        text = { Text(stringResource(R.string.annotate_location_warning_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.annotate_location_warning_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+        },
+    )
+}
+
+// annotating strips GPS when the item is an image and location access was denied
+private fun stripsLocation(
+    context: android.content.Context,
+    item: MediaItemEntity?,
+): Boolean =
+    item?.isVideo == false &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_MEDIA_LOCATION) !=
+        PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun NoteField(
