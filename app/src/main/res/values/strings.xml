@@ -66,7 +66,7 @@
     <string name="tools_verify_hint">Pick a photo you downloaded back from a cloud or a chat. Engram tells you what survived.</string>
     <string name="tools_verify_button">Pick a file to check</string>
     <string name="tools_verifying">Checking…</string>
-    <string name="tools_survival_full">Everything survived: notes and %1$d voice clip(s) are still inside.</string>
+    <string name="tools_survival_full">Notes and %1$d voice clip(s) are inside, and all read back intact.</string>
     <string name="tools_survival_damaged">Some memories are damaged: %1$d record(s) were corrupted on that path and cannot be read back.</string>
     <string name="tools_survival_caption">Only the text caption survived. Voice and history were stripped by that path.</string>
     <string name="tools_survival_gone">Nothing survived. That path recompressed the photo and removed the memories.</string>
