@@ -36,6 +36,9 @@ change lands under Unreleased at merge time.
   archive manifest inventories every file with its checksum so an archive can be
   proven complete. Memories whose records are all future-format are exported too
   instead of being skipped.
+- New cli command `engram archive validate --in <dir>`: proves an archive complete
+  and readable (every inventoried file present with its checksum, every record log
+  fully decodable with counts matching the readable view, every audio blob present).
 
 ## [0.1.1] - 2026-07-10
 
