@@ -120,6 +120,29 @@ class ReconcilerTest {
             val stats = reconciler.reconcile()
             assertEquals(1, stats.scanned)
         }
+
+    @Test
+    fun partialStripKeepsTheCachedSuperset() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val a = EngramRecord(RecordKind.Note, 1, "keep-a".encodeToByteArray())
+            val b = EngramRecord(RecordKind.Note, 2, "keep-b".encodeToByteArray())
+            // the file starts with both records; reconcile caches {A, B}
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(a, b), "keep-b"))
+            reconciler.reconcile()
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount)
+
+            // a strip pipeline drops B, leaving only A; the file changes so reconcile rescans
+            val stripped = embedder.embed(SyntheticMedia.jpegPlain(), listOf(a), "keep-a")
+            files["content://media/images/1"] = stripped
+            snapshot[0] = snapshot[0].copy(sizeBytes = stripped.size.toLong(), dateModified = 2)
+            reconciler.reconcile()
+
+            // the cache must keep the superset {A, B}, not shrink to {A}
+            assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
+        }
 }
 
 private class FakeXmp : cam.engram.format.xmp.XmpEngine {

@@ -24,7 +24,8 @@ class StripRepair(
             .all()
             .filter { item ->
                 val c = cached[item.mediaId]
-                item.recordCount == 0 && c != null && c.recordCount > 0 && sameIdentity(c, item)
+                // the cache holds more records than the file now carries (total or partial strip)
+                c != null && item.recordCount >= 0 && c.recordCount > item.recordCount && sameIdentity(c, item)
             }
     }
 

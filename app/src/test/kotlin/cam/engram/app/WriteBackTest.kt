@@ -223,4 +223,14 @@ class WriteBackTest {
                 "unknown-kind record must survive strip-repair",
             )
         }
+
+    @Test
+    fun partialStripIsFlaggedNotOnlyTotalStrip() =
+        runBlocking {
+            val item = seed(7, SyntheticMedia.jpegPlain())
+            // the file now carries 1 record but the cache holds 2 for the same capture (finding 4)
+            db.media().upsert(listOf(db.media().byId(7)!!.copy(recordCount = 1)))
+            db.recordCache().upsert(RecordCacheEntity(7, item.takenAtMillis, 0, ByteArray(0), 2, 0))
+            assertEquals(listOf(7L), StripRepair(db, writeBack).strippedItems().map { it.mediaId })
+        }
 }

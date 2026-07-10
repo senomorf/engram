@@ -8,6 +8,7 @@ import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.media.MediaSource
 import cam.engram.app.data.media.SourceItem
 import cam.engram.app.data.scan.RecordScanner
+import cam.engram.format.records.RecordStream
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -76,16 +77,7 @@ class Reconciler(
                 )
                 val blob = outcome.recordsBlob
                 if (blob != null && outcome.recordCount > 0) {
-                    db.recordCache().upsert(
-                        RecordCacheEntity(
-                            mediaId = pending.mediaId,
-                            identityTakenAt = pending.takenAtMillis,
-                            sizeBytesAtScan = pending.sizeBytes,
-                            recordsBlob = blob,
-                            recordCount = outcome.recordCount,
-                            updatedMillis = clock(),
-                        ),
-                    )
+                    db.recordCache().upsert(cacheRow(pending, blob, outcome.recordCount))
                 }
                 indexSearch(pending.mediaId, outcome.searchableText)
             }
@@ -121,6 +113,57 @@ class Reconciler(
     ) {
         if (text.isBlank()) db.search().delete(mediaId) else db.search().upsert(MemoryFts(mediaId, text))
     }
+
+    // keep the cache at the union of the just-scanned frames and any the cache already held for
+    // the same capture, so a partial strip never shrinks the recovery set below records once
+    // seen for this photo (finding 4)
+    private suspend fun cacheRow(
+        item: MediaItemEntity,
+        scannedBlob: ByteArray,
+        scannedCount: Int,
+    ): RecordCacheEntity {
+        val existing = db.recordCache().byId(item.mediaId)
+        val identityMatches =
+            existing != null && (existing.identityTakenAt == 0L || existing.identityTakenAt == item.takenAtMillis)
+        val (blob, count) =
+            if (existing != null && identityMatches) {
+                mergeSuperset(scannedBlob, scannedCount, existing.recordsBlob)
+            } else {
+                scannedBlob to scannedCount
+            }
+        return RecordCacheEntity(
+            mediaId = item.mediaId,
+            identityTakenAt = item.takenAtMillis,
+            sizeBytesAtScan = item.sizeBytes,
+            recordsBlob = blob,
+            recordCount = count,
+            updatedMillis = clock(),
+        )
+    }
+
+    // append every cached CRC-valid frame the new scan no longer carries so lost records survive
+    // in the cache for strip-repair; frames are matched by id + CRC to dedup identical ones
+    private fun mergeSuperset(
+        scannedBlob: ByteArray,
+        scannedCount: Int,
+        cachedBlob: ByteArray,
+    ): Pair<ByteArray, Int> {
+        val scannedKeys = crcOkFrames(scannedBlob).map { it.frameKey() }.toSet()
+        val missing = crcOkFrames(cachedBlob).filter { it.frameKey() !in scannedKeys }
+        if (missing.isEmpty()) return scannedBlob to scannedCount
+        val merged = missing.fold(scannedBlob) { acc, frame -> acc + frame }
+        return merged to (scannedCount + missing.size)
+    }
+
+    private fun crcOkFrames(blob: ByteArray): List<ByteArray> =
+        RecordStream
+            .decodeSequence(blob)
+            .filter { it.decoded.crcOk }
+            .map { blob.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
+
+    // the 16-byte id lives at frame offset 8 and the CRC in the last 4 bytes (wire format); the
+    // pair keys a frame so unknown kinds dedup too and distinct records never collide
+    private fun ByteArray.frameKey(): List<Byte> = (copyOfRange(8, 24) + copyOfRange(size - 4, size)).toList()
 
     private fun SourceItem.toEntity(): MediaItemEntity =
         MediaItemEntity(
