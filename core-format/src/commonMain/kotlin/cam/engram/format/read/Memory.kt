@@ -31,7 +31,7 @@ class Memory(
     val transcripts: List<NoteVersion>,
     val enrichment: Map<String, String> = emptyMap(),
 ) {
-    val currentNote: NoteVersion? get() = noteHistory.maxByOrNull { it.tsMillis }
+    val currentNote: NoteVersion? get() = noteHistory.maxWithOrNull(compareBy({ it.tsMillis }, { it.idHex }))
 
     /** Everything a full-text index should cover: note text plus transcripts. */
     fun searchableText(): String =
@@ -67,11 +67,14 @@ class Memory(
                 }
             }
             return Memory(
-                noteHistory = notes.sortedByDescending { it.tsMillis },
+                noteHistory = notes.sortedWith(noteOrder),
                 audio = audio.sortedBy { it.tsMillis },
-                transcripts = transcripts.sortedByDescending { it.tsMillis },
+                transcripts = transcripts.sortedWith(noteOrder),
                 enrichment = latestEnrichment?.second ?: emptyMap(),
             )
         }
+
+        // same-millisecond versions order by idHex so the winner is stable across scans
+        private val noteOrder = compareByDescending<NoteVersion> { it.tsMillis }.thenByDescending { it.idHex }
     }
 }

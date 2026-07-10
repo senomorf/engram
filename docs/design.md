@@ -210,6 +210,19 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   or the original is restored. A per-instance Mutex serializes write-back and recovery
   so a foreground save and background recovery never interleave on the same file
   (finding 2).
+- D27 Frame envelope frozen across wire versions. Spec sec 10 now freezes the frame
+  field layout, so a v0 reader can locate every field of any future version.
+  Records.decodeAt no longer rejects frames whose version byte is not 1: it decodes
+  the envelope, computes the CRC, and surfaces the frame opaque (record null, version
+  reported) exactly like an unknown kind. Rewriters and the strip-repair carry path
+  already preserve opaque frames, so future-version records survive re-embeds instead
+  of being invisible and truncating the stream (decodeSequence used to stop at the
+  first unknown-version frame, hiding every record after it). Not a wire change:
+  writers still emit version 1, no spec version bump. Carve safety: RecordStream.scan
+  advances a full frame only for CRC-valid or current-version candidates; a CRC-bad
+  unknown-version candidate advances one byte so a real frame inside its claimed span
+  is still found. decodeAt also does its length checks in Long so a hostile payload
+  length cannot wrap the bounds and crash the reader.
 
 ## 5. Assumptions register
 

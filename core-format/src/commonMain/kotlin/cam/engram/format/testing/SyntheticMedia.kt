@@ -20,9 +20,22 @@ object SyntheticMedia {
      * (spec: unknown kinds preserved). Encodes a Note, then patches the kind byte
      * and repairs the trailing CRC so the frame stays wire-valid.
      */
-    fun unknownKindFrame(kindCode: Int = 7): ByteArray {
+    fun unknownKindFrame(kindCode: Int = 7): ByteArray = notePatchedAt(5, kindCode) // kind byte at offset 5
+
+    /**
+     * A CRC-valid record frame with a future wire-version byte: readers must
+     * surface it opaque (crcOk, no typed record) and rewriters must preserve it
+     * byte-exact (spec sec 10, frozen envelope).
+     */
+    fun unknownVersionFrame(version: Int = 2): ByteArray = notePatchedAt(4, version) // version byte at offset 4
+
+    // encode a Note, patch one header byte, recompute the trailing CRC so the frame stays wire-valid
+    private fun notePatchedAt(
+        offset: Int,
+        value: Int,
+    ): ByteArray {
         val frame = EngramRecord(RecordKind.Note, 1L, "future".encodeToByteArray()).encode().copyOf()
-        frame[5] = kindCode.toByte() // the kind byte sits at offset 5 in the wire frame
+        frame[offset] = value.toByte()
         val bodyLen = frame.size - 4
         val crc = Crc32.of(frame, 0, bodyLen)
         frame[bodyLen] = (crc ushr 24 and 0xFF).toByte()

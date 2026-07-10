@@ -26,6 +26,20 @@ class PngTest {
     }
 
     @Test
+    fun carryFramesPreserveUnknownVersionRecords() {
+        val out =
+            PngEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.png1x1(),
+                listOf(EngramRecord(RecordKind.Note, 1, "n".encodeToByteArray())),
+                null,
+                listOf(SyntheticMedia.unknownVersionFrame()),
+            )
+        val decoded = PngCodec.engramRecords(PngCodec.parse(out))
+        assertEquals(2, decoded.size)
+        assertTrue(decoded.any { it.crcOk && it.record == null }, "future-version frame preserved as an egRm chunk")
+    }
+
+    @Test
     fun engramFramesReturnsRawCrcOkFrames() {
         val out =
             PngEmbedder(FakeXmpEngine()).embed(
