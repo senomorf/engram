@@ -1,5 +1,6 @@
 package cam.engram.app.writeback
 
+import androidx.room.withTransaction
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
@@ -7,6 +8,7 @@ import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
+import cam.engram.app.data.scan.ScanOutcome
 import cam.engram.format.jpeg.JpegCodec
 import cam.engram.format.jpeg.JpegEmbedder
 import cam.engram.format.mp4.Mp4Channels
@@ -92,15 +94,12 @@ class MediaWriteBack(
                         cleanup(item.mediaId)
                         WriteOutcome.Failed("media write rejected")
                     }
-                    is Attempt.Written ->
-                        when (val outcome = attempt.outcome) {
-                            is WriteOutcome.Success -> {
-                                finishSuccess(item, outcome)
-                                cleanup(item.mediaId)
-                                outcome
-                            }
-                            is WriteOutcome.Failed -> rollback(item, backup, outcome.reason)
-                        }
+                    is Attempt.Failed -> rollback(item, backup, attempt.reason)
+                    is Attempt.Verified -> {
+                        finishSuccess(item, attempt.outcome, attempt.scan)
+                        cleanup(item.mediaId)
+                        attempt.outcome
+                    }
                 }
             }
         }
@@ -119,12 +118,18 @@ class MediaWriteBack(
             WriteOutcome.Failed("$reason; original preserved in backup, will restore on restart")
         }
 
-    // outcome of touching the media file: Rejected means it was never modified
+    // outcome of touching the media file: Rejected means it was never modified; Failed
+    // restores from backup; Verified carries the one scan behind the success verdict
     private sealed interface Attempt {
         data object Rejected : Attempt
 
-        data class Written(
-            val outcome: WriteOutcome,
+        data class Failed(
+            val reason: String,
+        ) : Attempt
+
+        data class Verified(
+            val outcome: WriteOutcome.Success,
+            val scan: ScanOutcome,
         ) : Attempt
     }
 
@@ -146,8 +151,8 @@ class MediaWriteBack(
         return when (access.writeBytes(item.uri, out)) {
             WriteResult.NotOpened -> Attempt.Rejected
             // the target was truncated but the write did not finish: restore from backup
-            WriteResult.OpenedUncertain -> Attempt.Written(WriteOutcome.Failed("write did not complete"))
-            WriteResult.Ok -> Attempt.Written(verify(item))
+            WriteResult.OpenedUncertain -> Attempt.Failed("write did not complete")
+            WriteResult.Ok -> verify(item)
         }
     }
 
@@ -163,47 +168,45 @@ class MediaWriteBack(
             Mp4Files.appendRecords(backup, rebuilt, records, mirrorText, carryFrames)
             when (access.writeFromFile(item.uri, rebuilt)) {
                 WriteResult.NotOpened -> Attempt.Rejected
-                WriteResult.OpenedUncertain -> Attempt.Written(WriteOutcome.Failed("write did not complete"))
-                WriteResult.Ok -> Attempt.Written(verify(item))
+                WriteResult.OpenedUncertain -> Attempt.Failed("write did not complete")
+                WriteResult.Ok -> verify(item)
             }
         } finally {
             rebuilt.delete()
         }
     }
 
-    private fun verify(item: MediaItemEntity): WriteOutcome {
-        val outcome =
+    // one scan serves both the success verdict and the index rows, so what was
+    // verified is exactly what gets persisted (a second scan could silently diverge)
+    private fun verify(item: MediaItemEntity): Attempt {
+        val scan =
             scanner.scan(item.uri, item.isVideo, item.mime)
-                ?: return WriteOutcome.Failed("verification could not read file back")
-        if (outcome.recordCount == 0) return WriteOutcome.Failed("verification found no records after write")
-        return WriteOutcome.Success(
-            recordCount = outcome.recordCount,
-            payloadLength = outcome.payloadLength,
-            overSoftCap = outcome.payloadLength > SOFT_CAP_BYTES,
-        )
+                ?: return Attempt.Failed("verification could not read file back")
+        if (scan.recordCount == 0) return Attempt.Failed("verification found no records after write")
+        val outcome =
+            WriteOutcome.Success(
+                recordCount = scan.recordCount,
+                payloadLength = scan.payloadLength,
+                overSoftCap = scan.payloadLength > SOFT_CAP_BYTES,
+            )
+        return Attempt.Verified(outcome, scan)
     }
 
     private suspend fun finishSuccess(
         item: MediaItemEntity,
         result: WriteOutcome.Success,
+        scan: ScanOutcome,
     ) {
-        val outcome = scanner.scan(item.uri, item.isVideo, item.mime)
         val size = access.withChannel(item.uri) { it.size() } ?: item.sizeBytes
-        db.media().upsert(
-            listOf(
-                item.copy(
-                    recordCount = result.recordCount,
-                    payloadLength = result.payloadLength,
-                    sizeBytes = size,
-                    lastScanMillis = clock(),
-                ),
-            ),
-        )
-        outcome?.recordsBlob?.let { blob ->
-            // the scanner already content-addressed the media (no extra read), so a later cache
-            // orphan can still export (finding 9)
-            val hash = outcome.contentHash
-            db.recordCache().upsert(
+        val row =
+            item.copy(
+                recordCount = result.recordCount,
+                payloadLength = result.payloadLength,
+                sizeBytes = size,
+                lastScanMillis = clock(),
+            )
+        val cacheRow =
+            scan.recordsBlob?.let { blob ->
                 RecordCacheEntity(
                     mediaId = item.mediaId,
                     identityTakenAt = item.takenAtMillis,
@@ -212,12 +215,20 @@ class MediaWriteBack(
                     recordCount = result.recordCount,
                     updatedMillis = clock(),
                     originalName = item.relativePath,
-                    contentHash = hash,
-                ),
-            )
+                    // the scanner already content-addressed the media (no extra read), so a
+                    // later cache orphan can still export (finding 9)
+                    contentHash = scan.contentHash,
+                )
+            }
+        val text = scan.searchableText
+        // the media row, the non-rebuildable record cache, and the search index commit
+        // together: a crash or a failed insert between them can no longer leave a media
+        // row claiming records the cache never received (D3)
+        db.withTransaction {
+            db.media().upsert(listOf(row))
+            cacheRow?.let { db.recordCache().upsert(it) }
+            if (text.isBlank()) db.search().delete(item.mediaId) else db.search().upsert(MemoryFts(item.mediaId, text))
         }
-        val text = outcome?.searchableText.orEmpty()
-        if (text.isBlank()) db.search().delete(item.mediaId) else db.search().upsert(MemoryFts(item.mediaId, text))
     }
 
     private fun restore(
