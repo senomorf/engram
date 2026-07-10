@@ -55,6 +55,10 @@ abstract class EngramDb : RoomDatabase() {
             Room
                 .inMemoryDatabaseBuilder(context, EngramDb::class.java)
                 .allowMainThreadQueries()
+                // run Room's query + invalidation work inline so a test closing the DB in
+                // @After never races the InvalidationTracker on a background executor, which
+                // intermittently threw a SQLiteConnectionPool ISE from the queue() Flow observer
+                .setQueryExecutor { it.run() }
                 .build()
     }
 }
