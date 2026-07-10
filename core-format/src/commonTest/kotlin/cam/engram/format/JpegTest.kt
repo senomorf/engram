@@ -34,6 +34,20 @@ class JpegTest {
     }
 
     @Test
+    fun carryFramesPreserveUnknownVersionRecords() {
+        val out =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                SyntheticMedia.jpegPlain(),
+                listOf(EngramRecord(RecordKind.Note, 1, "note".encodeToByteArray())),
+                "note",
+                listOf(SyntheticMedia.unknownVersionFrame()),
+            )
+        val hits = RecordStream.scan(out).filter { it.decoded.crcOk }
+        assertEquals(2, hits.size, "the note and the carried future-version frame both survive")
+        assertEquals(2, hits.single { it.decoded.record == null }.decoded.version)
+    }
+
+    @Test
     fun parseRoundTripIsByteIdentical() {
         for (fixture in listOf(SyntheticMedia.jpegPlain(), SyntheticMedia.jpegWithMpfSecondary())) {
             assertContentEquals(fixture, JpegCodec.serialize(JpegCodec.parse(fixture)))

@@ -146,6 +146,14 @@ reassembly at 64MB as an anti-bomb guard.
 
 ## 10. Reserved / future
 
+- Frame envelope freeze (normative): the frame field layout of section 2,
+  `magic | version u8 | kind u8 | flags u16be | id (16) | tsMillis u64be |
+  writerLen u8 | writer | payloadLen u32be | payload | crc32 u32be`, is frozen
+  across wire versions. Future versions may add record kinds, reinterpret
+  payload semantics, and assign `flags` bits, but must not move or resize
+  envelope fields. A reader therefore treats a structurally valid frame of any
+  other wire version as opaque: surfaced as unknown, never parsed into a typed
+  record, and preserved byte-exact by rewriters exactly like an unknown kind.
 - Frame `flags` bits: all reserved, writers write 0, readers ignore.
 - Transcript-to-Audio linkage, Enrichment payload schema: v0.2.
 - Compaction (rewriting history into a snapshot): explicitly out of scope

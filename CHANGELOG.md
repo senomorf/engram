@@ -6,6 +6,14 @@ change lands under Unreleased at merge time.
 
 ## [Unreleased]
 
+### Fixed
+
+- Records written by a future Engram version now survive re-embeds and strip repair
+  instead of disappearing: the reader surfaces them as opaque frames (like unknown
+  kinds) rather than stopping at the first one, and the frame envelope is now frozen
+  in the spec so future versions stay recognizable. A maliciously crafted record
+  header can no longer crash the reader.
+
 ## [0.1.1] - 2026-07-10
 
 ### Fixed

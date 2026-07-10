@@ -6,6 +6,7 @@ import cam.engram.format.records.RecordStream
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RecordsFrameTest {
@@ -47,5 +48,29 @@ class RecordsFrameTest {
     fun emptyWriterHeaderLengthMatchesConstant() {
         val rec = EngramRecord(RecordKind.Note, 0, ByteArray(0))
         assertEquals(EngramRecord.HEADER_LEN + 4, rec.encode().size)
+    }
+
+    @Test
+    fun hostilePayloadLengthRejectedNotCrashed() {
+        // a payloadLen near Int.MAX_VALUE used to wrap payloadEnd negative and index
+        // out of bounds; a hostile header must yield null, never throw
+        val frame = EngramRecord(RecordKind.Note, 1, "x".encodeToByteArray()).encode()
+        val payloadLenAt = EngramRecord.HEADER_LEN - 4
+        frame[payloadLenAt] = 0x7F
+        frame[payloadLenAt + 1] = 0xFF.toByte()
+        frame[payloadLenAt + 2] = 0xFF.toByte()
+        frame[payloadLenAt + 3] = 0xF0.toByte()
+        assertNull(EngramRecord.decodeAt(frame, 0))
+    }
+
+    @Test
+    fun unsignedPayloadLengthAboveIntMaxRejected() {
+        val frame = EngramRecord(RecordKind.Note, 1, "x".encodeToByteArray()).encode()
+        val payloadLenAt = EngramRecord.HEADER_LEN - 4
+        frame[payloadLenAt] = 0xFF.toByte()
+        frame[payloadLenAt + 1] = 0xFF.toByte()
+        frame[payloadLenAt + 2] = 0xFF.toByte()
+        frame[payloadLenAt + 3] = 0xFE.toByte()
+        assertNull(EngramRecord.decodeAt(frame, 0))
     }
 }

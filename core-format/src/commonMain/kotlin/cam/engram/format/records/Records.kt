@@ -83,7 +83,9 @@ class EngramRecord(
             val end = minOf(limit, bytes.size)
             if (!bytes.startsWith(MAGIC, at)) return null
             if (at + FIXED_LEN > end) return null
-            if (bytes.u8(at + 4) != WIRE_VERSION) return null
+            // any wire version decodes: the envelope is frozen (spec sec 10, D27), so
+            // future-version frames surface opaque instead of vanishing mid-stream
+            val version = bytes.u8(at + 4)
             val kindCode = bytes.u8(at + 5)
             val id = bytes.copyOfRange(at + 8, at + 24)
             val ts = bytes.u64be(at + 24)
@@ -91,21 +93,26 @@ class EngramRecord(
             val writerEnd = at + FIXED_LEN + writerLen
             if (writerEnd + 4 > end) return null
             val payloadLen = bytes.u32be(writerEnd)
-            if (payloadLen > Int.MAX_VALUE.toLong()) return null
-            val payloadEnd = writerEnd + 4 + payloadLen.toInt()
-            if (payloadEnd + 4 > end) return null
+            // length math stays in Long: a hostile payloadLen must not wrap the bounds check
+            val payloadEndLong = writerEnd + 4 + payloadLen
+            if (payloadEndLong + 4 > end) return null
+            val payloadEnd = payloadEndLong.toInt()
             val crcOk = bytes.u32be(payloadEnd) == Crc32.of(bytes, at, payloadEnd)
             val record =
-                RecordKind.of(kindCode)?.let {
-                    EngramRecord(
-                        kind = it,
-                        tsMillis = ts,
-                        payload = bytes.copyOfRange(writerEnd + 4, payloadEnd),
-                        id = id,
-                        writer = bytes.copyOfRange(at + FIXED_LEN, writerEnd).decodeToString(),
-                    )
+                if (version == WIRE_VERSION) {
+                    RecordKind.of(kindCode)?.let {
+                        EngramRecord(
+                            kind = it,
+                            tsMillis = ts,
+                            payload = bytes.copyOfRange(writerEnd + 4, payloadEnd),
+                            id = id,
+                            writer = bytes.copyOfRange(at + FIXED_LEN, writerEnd).decodeToString(),
+                        )
+                    }
+                } else {
+                    null
                 }
-            return DecodedRecord(record, kindCode, payloadEnd + 4 - at, crcOk)
+            return DecodedRecord(record, kindCode, payloadEnd + 4 - at, crcOk, version)
         }
     }
 }
@@ -115,6 +122,7 @@ class DecodedRecord(
     val kindCode: Int,
     val byteLength: Int,
     val crcOk: Boolean,
+    val version: Int = EngramRecord.WIRE_VERSION,
 )
 
 class RecordHit(
@@ -155,7 +163,10 @@ object RecordStream {
         while (i + EngramRecord.HEADER_LEN <= bytes.size) {
             if (bytes.startsWith(EngramRecord.MAGIC, i)) {
                 val d = EngramRecord.decodeAt(bytes, i)
-                if (d != null) {
+                // trust a claimed frame span only when the crc holds or the frame is
+                // ours (current version); a crc-bad future-version candidate is likely
+                // foreign bytes, so step one byte and keep looking for real frames
+                if (d != null && (d.crcOk || d.version == EngramRecord.WIRE_VERSION)) {
                     hits += RecordHit(i, d)
                     i += d.byteLength
                     continue
