@@ -13,6 +13,10 @@ class MpfReport(
     val present: Boolean,
     val images: List<MpfImageRef>,
     val problems: List<String>,
+    // file offset of the primary MP entry "Individual Image Size" field and its endianness,
+    // so a writer can patch the size after it grows the primary image (finding 3)
+    val primarySizeFieldPos: Long? = null,
+    val little: Boolean = false,
 ) {
     val valid: Boolean get() = present && problems.isEmpty()
 }
@@ -40,6 +44,9 @@ object MpfInspector {
             } catch (e: JpegFormatException) {
                 return MpfReport(false, emptyList(), listOf("unparseable jpeg: ${e.message}"))
             }
+        // the primary image is SOI..EOI (everything before the first appended trailer image)
+        val eoiIndex = parts.indexOfFirst { it is MarkerOnly && it.marker == JpegCodec.EOI }
+        val primarySpan = if (eoiIndex >= 0) parts.take(eoiIndex + 1).sumOf { it.raw.size.toLong() } else -1L
         var pos = 0L
         var segPos = -1L
         var mpf: Segment? = null
@@ -142,6 +149,11 @@ object MpfInspector {
             images += MpfImageRef(k, size, off, abs)
             if (k == 0) {
                 if (off != 0L) problems += "primary image offset expected 0, got $off"
+                // the primary size must track the SOI..EOI span; a grown primary (after a metadata
+                // write) with a stale size is an inconsistent MPF that HDR consumers may reject
+                if (primarySpan >= 0 && size != primarySpan) {
+                    problems += "primary image size $size disagrees with SOI..EOI span $primarySpan"
+                }
             } else {
                 when {
                     abs == null || abs + 2 > bytes.size -> problems += "image $k offset beyond file"
@@ -151,6 +163,6 @@ object MpfInspector {
                 }
             }
         }
-        return MpfReport(true, images, problems)
+        return MpfReport(true, images, problems, tiffBaseFilePos + entriesRel + 4, little)
     }
 }

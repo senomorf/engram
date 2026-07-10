@@ -73,6 +73,23 @@ class JpegTest {
     }
 
     @Test
+    fun embedUpdatesMpfPrimarySize() {
+        val src = SyntheticMedia.jpegWithMpfSecondary()
+        val srcPrimary = MpfInspector.inspect(src).images[0].sizeBytes
+        val out =
+            JpegEmbedder(FakeXmpEngine()).embed(
+                src,
+                listOf(EngramRecord(RecordKind.Note, 1, "n".encodeToByteArray())),
+                "mirror",
+            )
+        val report = MpfInspector.inspect(out)
+        // inserting XMP + IPTC before the MPF grows the primary; its MP entry size must follow,
+        // else inspect() flags the stale size and the write is not Ultra HDR safe (finding 3)
+        assertTrue(report.images[0].sizeBytes > srcPrimary, "primary size must grow with the metadata")
+        assertTrue(report.valid, "patched primary size keeps the MPF valid: ${report.problems}")
+    }
+
+    @Test
     fun secondEmbedAccumulates() {
         val first =
             JpegEmbedder(FakeXmpEngine()).embed(

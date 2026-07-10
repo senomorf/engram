@@ -8,6 +8,25 @@ fun ByteArray.u32be(at: Int): Long = (u16be(at).toLong() shl 16) or u16be(at + 2
 
 fun ByteArray.u64be(at: Int): Long = (u32be(at) shl 32) or u32be(at + 4)
 
+// in-place u32 write honoring the given endianness (MPF entries may be II little or MM big)
+fun ByteArray.setU32(
+    at: Int,
+    value: Long,
+    little: Boolean,
+) {
+    if (little) {
+        this[at] = value.toByte()
+        this[at + 1] = (value ushr 8).toByte()
+        this[at + 2] = (value ushr 16).toByte()
+        this[at + 3] = (value ushr 24).toByte()
+    } else {
+        this[at] = (value ushr 24).toByte()
+        this[at + 1] = (value ushr 16).toByte()
+        this[at + 2] = (value ushr 8).toByte()
+        this[at + 3] = value.toByte()
+    }
+}
+
 fun ByteArray.startsWith(
     prefix: ByteArray,
     at: Int = 0,
