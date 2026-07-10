@@ -70,7 +70,9 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   whose internal pointers no generic rewriter can fix; revisit only with a
   maker-note-safe writer.
 - D10 Offline-first: no telemetry, no accounts. Network use is limited to
-  best-effort enrichment (weather, geocoding) and is user-toggleable.
+  best-effort enrichment (weather, geocoding) and, on a device without an
+  on-device speech model, remote dictation after explicit one-time consent (D15,
+  finding 6); both are off by default and user-toggleable.
 - D11 Sources: camera buckets + Screenshots bucket. Screenshots on by default,
   disable in settings. Folder allowlist: roadmap.
 - D12 Nudging: both modes built. Evening digest (user-set hour) and post-burst
@@ -188,6 +190,26 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   boots the signed APK on an emulator and fails the release if it crashes on launch (a
   release-artifact smoke gate; manual on-device QA is docs/device-qa.md). R8/shrink is
   off until a release-build device-test path exists.
+- D25 Location preservation. Annotating a camera photo must not strip its GPS. The
+  app holds ACCESS_MEDIA_LOCATION and reads unredacted originals via
+  MediaStore.setRequireOriginal (finding 1); without the permission MediaStore
+  redacts location out of the returned bytes, and the backup-and-rebuild write would
+  then persist that loss. The permission rides the media-permission request and is
+  optional: reads funnel through ResolverContentAccess.readUri (writes never do), and
+  on denial the save warns that annotating will remove location, then proceeds. It
+  adds no new egress; coordinates still leave the device only via the D10 enrichment
+  toggle.
+- D26 Never lose the photo. Media the app does not own has no atomic replace (opening
+  with "wt" truncates in place), so write-back is transactional against the local
+  backup. Content writes return a WriteResult tri-state, not a Boolean: NotOpened
+  (target byte-for-byte untouched, no restore), OpenedUncertain (opened then failed,
+  so the target may be truncated and is restored from backup), Ok (verify by
+  re-parse). The backup is durable and ordered: the .meta sidecar is written
+  fsync+rename first, then the .bak is published via tmp+fsync+rename and is never
+  overwritten once committed; it is deleted only after the new file verifies intact
+  or the original is restored. A per-instance Mutex serializes write-back and recovery
+  so a foreground save and background recovery never interleave on the same file
+  (finding 2).
 
 ## 5. Assumptions register
 
@@ -273,7 +295,8 @@ Size: soft cap per D13. Integrity and versioning rules identical across bindings
    takes one file that round-tripped a cloud or messenger and reports what
    survived, in plain words.
 9. Settings: sources (screenshots toggle), digest modes and hour, enrichment
-   network toggle, calendar toggle, codec (advanced), language.
+   network toggle, remote-dictation consent toggle, calendar toggle, codec
+   (advanced), language.
 
 ## 8. Architecture overview
 
@@ -286,8 +309,9 @@ Size: soft cap per D13. Integrity and versioning rules identical across bindings
   playback, index.
 
 Dataflow: detect (content-trigger job + daily reconcile) -> queue (index) ->
-annotate -> transactional write-back (backup copy, write, verify by re-parse,
-restore on failure) -> index and recovery-cache update -> async enrichment
+annotate -> transactional write-back (durable backup, write, verify by re-parse,
+restore from backup on an uncertain write; D26) -> index and recovery-cache update
+-> async enrichment
 worker, whose results are written together with the next user-initiated write
 session where possible, avoiding rewrite churn on files.
 
