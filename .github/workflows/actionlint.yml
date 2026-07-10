@@ -1,13 +1,14 @@
 name: actionlint
 
 # Lint the workflow files themselves (YAML, expression syntax, and the embedded shell via
-# the runner's shellcheck). Runs only when workflows change.
+# the runner's shellcheck) plus the repo shell scripts, which actionlint does not see.
+# Runs only when workflows or scripts change.
 on:
   pull_request:
-    paths: [".github/workflows/**"]
+    paths: [".github/workflows/**", "scripts/**"]
   push:
     branches: [main]
-    paths: [".github/workflows/**"]
+    paths: [".github/workflows/**", "scripts/**"]
 
 permissions:
   contents: read
@@ -27,3 +28,15 @@ jobs:
             --pattern '*linux_amd64.tar.gz' --clobber
           tar xzf actionlint_*_linux_amd64.tar.gz actionlint
           ./actionlint -color # actionlint auto-runs the preinstalled shellcheck on run: blocks
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      # actionlint only shellchecks run: blocks inside workflows; the release smoke
+      # lives in scripts/ (the emulator action runs script: line by line), so lint it here
+      - name: Shellcheck the repo scripts
+        run: |
+          bash -n scripts/*.sh
+          shellcheck scripts/*.sh
