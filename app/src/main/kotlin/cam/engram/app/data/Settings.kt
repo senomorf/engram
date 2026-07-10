@@ -20,6 +20,9 @@ data class EngramSettings(
     val burstNudgeEnabled: Boolean = false,
     // opt-in: enabling this sends the photo's GPS to a network provider (finding C)
     val enrichmentNetworkEnabled: Boolean = false,
+    // opt-in: on devices without an on-device speech model, enabling this lets dictation use
+    // the system recognizer, which may send audio to a server (finding 6)
+    val remoteDictationEnabled: Boolean = false,
     val onboardingDone: Boolean = false,
     // BCP-47 tag for voice dictation, decoupled from the UI language; null follows it
     val dictationLanguage: String? = null,
@@ -40,6 +43,7 @@ class SettingsStore(
         val digestHour = intPreferencesKey("digest_hour")
         val burst = booleanPreferencesKey("burst_enabled")
         val enrichmentNetwork = booleanPreferencesKey("enrichment_network")
+        val remoteDictation = booleanPreferencesKey("remote_dictation")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val dictationLanguage = stringPreferencesKey("dictation_language")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
@@ -59,6 +63,8 @@ class SettingsStore(
     suspend fun setBurstNudge(value: Boolean) = put(Keys.burst, value)
 
     suspend fun setEnrichmentNetwork(value: Boolean) = put(Keys.enrichmentNetwork, value)
+
+    suspend fun setRemoteDictation(value: Boolean) = put(Keys.remoteDictation, value)
 
     suspend fun setOnboardingDone(value: Boolean) = put(Keys.onboarding, value)
 
@@ -85,6 +91,7 @@ class SettingsStore(
             digestHour = this[Keys.digestHour] ?: EngramSettings.DEFAULT_DIGEST_HOUR,
             burstNudgeEnabled = this[Keys.burst] ?: false,
             enrichmentNetworkEnabled = this[Keys.enrichmentNetwork] ?: false,
+            remoteDictationEnabled = this[Keys.remoteDictation] ?: false,
             onboardingDone = this[Keys.onboarding] ?: false,
             dictationLanguage = this[Keys.dictationLanguage],
             dynamicColor = this[Keys.dynamicColor] ?: true,

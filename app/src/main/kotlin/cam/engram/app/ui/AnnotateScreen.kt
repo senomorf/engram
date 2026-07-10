@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -104,7 +103,12 @@ private fun AnnotateCard(
     val prefs = store.settings.collectAsState(initial = null).value
     val uiLanguageTag = LocalConfiguration.current.locales[0].toLanguageTag()
     val dictationTag = Dictation.resolveDictationTag(prefs?.dictationLanguage, uiLanguageTag)
-    val speech = rememberSpeechInput(dictationTag) { spoken -> vm.onTextChange(Dictation.merge(ui.text, spoken)) }
+    val speech =
+        rememberDictation(
+            dictationTag = dictationTag,
+            remoteConsent = prefs?.remoteDictationEnabled == true,
+            onEnableRemote = { scope.launch { store.setRemoteDictation(true) } },
+        ) { spoken -> vm.onTextChange(Dictation.merge(ui.text, spoken)) }
     val consentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) vm.save()
@@ -213,7 +217,10 @@ private fun SaveWithLocationGuard(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
     ) { Text(stringResource(labelRes)) }
     if (showWarning) {
-        LocationWarningDialog(
+        ConfirmDialog(
+            titleRes = R.string.annotate_location_warning_title,
+            bodyRes = R.string.annotate_location_warning_body,
+            confirmRes = R.string.annotate_location_warning_confirm,
             onConfirm = {
                 warned = true
                 showWarning = false
@@ -224,27 +231,6 @@ private fun SaveWithLocationGuard(
     }
 }
 
-// warns that saving strips a photo's location; the save proceeds only on confirm
-@Composable
-private fun LocationWarningDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.annotate_location_warning_title)) },
-        text = { Text(stringResource(R.string.annotate_location_warning_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.annotate_location_warning_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
-        },
-    )
-}
-
 // annotating strips GPS when the item is an image and location access was denied
 private fun stripsLocation(
     context: android.content.Context,
@@ -253,6 +239,32 @@ private fun stripsLocation(
     item?.isVideo == false &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_MEDIA_LOCATION) !=
         PackageManager.PERMISSION_GRANTED
+
+// manages the one-time remote-dictation disclosure so the note screen stays lean: dictation
+// asks before it ever uses the network recognizer, and enabling it persists the consent
+@Composable
+private fun rememberDictation(
+    dictationTag: String,
+    remoteConsent: Boolean,
+    onEnableRemote: () -> Unit,
+    onResult: (String) -> Unit,
+): SpeechInput {
+    var showConsent by remember { mutableStateOf(false) }
+    val speech = rememberSpeechInput(dictationTag, remoteConsent, { showConsent = true }, onResult)
+    if (showConsent) {
+        ConfirmDialog(
+            titleRes = R.string.dictation_remote_consent_title,
+            bodyRes = R.string.dictation_remote_consent_body,
+            confirmRes = R.string.dictation_remote_consent_enable,
+            onConfirm = {
+                onEnableRemote()
+                showConsent = false
+            },
+            onDismiss = { showConsent = false },
+        )
+    }
+    return speech
+}
 
 @Composable
 private fun NoteField(
