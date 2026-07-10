@@ -45,7 +45,13 @@ class AnnotateScreenTest {
 
     // viewModelScope dispatches on Main; run those launches eagerly so save/onNext complete
     @Before
-    fun setUp() = Dispatchers.setMain(Dispatchers.Unconfined)
+    fun setUp() {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        // most tests exercise the granted-location path (the common case); the denial
+        // path is covered by savingImageWithoutLocationWarnsFirstThenSaves
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.ACCESS_MEDIA_LOCATION)
+    }
 
     @After
     fun tearDown() {
@@ -197,5 +203,29 @@ class AnnotateScreenTest {
             up()
         }
         compose.onRoot().assertExists()
+    }
+
+    @Test
+    fun savingImageWithoutLocationWarnsFirstThenSaves() {
+        // location denied: the first image save shows the strip warning; confirming proceeds
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .denyPermissions(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        runBlocking { app.seedMemory(12, note = "existing") }
+        var done = false
+        compose.setScreen(app) { AnnotateScreen(mediaIds = listOf(12), startIndex = 0, onDone = { done = true }) }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("keep or not")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_save)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_save)).performClick()
+        // the warning dialog appears instead of saving immediately
+        val confirm = strings.getString(R.string.annotate_location_warning_confirm)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(confirm).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(!done, "save must wait for confirmation")
+        // confirming proceeds with the write, advancing the single-item queue to onDone
+        compose.onNodeWithText(confirm).performClick()
+        compose.waitUntil(5_000) { done }
+        assertTrue(done)
     }
 }

@@ -2,6 +2,7 @@ package cam.engram.app.data.media
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.MediaStore
 import java.io.File
 import java.io.FileInputStream
 import java.nio.channels.SeekableByteChannel
@@ -34,10 +35,25 @@ interface ContentAccess {
 
 class ResolverContentAccess(
     private val resolver: ContentResolver,
+    // when true (the app holds ACCESS_MEDIA_LOCATION), reads request the unredacted
+    // original so backup, exif and export see the real GPS instead of scoped-storage
+    // redacted bytes; annotating a camera photo then no longer strips its location
+    private val requireOriginal: () -> Boolean = { false },
 ) : ContentAccess {
+    // setRequireOriginal throws UnsupportedOperationException when the provider cannot
+    // supply an original; fall back to the plain uri so reads still work
+    private fun readUri(uri: String): Uri {
+        val base = Uri.parse(uri)
+        return if (requireOriginal()) {
+            runCatching { MediaStore.setRequireOriginal(base) }.getOrDefault(base)
+        } else {
+            base
+        }
+    }
+
     override fun readBytes(uri: String): ByteArray? =
         runCatching {
-            resolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() }
+            resolver.openInputStream(readUri(uri))?.use { it.readBytes() }
         }.getOrNull()
 
     override fun <T> withChannel(
@@ -45,7 +61,7 @@ class ResolverContentAccess(
         block: (SeekableByteChannel) -> T,
     ): T? =
         runCatching {
-            resolver.openFileDescriptor(Uri.parse(uri), "r")?.use { pfd ->
+            resolver.openFileDescriptor(readUri(uri), "r")?.use { pfd ->
                 FileInputStream(pfd.fileDescriptor).channel.use(block)
             }
         }.getOrNull()
@@ -63,7 +79,7 @@ class ResolverContentAccess(
         target: File,
     ): Boolean =
         runCatching {
-            resolver.openInputStream(Uri.parse(uri))?.use { input ->
+            resolver.openInputStream(readUri(uri))?.use { input ->
                 target.outputStream().use { input.copyTo(it) }
             } != null
         }.getOrDefault(false)

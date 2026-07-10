@@ -1,6 +1,9 @@
 package cam.engram.app
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import cam.engram.app.audio.MediaVoiceRecorder
 import cam.engram.app.audio.VoiceRecorderFactory
 import cam.engram.app.data.SettingsStore
@@ -34,7 +37,14 @@ import java.io.File
 class AppContainer(
     context: Context,
     val db: EngramDb = EngramDb.build(context),
-    val access: ContentAccess = ResolverContentAccess(context.contentResolver),
+    val access: ContentAccess =
+        ResolverContentAccess(
+            context.contentResolver,
+            requireOriginal = {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_MEDIA_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED
+            },
+        ),
     val source: MediaSource = MediaStoreSource(context.contentResolver),
     val settings: SettingsStore = SettingsStore(context.applicationContext),
     private val io: CoroutineDispatcher = Dispatchers.IO,
