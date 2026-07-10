@@ -39,9 +39,9 @@ class EngramArchiveTest {
                     EngramArchive.ManifestFile("a.records", "22bb"),
                 ),
             )
-        assertTrue(manifest.contains("\"manifestVersion\":2"), manifest)
-        assertTrue(manifest.contains("""{"name":"a.json","md5":"11aa"}"""), manifest)
-        assertTrue(manifest.contains("""{"name":"a.records","md5":"22bb"}"""), manifest)
+        assertTrue(manifest.contains("\"manifestVersion\":3"), manifest)
+        assertTrue(manifest.contains("""{"name":"a.json","sha256":"11aa"}"""), manifest)
+        assertTrue(manifest.contains("""{"name":"a.records","sha256":"22bb"}"""), manifest)
     }
 
     @Test
@@ -108,7 +108,7 @@ class EngramArchiveTest {
     @Test
     fun manifestIsValidJson() {
         assertEquals(
-            "{\"archive\":\"engram\",\"manifestVersion\":2,\"itemCount\":3,\"files\":[]}",
+            "{\"archive\":\"engram\",\"manifestVersion\":3,\"itemCount\":3,\"files\":[]}",
             EngramArchive.manifest(3),
         )
     }
@@ -121,5 +121,10 @@ class EngramArchiveTest {
         val b = prefix + ByteArray(24) { 2 }
         assertEquals(a.size, b.size)
         assertTrue(EngramArchive.contentHashName(a) != EngramArchive.contentHashName(b))
+        // identity is sha-256 (D28): pin a known vector so the algorithm cannot drift silently
+        assertEquals(
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            EngramArchive.contentHashName("abc".encodeToByteArray()),
+        )
     }
 }

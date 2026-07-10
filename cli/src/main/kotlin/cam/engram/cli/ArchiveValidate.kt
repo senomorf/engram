@@ -1,8 +1,10 @@
 package cam.engram.cli
 
+import cam.engram.format.Md5
 import cam.engram.format.archive.ArchiveReader
 import cam.engram.format.archive.EngramArchive
 import cam.engram.format.records.RecordStream
+import cam.engram.format.toHex
 import java.io.File
 
 /**
@@ -24,11 +26,14 @@ internal fun validateArchive(a: Args): Int {
     if (manifest.manifestVersion < 2) {
         problems += "manifest v${manifest.manifestVersion} carries no file inventory (pre-v2 archive)"
     }
+    // v3 inventories hash with sha-256; v2 predates the switch and used md5
+    val digest: (ByteArray) -> String =
+        if (manifest.manifestVersion >= 3) EngramArchive::contentHashName else { b -> Md5.of(b).toHex() }
     for (f in manifest.files) {
         val file = File(dir, f.name)
         when {
             !file.isFile -> problems += "missing: ${f.name}"
-            EngramArchive.contentHashName(file.readBytes()) != f.md5 -> problems += "hash mismatch: ${f.name}"
+            digest(file.readBytes()) != f.hash -> problems += "hash mismatch: ${f.name}"
         }
     }
     var items = 0

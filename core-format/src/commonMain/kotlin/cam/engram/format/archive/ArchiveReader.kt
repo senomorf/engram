@@ -29,7 +29,11 @@ object ArchiveReader {
             files =
                 (root["files"] as? List<*>).orEmpty().map {
                     val o = it as? Map<*, *> ?: error("files entry is not an object")
-                    EngramArchive.ManifestFile(o.str("name"), o.str("md5"))
+                    // v3 inventories carry sha256; v2 carried md5
+                    EngramArchive.ManifestFile(
+                        o.str("name"),
+                        (o["sha256"] ?: o["md5"]) as? String ?: error("file hash missing"),
+                    )
                 },
         )
     }

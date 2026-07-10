@@ -216,7 +216,7 @@ class MediaWriteBack(
                     recordsBlob = blob,
                     recordCount = result.recordCount,
                     updatedMillis = clock(),
-                    originalName = item.relativePath,
+                    originalName = item.displayName.ifEmpty { item.relativePath },
                     // the scanner already content-addressed the media (no extra read), so a
                     // later cache orphan can still export (finding 9)
                     contentHash = scan.contentHash,

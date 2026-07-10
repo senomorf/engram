@@ -1,6 +1,6 @@
 package cam.engram.format.archive
 
-import cam.engram.format.Md5
+import cam.engram.format.Sha256
 import cam.engram.format.read.Memory
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.toHex
@@ -14,7 +14,7 @@ import cam.engram.format.toHex
  * Minimal hand-rolled JSON so :core-format stays dependency-free and KMP-safe.
  */
 object EngramArchive {
-    const val MANIFEST_VERSION = 2
+    const val MANIFEST_VERSION = 3
 
     class Item(
         val contentHashHex: String,
@@ -40,13 +40,13 @@ object EngramArchive {
 
     class ManifestFile(
         val name: String,
-        val md5: String,
+        val hash: String,
     )
 
     /**
-     * Manifest v2: the archive inventory. Every written file is listed with its
-     * md5 so a validator can prove the archive complete without guessing from
-     * directory contents. Fields are append-only (spec sec 11).
+     * Manifest v3: the archive inventory. Every written file is listed with its
+     * sha-256 so a validator can prove the archive complete without guessing from
+     * directory contents (v2 used md5). Fields are append-only (spec sec 11).
      */
     fun manifest(
         itemCount: Int,
@@ -56,7 +56,7 @@ object EngramArchive {
             field("archive", "engram")
             field("manifestVersion", MANIFEST_VERSION.toString(), raw = true)
             field("itemCount", itemCount.toString(), raw = true)
-            arrayField("files", files) { """{"name":${quote(it.name)},"md5":${quote(it.md5)}}""" }
+            arrayField("files", files) { """{"name":${quote(it.name)},"sha256":${quote(it.hash)}}""" }
         }
 
     /** Renders one item's JSON view, its audio blobs, and its byte-exact record log. */
@@ -160,7 +160,9 @@ object EngramArchive {
         return sb.append("\"").toString()
     }
 
-    // a real digest, not size+prefix: distinct files never collide on their
-    // archive JSON/audio filenames (review F13)
-    fun contentHashName(bytes: ByteArray): String = Md5.of(bytes).toHex()
+    // a real digest, not size+prefix: distinct files never collide on their archive
+    // JSON/audio filenames (review F13). Sha-256 (was md5) so the name can double as
+    // an import identity key (D28); cache rows hashed before the switch refresh on
+    // their next scan, and their old names stay valid within their own archives.
+    fun contentHashName(bytes: ByteArray): String = Sha256.of(bytes).toHex()
 }
