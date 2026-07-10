@@ -14,6 +14,9 @@ import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import cam.engram.app.data.media.MediaSource
 import cam.engram.app.data.media.SourceItem
+import cam.engram.app.enrich.PlaceProvider
+import cam.engram.app.enrich.WeatherProvider
+import cam.engram.app.enrich.WeatherReading
 import cam.engram.app.ui.LocalAppContainer
 import cam.engram.app.ui.theme.EngramTheme
 import cam.engram.format.jpeg.JpegEmbedder
@@ -54,10 +57,30 @@ class FakeMediaSource : MediaSource {
     override suspend fun snapshot(includeScreenshots: Boolean): List<SourceItem> = items.toList()
 }
 
+// inert by default so no test accidentally reaches the device geocoder or the network
+private val inertPlace =
+    object : PlaceProvider {
+        override suspend fun place(
+            lat: Double,
+            lon: Double,
+        ): String? = null
+    }
+
+private val inertWeather =
+    object : WeatherProvider {
+        override suspend fun weather(
+            lat: Double,
+            lon: Double,
+            atMillis: Long,
+        ): WeatherReading? = null
+    }
+
 fun fakeContainer(
     context: Context = ApplicationProvider.getApplicationContext(),
     db: EngramDb = EngramDb.inMemory(context),
     access: FakeContentAccess = FakeContentAccess(),
+    placeProvider: PlaceProvider = inertPlace,
+    weatherProvider: WeatherProvider = inertWeather,
 ): AppContainer =
     AppContainer(
         context = context,
@@ -66,6 +89,8 @@ fun fakeContainer(
         source = FakeMediaSource(),
         io = Dispatchers.Unconfined,
         recorderFactory = noopRecorderFactory,
+        placeProvider = placeProvider,
+        weatherProvider = weatherProvider,
     )
 
 fun ComposeContentTestRule.setScreen(

@@ -20,6 +20,8 @@ import cam.engram.app.enrich.EnrichmentGateway
 import cam.engram.app.enrich.ExifGpsReader
 import cam.engram.app.enrich.GeocoderPlaceProvider
 import cam.engram.app.enrich.OpenMeteoWeatherProvider
+import cam.engram.app.enrich.PlaceProvider
+import cam.engram.app.enrich.WeatherProvider
 import cam.engram.app.writeback.ConsentGate
 import cam.engram.app.writeback.MediaStoreConsentGate
 import cam.engram.app.writeback.MediaWriteBack
@@ -52,6 +54,11 @@ class AppContainer(
         object : VoiceRecorderFactory {
             override fun create() = MediaVoiceRecorder(context.applicationContext)
         },
+    // the one seam fakeContainer() could not reach: real providers stay the eager
+    // defaults, tests substitute counting fakes so enrichment is exercisable
+    // through the container instead of by hand-building Enricher
+    placeProvider: PlaceProvider = GeocoderPlaceProvider(context.applicationContext),
+    weatherProvider: WeatherProvider = OpenMeteoWeatherProvider(),
 ) {
     val appContext: Context = context.applicationContext
     val scanner: RecordScanner = RecordScanner(access)
@@ -61,7 +68,7 @@ class AppContainer(
         EnrichmentGateway(
             settings = settings,
             gpsReader = ExifGpsReader(access),
-            enricher = Enricher(GeocoderPlaceProvider(appContext), OpenMeteoWeatherProvider()),
+            enricher = Enricher(placeProvider, weatherProvider),
         )
 
     val reconciler: Reconciler =
