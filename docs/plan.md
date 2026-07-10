@@ -54,9 +54,10 @@ milestone was: build green, CHANGELOG updated, docs touched.
 - Audio codec is Opus only; the "AAC via advanced setting" option (D6) is not
   exposed.
 - Distribution (M9): signing config, tag-driven release workflow, and a release-artifact
-  emulator smoke gate exist and are validated end to end (a v0.1.0-rc1 prerelease built,
-  signed, attested, and published). Remaining: device QA (docs/device-qa.md) and cutting
-  v0.1.0. The landing Download button points at the latest-release asset.
+  emulator smoke gate exist and are validated end to end. v0.1.0 is tagged and
+  published; it predates the release gate (AGENTS Releasing), so the survivability
+  matrix and the device-QA pass are still owed and gate v0.1.1 onward. The landing
+  Download button points at the latest-release asset.
 - Not built, were nice-to-haves: share-sheet inbound "annotate this" target;
   home-screen widget (widget was already roadmap, not v1).
 
@@ -89,9 +90,10 @@ milestone was: build green, CHANGELOG updated, docs touched.
   extraction, size-cap warnings (D13), RU + EN strings (D20), onboarding
   screens incl. the backup-honesty page.
 - M9 Release prep [OWNER]: signing config + tag-driven release workflow + release-artifact
-  smoke gate (D24) implemented and validated via a v0.1.0-rc1 prerelease; landing button
-  wired. Remaining owner steps: run the device QA checklist (docs/device-qa.md) on target
-  devices, then cut v0.1.0.
+  smoke gate (D24) implemented and validated; v0.1.0 tagged and published, 0.1.1 in
+  progress under the release gate. Remaining owner steps: fill lab/survivability-matrix.md
+  and run the device QA checklist (docs/device-qa.md) to unblock the next non-rc tag;
+  landing button wired.
 
 Milestone order is dependency-driven: M2 before M3 before M4; M5 to M8 can
 interleave after M4. Matrix verdicts (track A) may inject work into M4/M8
