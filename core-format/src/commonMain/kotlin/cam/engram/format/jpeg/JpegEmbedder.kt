@@ -3,6 +3,7 @@ package cam.engram.format.jpeg
 import cam.engram.format.ByteArrayBuilder
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordStream
+import cam.engram.format.setU32
 import cam.engram.format.xmp.XmpEngine
 import cam.engram.format.xmp.XmpUpdate
 
@@ -77,6 +78,15 @@ class JpegEmbedder(
         parts.add(TrailerData(added))
         val out = JpegCodec.serialize(parts)
         val before = MpfInspector.inspect(source)
+        // the inserted XMP/IPTC grows the primary image, so patch the MPF primary MP entry size
+        // to the new SOI..EOI span; otherwise the emitted MPF is inconsistent (finding 3)
+        val probe = MpfInspector.inspect(out)
+        probe.primarySizeFieldPos?.let { pos ->
+            val eoi = parts.indexOfFirst { it is MarkerOnly && it.marker == JpegCodec.EOI }
+            if (eoi >= 0) {
+                out.setU32(pos.toInt(), parts.take(eoi + 1).sumOf { it.raw.size.toLong() }, probe.little)
+            }
+        }
         val after = MpfInspector.inspect(out)
         if (before.valid && !after.valid) {
             throw JpegFormatException("writer broke MPF offsets: ${after.problems}")
