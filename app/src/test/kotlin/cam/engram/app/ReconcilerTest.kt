@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 class ReconcilerTest {
@@ -36,7 +37,6 @@ class ReconcilerTest {
             db = db,
             source = source,
             scanner = RecordScanner(access),
-            access = access,
             includeScreenshots = { true },
             io = Dispatchers.Unconfined,
             clock = { 1000L },
@@ -88,6 +88,15 @@ class ReconcilerTest {
             assertEquals(0, items[1L]!!.recordCount)
             assertEquals(1, items[2L]!!.recordCount)
             assertEquals(1, db.recordCache().byId(2L)!!.recordCount)
+            // the scanner content-addresses images at scan time so a later orphan can export
+            assertTrue(
+                db
+                    .recordCache()
+                    .byId(2L)!!
+                    .contentHash
+                    .isNotEmpty(),
+                "the scanned photo is content-addressed",
+            )
         }
 
     @Test

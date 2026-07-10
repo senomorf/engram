@@ -34,7 +34,7 @@ class SearchTest {
         }
 
     private val reconciler =
-        Reconciler(db, source, RecordScanner(access), access, { true }, Dispatchers.Unconfined, clock = { 1L })
+        Reconciler(db, source, RecordScanner(access), { true }, Dispatchers.Unconfined, clock = { 1L })
 
     @After
     fun tearDown() = db.close()
