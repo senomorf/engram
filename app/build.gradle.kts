@@ -163,8 +163,9 @@ kover {
                 // Thin platform-adapter edges: real MediaStore/ContentResolver, SAF, the
                 // SpeechRecognizer and MediaRecorder wrappers, Geocoder, the media-observer
                 // service. The logic behind each interface is unit-tested through fakes; the
-                // adapters themselves only run on a device and are covered by the instrumented
-                // androidTest layer, which Kover cannot measure on-device. LabScreen is debug
+                // adapters only run on a device (Kover cannot measure on-device). Instrumented
+                // androidTest covers ResolverContentAccess, MediaStoreSource, and SafArchiveSink;
+                // the rest is manual device QA (docs/device-qa.md). LabScreen is debug
                 // diagnostics (exempt like the lab strings).
                 classes(
                     "cam.engram.app.data.media.ResolverContentAccess",
@@ -181,13 +182,13 @@ kover {
                     "*verifyLauncher*",
                 )
                 // device-only code (MediaPlayer playback, SpeechRecognizer dictation) that cannot
-                // run on the JVM; the instrumented layer covers it (design D22)
+                // run on the JVM; checked manually via docs/device-qa.md (design D22)
                 annotatedBy("cam.engram.app.DeviceOnly")
             }
         }
         // floor sits below the achieved ~91.2-91.8% with headroom for Compose-timing coverage variance
         // (the low end must clear it); the residual to 95% is device-only Compose (MediaPlayer/
-        // SpeechRecognizer) covered by the instrumented layer (design D22). Floor only rises.
+        // SpeechRecognizer) exercised via device QA (design D22). Floor only rises.
         verify { rule { minBound(90) } }
     }
 }
