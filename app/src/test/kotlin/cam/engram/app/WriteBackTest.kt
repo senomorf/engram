@@ -89,6 +89,22 @@ class WriteBackTest {
         }
 
     @Test
+    fun indexCommitIsAtomicWhenTheCacheInsertFails() =
+        runBlocking {
+            val item = seed(7, SyntheticMedia.jpegPlain())
+            // simulate the record_cache insert dying mid-index: the media row must not
+            // commit claiming records the non-rebuildable cache never received (D3)
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_cache BEFORE INSERT ON record_cache BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            )
+            val result = runCatching { writeBack.write(item, Annotation("память", null)) }
+            assertTrue(result.isFailure, "the injected cache failure must surface, not be swallowed")
+            assertEquals(0, db.media().byId(7)!!.recordCount, "media row must not outlive the failed cache row")
+            assertEquals(null, db.recordCache().byId(7))
+            assertEquals(1, backupDir.listFiles()!!.count { it.extension == "bak" }, "backup stays for recovery")
+        }
+
+    @Test
     fun recoverPendingRestoresVideoWhenTargetNoLongerParses() =
         runBlocking {
             val uri = "content://media/50"

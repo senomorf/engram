@@ -13,6 +13,9 @@ change lands under Unreleased at merge time.
   kinds) rather than stopping at the first one, and the frame envelope is now frozen
   in the spec so future versions stay recognizable. A maliciously crafted record
   header can no longer crash the reader.
+- A save interrupted while indexing can no longer mark a memory as indexed while the
+  recovery cache misses it: the media row, the recovery cache, and the search index
+  now commit together, fed by the same verification scan that approved the write.
 
 ## [0.1.1] - 2026-07-10
 
