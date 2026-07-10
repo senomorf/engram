@@ -85,8 +85,9 @@ milestone was: build green, CHANGELOG updated, docs touched.
   timestamps, provenance-tagged enrichment records, network toggle (D10),
   written alongside the next user-initiated write session (design sec 8).
 - M8 Export and verifier: Engram Archive export to a SAF location, in-app
-  backup verifier reusing the cli extraction logic, size-cap warnings (D13),
-  RU + EN strings (D20), onboarding screens incl. the backup-honesty page.
+  backup verifier and the cli both consuming the shared core-format container
+  extraction, size-cap warnings (D13), RU + EN strings (D20), onboarding
+  screens incl. the backup-honesty page.
 - M9 Release prep [OWNER]: signing config + tag-driven release workflow + release-artifact
   smoke gate (D24) implemented and validated via a v0.1.0-rc1 prerelease; landing button
   wired. Remaining owner steps: run the device QA checklist (docs/device-qa.md) on target

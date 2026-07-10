@@ -28,7 +28,7 @@ import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.export.ExportResult
 import cam.engram.app.export.SafArchiveSink
 import cam.engram.app.verify.BackupVerifier
-import cam.engram.app.verify.Survival
+import cam.engram.format.read.Survival
 import kotlinx.coroutines.launch
 
 private sealed interface ExportState {
@@ -93,7 +93,7 @@ fun ToolsScreen(onBack: () -> Unit) {
             if (uri != null) {
                 scope.launch {
                     verify = VerifyState.Running
-                    val report = BackupVerifier(context).verify(uri)
+                    val report = BackupVerifier(container.access).verify(uri.toString())
                     verify = VerifyState.Done(report.summary, report.audioClips, report.corruptCount)
                 }
             }
