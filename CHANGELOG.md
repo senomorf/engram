@@ -21,11 +21,29 @@ change lands under Unreleased at merge time.
   cache and re-embed, so restoring memories can no longer drop them.
 - Enrichment degrades gracefully when the device place-name backend errors: it no longer
   stalls, and weather still attaches.
+- Annotating a camera photo no longer strips its GPS location: the app reads the original
+  (unredacted) bytes instead of the scoped-storage copy.
+- Write-back is transactional: a failed or interrupted write can no longer destroy the
+  photo or its only backup.
+- JPEG writes keep the MPF primary image size in step with the file, so Ultra HDR photos
+  stay consistent for viewers.
+- Editing a photo caption preserves its other IPTC metadata (keywords, by-line, copyright)
+  instead of dropping it.
+- The backup verifier reports a file with a mix of intact and corrupt records as damaged,
+  not fully survived, and shows how many records are corrupt.
+- A partial strip no longer shrinks the recovery cache below the records ever seen for a
+  photo, so a later repair can restore them.
+- Engram Archive export includes memories whose media file was moved or deleted, and fails
+  the export if the manifest cannot be written.
 
 ### Changed
 
 - Network enrichment (weather and place names) is now opt-in and off by default; the
   setting discloses that enabling it sends the photo's location to an online provider.
+- Cloud backup no longer uploads memory content: the record cache, voice drafts and
+  write-back backups are excluded so notes and audio stay on the phone.
+- Dictation uses the network speech recognizer only after an explicit one-time consent, on
+  devices without an on-device speech model.
 
 ## [0.1.0] - 2026-07-09
 
