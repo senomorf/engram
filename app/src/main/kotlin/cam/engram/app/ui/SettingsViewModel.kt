@@ -35,6 +35,8 @@ class SettingsViewModel(
 
     fun setEnrichmentNetwork(value: Boolean) = update { container.settings.setEnrichmentNetwork(value) }
 
+    fun setRemoteDictation(value: Boolean) = update { container.settings.setRemoteDictation(value) }
+
     fun setDynamicColor(value: Boolean) = update { container.settings.setDynamicColor(value) }
 
     private fun update(block: suspend () -> Unit) {

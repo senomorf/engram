@@ -95,7 +95,7 @@ fun rememberSpeechInput(
                     status = if (languageMissing) DictationStatus.LanguageUnavailable else DictationStatus.Error
                     if (languageMissing && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                         // fetch the on-device model so the next attempt works offline
-                        runCatching { recognizer?.triggerModelDownload(dictationIntent(latestLang.value)) }
+                        runCatching { recognizer.triggerModelDownload(dictationIntent(latestLang.value)) }
                     }
                 }
 

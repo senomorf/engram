@@ -78,6 +78,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                 onChange = vm::setEnrichmentNetwork,
             )
             ToggleRow(
+                label = stringResource(R.string.settings_remote_dictation),
+                checked = s.remoteDictationEnabled,
+                onChange = vm::setRemoteDictation,
+            )
+            ToggleRow(
                 label = stringResource(R.string.settings_dynamic_color),
                 checked = s.dynamicColor,
                 onChange = vm::setDynamicColor,
