@@ -78,6 +78,77 @@ class ArchiveExporterTest {
         }
 
     @Test
+    fun recordLogSidecarRoundTripsOpaqueFramesByteExact() =
+        runBlocking {
+            val note = EngramRecord(RecordKind.Note, 1, "kept".encodeToByteArray())
+            val opaque = SyntheticMedia.unknownVersionFrame()
+            val bytes = SyntheticMedia.jpegPlain()
+            val uri = "content://media/3"
+            access.files[uri] = bytes
+            db.media().upsert(
+                listOf(
+                    MediaItemEntity(3, uri, false, "image/jpeg", "DCIM/Camera/", 3, bytes.size.toLong(), 3, 2, 0, 0),
+                ),
+            )
+            // the cache blob holds a typed note plus a future-version frame
+            db.recordCache().upsert(
+                RecordCacheEntity(3, 3, bytes.size.toLong(), note.encode() + opaque, 2, 0),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount)
+            val hash = EngramArchive.contentHashName(bytes)
+            val log = written["$hash.records"] ?: error("record log sidecar missing: ${written.keys}")
+            kotlin.test.assertContentEquals(note.encode() + opaque, log, "the log must be byte-exact")
+            assertEquals(2, RecordStream.decodeSequence(log).size)
+        }
+
+    @Test
+    fun opaqueOnlyCacheEntryStillExports() =
+        runBlocking {
+            val opaque = SyntheticMedia.unknownKindFrame()
+            val bytes = SyntheticMedia.jpegPlain()
+            val uri = "content://media/4"
+            access.files[uri] = bytes
+            db.media().upsert(
+                listOf(
+                    MediaItemEntity(4, uri, false, "image/jpeg", "DCIM/Camera/", 4, bytes.size.toLong(), 4, 1, 0, 0),
+                ),
+            )
+            db.recordCache().upsert(RecordCacheEntity(4, 4, bytes.size.toLong(), opaque, 1, 0))
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount, "future-format-only memories must not be skipped")
+            val hash = EngramArchive.contentHashName(bytes)
+            kotlin.test.assertContentEquals(opaque, written["$hash.records"]!!)
+        }
+
+    @Test
+    fun manifestInventoriesEveryWrittenFileWithItsHash() =
+        runBlocking {
+            val bytes = SyntheticMedia.jpegPlain()
+            seed(5, bytes, listOf(EngramRecord(RecordKind.Note, 1, "hi".encodeToByteArray())))
+            val written = mutableMapOf<String, ByteArray>()
+            exporter.exportTo { name, data ->
+                written[name] = data
+                true
+            }
+            val manifest = written["manifest.json"]!!.decodeToString()
+            written.filterKeys { it != "manifest.json" }.forEach { (name, data) ->
+                val expected = """{"name":"$name","md5":"${EngramArchive.contentHashName(data)}"}"""
+                assertTrue(manifest.contains(expected), "manifest must list $name with its hash: $manifest")
+            }
+        }
+
+    @Test
     fun failedWriteIsCountedAsFailedNotExported() =
         runBlocking {
             seed(2, SyntheticMedia.jpegPlain(), listOf(EngramRecord(RecordKind.Note, 1, "hi".encodeToByteArray())))

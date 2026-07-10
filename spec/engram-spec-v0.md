@@ -159,3 +159,25 @@ reassembly at 64MB as an anti-bomb guard.
 - Compaction (rewriting history into a snapshot): explicitly out of scope
   until versioning UX exists; append-only is the invariant until then.
 - HEIF/HEIC binding: deferred; must not assume a JPEG-like tail.
+
+## 11. Engram Archive
+
+The disaster-recovery serialization (design D14, D28): one directory holding,
+per media item, a byte-exact record log, a readable JSON view, and any audio
+blobs, plus a manifest inventory. All fields are append-only.
+
+- `manifest.json`: `{"archive":"engram","manifestVersion":2,"itemCount":N,
+  "files":[{"name":...,"md5":...},...]}`. The `files` array inventories every
+  written file with its md5, so a validator can prove the archive complete.
+  Version 1 manifests (itemCount only) predate the inventory.
+- `<contentHash>.records`: the authoritative record log: the item's CRC-valid
+  frames concatenated byte-exact in log order, exactly the wire format of
+  section 2. Opaque frames (unknown kinds, future wire versions) are carried
+  unmodified, so any conforming reader recovers everything with the ordinary
+  frame decoder and nothing is lost in translation.
+- `<contentHash>.json`: a readable view (current note, note history,
+  transcripts, latest enrichment, audio file names, `recordLog` file name,
+  `frameCount`). The view may lose detail; the record log never does.
+- `<contentHash>_<n>.<ext>`: audio payloads extracted for direct playback.
+- `<contentHash>` is the md5 of the source media file (naming and dedup, not
+  a security boundary).

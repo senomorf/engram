@@ -29,6 +29,14 @@ change lands under Unreleased at merge time.
   record-like bytes hiding inside photo metadata no longer count as survived
   memories. Verifying a video now streams it instead of loading it whole.
 
+### Added
+
+- Engram Archive export now writes a byte-exact record log per item (the exact
+  frames, future-format ones included, readable by any conforming decoder), and the
+  archive manifest inventories every file with its checksum so an archive can be
+  proven complete. Memories whose records are all future-format are exported too
+  instead of being skipped.
+
 ## [0.1.1] - 2026-07-10
 
 ### Fixed
