@@ -30,7 +30,8 @@ change lands under Unreleased at merge time.
 - Editing a photo caption preserves its other IPTC metadata (keywords, by-line, copyright)
   instead of dropping it.
 - The backup verifier reports a file with a mix of intact and corrupt records as damaged,
-  not fully survived, and shows how many records are corrupt.
+  not fully survived, shows how many records are corrupt, and no longer claims everything
+  survived (it reports only what it can see in the shared file).
 - A partial strip no longer shrinks the recovery cache below the records ever seen for a
   photo, so a later repair can restore them.
 - Engram Archive export includes memories whose media file was moved or deleted, and fails
@@ -43,7 +44,8 @@ change lands under Unreleased at merge time.
 - Cloud backup no longer uploads memory content: the record cache, voice drafts and
   write-back backups are excluded so notes and audio stay on the phone.
 - Dictation uses the network speech recognizer only after an explicit one-time consent, on
-  devices without an on-device speech model.
+  devices without an on-device speech model; the consent is shown in Settings and can be
+  turned off there.
 
 ## [0.1.0] - 2026-07-09
 

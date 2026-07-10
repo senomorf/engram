@@ -14,12 +14,13 @@ pass/fail per section.
 - [ ] Fresh install of `engram.apk` from the release succeeds on a device with no prior
       Engram; app launches to onboarding.
 - [ ] Upgrade install over the previous version succeeds in place (versionCode must have
-      increased) and existing indexed media plus saved memories survive.
+      increased) and existing indexed media plus saved memories survive. This exercises the
+      record_cache schema migration to v3; a launch crash here means the migration failed.
 
 ## Permissions
 
-- [ ] Media (photos/videos), notifications, microphone (voice), and location (enrichment)
-      prompts appear when first needed.
+- [ ] Media (photos/videos), notifications, microphone (voice), and location (preserves a
+      photo's GPS on annotation, and enrichment) prompts appear when first needed.
 - [ ] Denying each is handled gracefully (feature degrades, no crash); granting later works.
 
 ## Core flows
@@ -27,6 +28,12 @@ pass/fail per section.
 - [ ] Ingest: camera and screenshot media show up in the annotate queue.
 - [ ] Text note: add and save a note; it writes back into the file with MediaStore consent.
 - [ ] Voice note: hold-to-record an Opus clip, save, and play it back in the detail view.
+- [ ] GPS preserved (finding 1): with location granted, annotate a camera photo that has
+      GPS, then confirm the saved file still carries its location (Google Photos map, or
+      `exiftool -gps*`). Deny location and confirm the save warns before removing it.
+- [ ] Dictation consent (finding 6): on a device with no on-device speech model, tapping
+      dictate shows the network-dictation disclosure; enabling it (or the Settings toggle)
+      lets it work, and the toggle revokes it. With an on-device model, no prompt appears.
 - [ ] Survivability (the core promise): send an annotated file through a messenger or
       cloud that strips metadata, pull it back, and run the in-app backup verifier (or
       `engram verify`); confirm the memory survives, or degrades exactly as expected.
