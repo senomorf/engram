@@ -67,8 +67,10 @@ class EngramRootNavigationTest {
         compose.onNodeWithText(strings.getString(R.string.home_tagline)).assertDoesNotExist()
     }
 
+    // mark by the first setting (top of the scrollable screen), so adding settings later
+    // does not push the marker below the test viewport
     @Test
-    fun navigatesToSettings() = home { R.string.open_settings to R.string.settings_language }
+    fun navigatesToSettings() = home { R.string.open_settings to R.string.settings_screenshots }
 
     @Test
     fun navigatesToTools() = home { R.string.open_tools to R.string.tools_export_button }
