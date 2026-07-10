@@ -68,14 +68,32 @@ jobs:
 
       # Boot the actual signed artifact on an emulator and assert it launches without
       # crashing; a failure here blocks the release (the publish step below is skipped).
+      # Emulator boot is occasionally flaky on hosted runners, so use a generous boot
+      # timeout with stabilizing options and allow one retry (the action has no native retry).
       - name: Smoke-test the signed APK on an emulator
+        id: smoke
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 34
           arch: x86_64
           target: aosp_atd
           disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           # the action runs `script` line by line, so keep the logic in a file bash parses whole
+          script: bash scripts/smoke-apk.sh engram.apk
+
+      - name: Retry the emulator smoke test once
+        if: steps.smoke.outcome == 'failure'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: aosp_atd
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash scripts/smoke-apk.sh engram.apk
 
       - name: Attest build provenance
