@@ -23,6 +23,8 @@ change lands under Unreleased at merge time.
   appends only the missing frames, byte-exact, and now also restores files whose
   cache holds only future-format records. Crash recovery counts carried
   future-format frames toward a completed write instead of rolling it back.
+- Weather enrichment no longer invents a "clear" reading when the provider returns
+  fewer weather codes than temperatures; malformed responses are skipped instead.
 - The backup verifier reports damage more honestly: media that no longer parses is
   "could not read" instead of "nothing survived", a record container that lost
   frames counts as damaged even when the remaining records read back, and

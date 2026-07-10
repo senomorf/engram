@@ -292,9 +292,8 @@ private fun NoteField(
 }
 
 // recording-language badge (decoupled from UI language) plus the dictate mic
-@DeviceOnly
 @Composable
-private fun DictationControls(
+internal fun DictationControls(
     dictationTag: String,
     onPickLanguage: (String) -> Unit,
     onDictate: () -> Unit,
