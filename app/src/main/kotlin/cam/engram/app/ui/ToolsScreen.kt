@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.export.ExportResult
@@ -31,7 +30,7 @@ import cam.engram.app.verify.BackupVerifier
 import cam.engram.format.read.Survival
 import kotlinx.coroutines.launch
 
-private sealed interface ExportState {
+internal sealed interface ExportState {
     data object Idle : ExportState
 
     data object Running : ExportState
@@ -45,7 +44,7 @@ private sealed interface ExportState {
     ) : ExportState
 }
 
-private sealed interface VerifyState {
+internal sealed interface VerifyState {
     data object Idle : VerifyState
 
     data object Running : VerifyState
@@ -123,9 +122,8 @@ fun ToolsScreen(onBack: () -> Unit) {
     }
 }
 
-@DeviceOnly
 @Composable
-private fun ExportStatus(state: ExportState) {
+internal fun ExportStatus(state: ExportState) {
     when (state) {
         ExportState.Idle -> Unit
         ExportState.Running -> Text(stringResource(R.string.tools_exporting))
@@ -140,9 +138,8 @@ private fun ExportStatus(state: ExportState) {
     }
 }
 
-@DeviceOnly
 @Composable
-private fun VerifyStatus(state: VerifyState) {
+internal fun VerifyStatus(state: VerifyState) {
     when (state) {
         VerifyState.Idle -> Unit
         VerifyState.Running -> Text(stringResource(R.string.tools_verifying))
