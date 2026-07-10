@@ -11,9 +11,10 @@ data class GpsContext(
 )
 
 /**
- * Reads the GPS fix and capture time the camera already stamped into EXIF
- * (design: enrichment derives from EXIF, so the app never needs the location
- * permission). Only images carry usable EXIF here; videos are skipped.
+ * Reads the GPS fix and capture time the camera already stamped into EXIF. The app holds
+ * ACCESS_MEDIA_LOCATION and reads original (unredacted) bytes, so this EXIF GPS is present
+ * rather than stripped by scoped storage (finding 1). Only images carry usable EXIF here;
+ * videos are skipped.
  */
 class ExifGpsReader(
     private val access: ContentAccess,

@@ -85,7 +85,9 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   into the annotate flow as dictation that fills the note field. Recording language
   is decoupled from the UI language: a persisted picker (default the UI language)
   chooses from a supported list, so any supported language dictates regardless of
-  UI language; a missing on-device model is fetched via triggerModelDownload.
+  UI language; a missing on-device model is fetched via triggerModelDownload. On a device
+  with no on-device model, dictation uses the network recognizer only after an explicit
+  one-time consent (finding 6).
   Audio is always recorded and stored regardless, so a weak transcript never costs
   the voice clip.
 - D16 Archive model: each person annotates their own media on their own phone.
@@ -252,8 +254,10 @@ Size: soft cap per D13. Integrity and versioning rules identical across bindings
 
 1. Onboarding: media permissions, notification permission, digest hour, one
    backup-honesty screen (what survives where, in one picture), language.
-   Calendar access is an optional toggle, off until asked. No location
-   permission exists in the app at all: enrichment derives from EXIF GPS.
+   Calendar access is an optional toggle, off until asked. Location access
+   (ACCESS_MEDIA_LOCATION) rides the media-permission request so annotating reads the
+   original bytes and never strips the photo's GPS; enrichment reuses that EXIF GPS
+   (finding 1). Denial is allowed: the save warns that annotating will remove location.
 2. Digest: one evening notification when un-annotated items exist. Opens the
    queue: full-screen item, hold-to-record voice, type text, or skip. Batch
    write consent once per session. Target under 15 seconds per item.
@@ -293,14 +297,16 @@ foreground services; everything is scheduled or user-initiated.
 
 ## 9. Android integration (component level)
 
-- Permissions: READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, POST_NOTIFICATIONS,
-  RECORD_AUDIO on first recording, READ_CALENDAR only behind its toggle.
+- Permissions: READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, ACCESS_MEDIA_LOCATION (read original
+  bytes so annotating preserves photo GPS), POST_NOTIFICATIONS, RECORD_AUDIO on first
+  recording, READ_CALENDAR only behind its toggle.
 - Writes: MediaStore.createWriteRequest, batched per annotate session; the
   transactional pattern above because no atomic replace exists for media the
   app does not own.
 - Detection: JobScheduler addTriggerContentUri on MediaStore URIs plus periodic
   reconcile; buckets per D11.
-- Transcription: on-device SpeechRecognizer, ru-RU primary [P0].
+- Transcription: on-device SpeechRecognizer preferred, network recognizer only after
+  consent (finding 6); ru-RU primary [P0].
 - Playback: Ogg Opus and AAC via platform players.
 - Distribution: signed APK on GitHub Releases (D17).
 
@@ -318,6 +324,8 @@ iOS is pushed far back (roadmap) but stays cheap to keep possible:
 ## 11. Privacy model
 
 - All user content stays on device or in files the user controls. No telemetry.
+- Cloud backup excludes the record cache, voice drafts and write-back backups, so no
+  memory content leaves the phone via Android Auto Backup (finding 5).
 - Embedded context travels with shared files: share flows inside the app
   disclose what rides along; onboarding teaches once that outside-the-app
   sharing is not intercepted.
@@ -325,7 +333,8 @@ iOS is pushed far back (roadmap) but stays cheap to keep possible:
   cached, provenance recorded.
 - Engram Archive export is plaintext by design at a user-chosen location;
   encrypted export is on the roadmap; the app says this plainly at export time.
-- Voice recordings are personal data: on-device processing only.
+- Voice recordings are personal data: on-device processing preferred; the network
+  recognizer is used only after an explicit consent, and audio is always kept locally.
 
 ## 12. Backup guidance (user-facing)
 
