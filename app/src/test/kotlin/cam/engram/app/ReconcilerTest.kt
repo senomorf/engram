@@ -36,6 +36,7 @@ class ReconcilerTest {
             db = db,
             source = source,
             scanner = RecordScanner(access),
+            access = access,
             includeScreenshots = { true },
             io = Dispatchers.Unconfined,
             clock = { 1000L },

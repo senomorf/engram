@@ -114,6 +114,7 @@ class EnrichmentFlowTest {
                     db = db,
                     source = source,
                     scanner = RecordScanner(access),
+                    access = access,
                     includeScreenshots = { true },
                     io = Dispatchers.Unconfined,
                     enrichmentPrefetch = {

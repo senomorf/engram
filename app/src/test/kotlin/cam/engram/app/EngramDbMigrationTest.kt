@@ -46,4 +46,34 @@ class EngramDbMigrationTest {
             it.query("SELECT mediaId FROM enrichment_cache").close()
         }
     }
+
+    @Test
+    fun migration2To3AddsCacheIdentityColumns() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val config =
+            SupportSQLiteOpenHelper.Configuration
+                .builder(context)
+                .name(null) // in-memory
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(1) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL("CREATE TABLE media_items (mediaId INTEGER PRIMARY KEY NOT NULL)")
+                            db.execSQL("CREATE TABLE record_cache (mediaId INTEGER PRIMARY KEY NOT NULL)")
+                        }
+
+                        override fun onUpgrade(
+                            db: SupportSQLiteDatabase,
+                            oldVersion: Int,
+                            newVersion: Int,
+                        ) = Unit
+                    },
+                ).build()
+        val db = FrameworkSQLiteOpenHelperFactory().create(config).writableDatabase
+        db.use {
+            EngramDb.MIGRATION_1_2.migrate(it)
+            EngramDb.MIGRATION_2_3.migrate(it)
+            // the new content-identity columns exist only if MIGRATION_2_3 applied
+            it.query("SELECT originalName, contentHash FROM record_cache").close()
+        }
+    }
 }

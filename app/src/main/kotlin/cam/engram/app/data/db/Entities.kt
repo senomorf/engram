@@ -36,6 +36,10 @@ data class RecordCacheEntity(
     val recordsBlob: ByteArray,
     val recordCount: Int,
     val updatedMillis: Long,
+    // captured at scan/write time so a cache orphan (media file moved or deleted) still exports:
+    // originalName names the archive entry, contentHash content-addresses it (finding 9)
+    val originalName: String = "",
+    val contentHash: String = "",
 )
 
 /**

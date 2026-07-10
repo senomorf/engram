@@ -133,4 +133,44 @@ class ArchiveExporterTest {
             assertEquals(1, result.failedCount, "the unreadable item counts as failed")
             assertTrue(written.keys.any { it.endsWith(".ogg") || it.endsWith(".m4a") }, "the voice clip is written")
         }
+
+    @Test
+    fun cacheOrphanWithStoredHashExportsMediaLess() =
+        runBlocking {
+            // reconcile removed the media row but kept the cache (a moved/deleted media file); the
+            // hash + name stored at scan time let it export media-less rather than silently skip
+            db.recordCache().upsert(
+                RecordCacheEntity(
+                    mediaId = 9,
+                    identityTakenAt = 9,
+                    sizeBytesAtScan = 0,
+                    recordsBlob =
+                        RecordStream.encode(
+                            listOf(EngramRecord(RecordKind.Note, 1, "orphan".encodeToByteArray())),
+                        ),
+                    recordCount = 1,
+                    updatedMillis = 0,
+                    originalName = "DCIM/Camera/",
+                    contentHash = "abc123",
+                ),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount, "a cache orphan with a stored hash still exports")
+            assertEquals(0, result.failedCount)
+            assertTrue(written.containsKey("abc123.json"), "the media-less entry is named by the stored hash")
+        }
+
+    @Test
+    fun manifestWriteFailureFailsTheExport() =
+        runBlocking {
+            seed(1, SyntheticMedia.jpegPlain(), listOf(EngramRecord(RecordKind.Note, 1, "hi".encodeToByteArray())))
+            // the item writes fine but the manifest write is dropped
+            val result = exporter.exportTo { name, _ -> name != "manifest.json" }
+            assertTrue(result.failedCount > 0, "a dropped manifest write must be surfaced as a failure")
+        }
 }

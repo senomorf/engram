@@ -7,6 +7,7 @@ import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
+import cam.engram.format.archive.EngramArchive
 import cam.engram.format.jpeg.JpegCodec
 import cam.engram.format.jpeg.JpegEmbedder
 import cam.engram.format.mp4.Mp4Channels
@@ -200,6 +201,8 @@ class MediaWriteBack(
             ),
         )
         outcome?.recordsBlob?.let { blob ->
+            // store the name + content hash so a later cache orphan can still export (finding 9)
+            val hash = access.readBytes(item.uri)?.let { EngramArchive.contentHashName(it) }.orEmpty()
             db.recordCache().upsert(
                 RecordCacheEntity(
                     mediaId = item.mediaId,
@@ -208,6 +211,8 @@ class MediaWriteBack(
                     recordsBlob = blob,
                     recordCount = result.recordCount,
                     updatedMillis = clock(),
+                    originalName = item.relativePath,
+                    contentHash = hash,
                 ),
             )
         }
