@@ -5,6 +5,7 @@ import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import cam.engram.app.data.db.RecordCacheEntity
 import cam.engram.app.data.media.ContentAccess
+import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
 import cam.engram.format.jpeg.JpegCodec
 import cam.engram.format.jpeg.JpegEmbedder
@@ -15,6 +16,8 @@ import cam.engram.format.png.PngEmbedder
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -36,6 +39,10 @@ class MediaWriteBack(
     private val cachedEnrichment: suspend (MediaItemEntity) -> EngramRecord? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    // serialize writes and recovery so a foreground save and a background recoverPending
+    // never interleave backup/restore/cleanup on the same media id (finding 2)
+    private val mutex = Mutex()
+
     suspend fun write(
         item: MediaItemEntity,
         annotation: Annotation,
@@ -53,38 +60,48 @@ class MediaWriteBack(
         carryFrames: List<ByteArray> = emptyList(),
     ): WriteOutcome =
         withContext(io) {
-            backupDir.mkdirs()
-            val backup = File(backupDir, "${item.mediaId}.bak")
-            writeSidecar(item, records)
-            if (!access.copyToFile(item.uri, backup)) {
-                return@withContext WriteOutcome.Failed("cannot back up original")
-            }
-            val attempt =
-                runCatching {
-                    if (item.isVideo) {
-                        writeVideo(item, backup, records, mirrorText, carryFrames)
-                    } else {
-                        writePhoto(item, backup, records, mirrorText, carryFrames)
+            mutex.withLock {
+                backupDir.mkdirs()
+                val backup = File(backupDir, "${item.mediaId}.bak")
+                writeSidecar(item, records)
+                // publish the backup atomically (copy to tmp, fsync inside copyToFile, rename) and
+                // never overwrite a committed one, so a partial copy is never restored over an intact
+                // original and a retry reuses the pristine copy instead of re-reading the corrupt
+                // target (finding 2)
+                if (!backup.exists()) {
+                    val tmp = File(backupDir, "${item.mediaId}.bak.tmp")
+                    if (!access.copyToFile(item.uri, tmp) || !tmp.renameTo(backup)) {
+                        tmp.delete()
+                        return@withLock WriteOutcome.Failed("cannot back up original")
                     }
-                }.getOrElse { e ->
-                    // an exception mid-write may have left a partial file: restore
-                    return@withContext rollback(item, backup, e.message ?: "write failed")
                 }
-            when (attempt) {
-                // target was never modified, so cleanup without a needless restore
-                is Attempt.Rejected -> {
-                    cleanup(item.mediaId)
-                    WriteOutcome.Failed("media write rejected")
-                }
-                is Attempt.Written ->
-                    when (val outcome = attempt.outcome) {
-                        is WriteOutcome.Success -> {
-                            finishSuccess(item, outcome)
-                            cleanup(item.mediaId)
-                            outcome
+                val attempt =
+                    runCatching {
+                        if (item.isVideo) {
+                            writeVideo(item, backup, records, mirrorText, carryFrames)
+                        } else {
+                            writePhoto(item, backup, records, mirrorText, carryFrames)
                         }
-                        is WriteOutcome.Failed -> rollback(item, backup, outcome.reason)
+                    }.getOrElse { e ->
+                        // an exception mid-write may have left a partial file: restore
+                        return@withLock rollback(item, backup, e.message ?: "write failed")
                     }
+                when (attempt) {
+                    // the stream never opened, so the target is untouched: cleanup, no restore
+                    is Attempt.Rejected -> {
+                        cleanup(item.mediaId)
+                        WriteOutcome.Failed("media write rejected")
+                    }
+                    is Attempt.Written ->
+                        when (val outcome = attempt.outcome) {
+                            is WriteOutcome.Success -> {
+                                finishSuccess(item, outcome)
+                                cleanup(item.mediaId)
+                                outcome
+                            }
+                            is WriteOutcome.Failed -> rollback(item, backup, outcome.reason)
+                        }
+                }
             }
         }
 
@@ -126,8 +143,12 @@ class MediaWriteBack(
             } else {
                 JpegEmbedder(engine).embed(source, records, mirrorText, carryFrames)
             }
-        if (!access.writeBytes(item.uri, out)) return Attempt.Rejected
-        return Attempt.Written(verify(item))
+        return when (access.writeBytes(item.uri, out)) {
+            WriteResult.NotOpened -> Attempt.Rejected
+            // the target was truncated but the write did not finish: restore from backup
+            WriteResult.OpenedUncertain -> Attempt.Written(WriteOutcome.Failed("write did not complete"))
+            WriteResult.Ok -> Attempt.Written(verify(item))
+        }
     }
 
     private fun writeVideo(
@@ -138,13 +159,16 @@ class MediaWriteBack(
         carryFrames: List<ByteArray>,
     ): Attempt {
         val rebuilt = File(backupDir, "${item.mediaId}.new.mp4")
-        try {
+        return try {
             Mp4Files.appendRecords(backup, rebuilt, records, mirrorText, carryFrames)
-            if (!access.writeFromFile(item.uri, rebuilt)) return Attempt.Rejected
+            when (access.writeFromFile(item.uri, rebuilt)) {
+                WriteResult.NotOpened -> Attempt.Rejected
+                WriteResult.OpenedUncertain -> Attempt.Written(WriteOutcome.Failed("write did not complete"))
+                WriteResult.Ok -> Attempt.Written(verify(item))
+            }
         } finally {
             rebuilt.delete()
         }
-        return Attempt.Written(verify(item))
     }
 
     private fun verify(item: MediaItemEntity): WriteOutcome {
@@ -194,7 +218,7 @@ class MediaWriteBack(
     private fun restore(
         uri: String,
         backup: File,
-    ): Boolean = backup.exists() && access.writeFromFile(uri, backup)
+    ): Boolean = backup.exists() && access.writeFromFile(uri, backup) == WriteResult.Ok
 
     private fun cleanup(mediaId: Long) {
         File(backupDir, "$mediaId.bak").delete()
@@ -208,7 +232,15 @@ class MediaWriteBack(
         // the expected record ids let recoverPending tell a finished write from an
         // interrupted one, instead of trusting a bare container parse (finding A)
         val ids = records.joinToString(",") { it.idHex }
-        File(backupDir, "${item.mediaId}.meta").writeText("${item.uri}\n${item.isVideo}\n${item.mime}\n$ids")
+        val content = "${item.uri}\n${item.isVideo}\n${item.mime}\n$ids"
+        val meta = File(backupDir, "${item.mediaId}.meta")
+        val tmp = File(backupDir, "${item.mediaId}.meta.tmp")
+        // durable (fsync + rename) so the backup is never published before its sidecar exists
+        tmp.outputStream().use {
+            it.write(content.encodeToByteArray())
+            it.fd.sync()
+        }
+        tmp.renameTo(meta)
     }
 
     /**
@@ -220,28 +252,34 @@ class MediaWriteBack(
      */
     suspend fun recoverPending() =
         withContext(io) {
-            val backups = backupDir.listFiles { f -> f.extension == "bak" } ?: return@withContext
-            for (backup in backups) {
-                val mediaId = backup.nameWithoutExtension
-                val meta = File(backupDir, "$mediaId.meta").takeIf { it.exists() }?.readLines()
-                val uri = meta?.getOrNull(0)
-                if (uri != null) {
-                    val isVideo = meta.getOrNull(1)?.toBoolean() ?: false
-                    val mime = meta.getOrNull(2) ?: "image/jpeg"
-                    val expectedIds =
-                        meta
-                            .getOrNull(3)
-                            ?.split(",")
-                            ?.filter { it.isNotBlank() }
-                            ?.toSet()
-                            .orEmpty()
-                    // restore failed: keep the only pristine copy for the next startup
-                    if (!writeCompleted(uri, isVideo, mime, expectedIds) && !restore(uri, backup)) continue
+            mutex.withLock {
+                val backups = backupDir.listFiles { f -> f.extension == "bak" } ?: return@withLock
+                for (backup in backups) {
+                    if (recoverBackup(backup)) {
+                        backup.delete()
+                        File(backupDir, "${backup.nameWithoutExtension}.meta").delete()
+                    }
                 }
-                backup.delete()
-                File(backupDir, "$mediaId.meta").delete()
             }
         }
+
+    // true when the backup can be dropped: the target already carries the expected records,
+    // or the original was restored. false keeps it for the next startup (no readable sidecar,
+    // or a restore that could not complete) so the only pristine copy is never lost (finding 2)
+    private fun recoverBackup(backup: File): Boolean {
+        val meta = File(backupDir, "${backup.nameWithoutExtension}.meta").takeIf { it.exists() }?.readLines()
+        val uri = meta?.getOrNull(0) ?: return false
+        val isVideo = meta.getOrNull(1)?.toBoolean() ?: false
+        val mime = meta.getOrNull(2) ?: "image/jpeg"
+        val expectedIds =
+            meta
+                .getOrNull(3)
+                ?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
+        return writeCompleted(uri, isVideo, mime, expectedIds) || restore(uri, backup)
+    }
 
     // a write finished only if the target carries every expected record with a valid
     // CRC; a legacy sidecar without ids falls back to a bare container parse

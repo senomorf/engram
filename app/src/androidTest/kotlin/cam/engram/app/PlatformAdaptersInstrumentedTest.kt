@@ -7,14 +7,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import cam.engram.app.data.media.MediaStoreSource
 import cam.engram.app.data.media.ResolverContentAccess
+import cam.engram.app.data.media.WriteResult
 import cam.engram.format.testing.SyntheticMedia
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * On-device confidence layer (design D22): the real platform adapters that Kover
@@ -44,7 +45,7 @@ class PlatformAdaptersInstrumentedTest {
         inserted = uri
         val access = ResolverContentAccess(resolver)
         val bytes = SyntheticMedia.jpegPlain()
-        assertTrue(access.writeBytes(uri.toString(), bytes), "real resolver write must succeed")
+        assertEquals(WriteResult.Ok, access.writeBytes(uri.toString(), bytes), "real resolver write must succeed")
         assertContentEquals(bytes, access.readBytes(uri.toString()))
     }
 
