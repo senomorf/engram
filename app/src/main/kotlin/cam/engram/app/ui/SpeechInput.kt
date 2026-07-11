@@ -19,12 +19,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import cam.engram.app.R
 
 enum class DictationStatus { Idle, Listening, Processing, Error, LanguageUnavailable }
 
-/** What a screen needs from voice input: is it usable, its live state, a trigger. */
+/** What a screen needs from voice input: is it usable, where it runs, its live state, a trigger. */
 class SpeechInput(
     val available: Boolean,
+    // generic availability does not mean on-device: a status line must not present a
+    // network recognizer as local processing (finding C)
+    val onDeviceAvailable: Boolean,
     val status: DictationStatus,
     val start: () -> Unit,
 )
@@ -146,7 +150,34 @@ fun rememberSpeechInput(
         }
     }
     // fresh holder each recomposition so callers observe the current status
-    return SpeechInput(available = available, status = status, start = start)
+    return SpeechInput(available = available, onDeviceAvailable = onDeviceAvailable, status = status, start = start)
+}
+
+// manages the one-time remote-dictation disclosure so screens stay lean: every dictation
+// surface asks before it ever uses the network recognizer, and enabling it persists the
+// consent (D15); Lab routes through this too, it is not a consent bypass (finding C)
+@Composable
+internal fun rememberDictation(
+    dictationTag: String,
+    remoteConsent: Boolean,
+    onEnableRemote: () -> Unit,
+    onResult: (String) -> Unit,
+): SpeechInput {
+    var showConsent by remember { mutableStateOf(false) }
+    val speech = rememberSpeechInput(dictationTag, remoteConsent, { showConsent = true }, onResult)
+    if (showConsent) {
+        ConfirmDialog(
+            titleRes = R.string.dictation_remote_consent_title,
+            bodyRes = R.string.dictation_remote_consent_body,
+            confirmRes = R.string.dictation_remote_consent_enable,
+            onConfirm = {
+                onEnableRemote()
+                showConsent = false
+            },
+            onDismiss = { showConsent = false },
+        )
+    }
+    return speech
 }
 
 private fun dictationIntent(languageTag: String): Intent =

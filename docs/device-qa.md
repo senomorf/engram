@@ -34,6 +34,10 @@ pass/fail per section.
 - [ ] Dictation consent (finding 6): on a device with no on-device speech model, tapping
       dictate shows the network-dictation disclosure; enabling it (or the Settings toggle)
       lets it work, and the toggle revokes it. With an on-device model, no prompt appears.
+- [ ] Lab consent (finding C): on the same modelless device with the setting off, Lab's
+      Speak shows the disclosure instead of reaching the network recognizer; enabling once
+      persists to the Settings toggle. The Lab status line reports on-device availability
+      truthfully.
 - [ ] Survivability (the core promise): send an annotated file through a messenger or
       cloud that strips metadata, pull it back, and run the in-app backup verifier (or
       `engram verify`); confirm the memory survives, or degrades exactly as expected.

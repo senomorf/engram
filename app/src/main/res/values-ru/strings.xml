@@ -21,7 +21,7 @@
     <string name="open_lab">Лаборатория распознавания</string>
     <string name="lab_title">Лаборатория речи в текст</string>
     <string name="lab_on_device_yes">Распознавание на устройстве: доступно</string>
-    <string name="lab_on_device_no">Распознавание на устройстве: НЕДОСТУПНО, используется сетевое</string>
+    <string name="lab_on_device_no">Распознавание на устройстве: НЕДОСТУПНО</string>
     <string name="lab_speak">Говорите</string>
     <string name="annotate_save">Сохранить в фото</string>
     <string name="annotate_saving">Сохранение…</string>
