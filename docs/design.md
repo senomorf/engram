@@ -218,7 +218,16 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   unresolved state must not clean up the prior transaction's only pristine copy.
   A per-instance Mutex serializes write-back and recovery
   so a foreground save and background recovery never interleave on the same file
-  (finding 2).
+  (finding 2). The write itself is split into preparation and commit: every guard
+  and output build (motion photo refusal, unsafe layout, oversized metadata, the
+  MP4 temp rebuild) runs before the target is opened, and a preparation failure
+  deletes the journal and never restores, because restore itself opens the target
+  with truncation and must not run against a file the attempt never touched.
+  Resolution has a grant-free rung: a pending journal whose target still equals
+  its backup byte for byte (digest compare) is residue from before any write and
+  is dropped without needing write access, so a crash mid-preparation cannot
+  wedge the item behind a consent prompt. Journal mechanics live in WriteJournal;
+  MediaWriteBack owns orchestration and the mutex.
 - D27 Frame envelope frozen across wire versions. Spec sec 10 now freezes the frame
   field layout, so a v0 reader can locate every field of any future version.
   Records.decodeAt no longer rejects frames whose version byte is not 1: it decodes

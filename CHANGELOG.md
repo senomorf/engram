@@ -22,6 +22,10 @@ change lands under Unreleased at merge time.
   archive, duplicate and path-escaping names are refused, item documents must
   reference inventoried files, and the engram archive marker is required. Validating
   a directory holding foreign files now fails by design.
+- A save refused before the photo is ever opened (a motion photo, an unsafe layout,
+  oversized metadata) no longer demands a restore it cannot perform: the file is
+  reported untouched, no backup lingers, and the item no longer wedges every later
+  save behind "previous write unresolved" until an app restart with storage access.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a

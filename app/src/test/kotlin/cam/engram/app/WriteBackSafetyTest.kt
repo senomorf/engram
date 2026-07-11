@@ -102,6 +102,43 @@ class WriteBackSafetyTest {
         }
 
     @Test
+    fun preparationFailureNeverTouchesTargetOrWedgesTheItem() =
+        runBlocking {
+            // a motion photo is refused while building the output, before the target is
+            // ever opened: no restore may run (restore itself truncates in place) and no
+            // journal may linger to wedge the item
+            val bytes = SyntheticMedia.jpegWithXmp("camera=1\nGCamera MotionPhoto present")
+            val item = seed(11, bytes)
+            access.rejectRestore = true // proves the failure path never even attempts a restore
+            val outcome = writeBack.write(item, Annotation("refused", null))
+            assertIs<WriteOutcome.Failed>(outcome)
+            assertTrue(outcome.reason.contains("motion photo"), outcome.reason)
+            assertTrue(!outcome.reason.contains("backup"), outcome.reason)
+            assertContentEquals(bytes, access.files[item.uri])
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "a preparation failure must clean its journal")
+            // not wedged: the same item fails for the same honest reason, not "unresolved"
+            val retry = writeBack.write(item, Annotation("again", null))
+            assertIs<WriteOutcome.Failed>(retry)
+            assertTrue(retry.reason.contains("motion photo"), retry.reason)
+        }
+
+    @Test
+    fun pristineJournalResolvesWithoutWriteGrant() =
+        runBlocking {
+            // crash residue from before the first write: the backup equals the target byte
+            // for byte. Settling it must not need a write grant (digest compare, no restore).
+            val bytes = SyntheticMedia.jpegPlain()
+            val item = seed(13, bytes)
+            File(backupDir, "13.bak").writeBytes(bytes)
+            File(backupDir, "13.meta")
+                .writeText("${item.uri}\nfalse\nimage/jpeg\nffffffffffffffffffffffffffffffff")
+            access.rejectRestore = true
+            val outcome = writeBack.write(item, Annotation("proceeds", null))
+            assertIs<WriteOutcome.Success>(outcome)
+            assertTrue(RecordStream.scan(access.files[item.uri]!!).any { it.decoded.crcOk })
+        }
+
+    @Test
     fun repairRefusesWhenCacheIdentityDiffers() =
         runBlocking {
             val item = seed(4, SyntheticMedia.jpegPlain(), takenAt = 100)
