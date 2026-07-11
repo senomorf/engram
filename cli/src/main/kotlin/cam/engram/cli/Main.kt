@@ -182,5 +182,10 @@ private fun expectationFor(
         recordCount = x.records.size,
         mpfExpected = if (x.mpf?.valid == true) "valid" else "absent",
         extendedExpected = x.extendedStatus == "ok",
+        ids =
+            x.records
+                .filter { it.crcOk }
+                .map { it.idHex }
+                .filter { it.isNotEmpty() },
     )
 }

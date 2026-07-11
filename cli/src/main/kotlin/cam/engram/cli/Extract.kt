@@ -30,6 +30,8 @@ internal data class Extraction(
     val iptcCaption: String?,
     val mp4Caption: String?,
     val pngEngramChunks: Int = 0,
+    // carrier integrity survives the projection so verify can judge it (Unreadable throws)
+    val integrity: String = "intact",
 )
 
 // one shared reader (core-format ContainerExtraction) feeds this tool and the in-app
@@ -49,6 +51,7 @@ internal fun extract(file: File): Extraction {
         iptcCaption = x.iptcCaption,
         mp4Caption = x.mp4Caption,
         pngEngramChunks = x.pngEngramChunks,
+        integrity = if (x.integrity is CarrierIntegrity.CarrierDamaged) "damaged" else "intact",
     )
 }
 

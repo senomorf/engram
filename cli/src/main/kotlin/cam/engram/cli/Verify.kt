@@ -32,6 +32,7 @@ internal fun verify(a: Args): Int {
         }
     }
     if (x.extendedStatus.startsWith("broken")) checks += Check("extendedXmpStructure", x.extendedStatus)
+    checks += integrityChecks(x, expect)
     val verdict =
         when {
             expect == null -> "unverified"
@@ -45,6 +46,30 @@ internal fun verify(a: Args): Int {
         "degraded" -> EXIT_DEGRADED
         else -> 0
     }
+}
+
+// damage the planted-item checks cannot see: a damaged carrier, a stray crc-bad
+// fragment, a historical record lost. Appends stay legal: only losses count. The
+// planted note/audio keep their dedicated ladders (mirror fallbacks can judge
+// them degraded, not gone), so only ids without such a ladder are judged by bare
+// presence, and the raw count comparison serves legacy sidecars that lack ids.
+private fun integrityChecks(
+    x: Extraction,
+    expect: Expectation?,
+): List<Check> {
+    val checks = mutableListOf<Check>()
+    if (x.integrity == "damaged") checks += Check("carrier", "degraded")
+    if (x.records.any { !it.crcOk }) checks += Check("recordIntegrity", "degraded")
+    if (expect == null) return checks
+    val okIds = x.records.filter { it.crcOk }.map { it.idHex }
+    if (expect.ids.isEmpty() && okIds.size < expect.recordCount) {
+        checks +=
+            Check("recordCount", "broken: expected ${expect.recordCount} crc-valid record(s), found ${okIds.size}")
+    }
+    val dedicated = setOfNotNull(expect.noteId, expect.audioId)
+    val missing = expect.ids.filterNot { it in okIds || it in dedicated }
+    if (missing.isNotEmpty()) checks += Check("untrackedRecords", "broken: missing ${missing.joinToString(",")}")
+    return checks
 }
 
 private fun noteStatus(
@@ -87,6 +112,7 @@ private fun printHuman(
 ) {
     println("verify: ${file.path}")
     println("container: ${x.container.name.lowercase()}")
+    println("integrity: ${x.integrity}")
     println("records: ${x.records.size} (${x.records.count { it.crcOk }} crc ok)")
     x.xmpSummary?.let {
         println("xmp: description=${it.description ?: "(none)"} engram=${it.hasEngram}")
@@ -125,7 +151,8 @@ private fun toJson(
                 ",",
             ) { p -> js(p) }}]}"""
         } ?: """{"present":false}"""
-    return """{"file":${js(file.path)},"container":${js(x.container.name.lowercase())},"verdict":${js(verdict)},""" +
+    return """{"file":${js(file.path)},"container":${js(x.container.name.lowercase())},""" +
+        """"integrity":${js(x.integrity)},"verdict":${js(verdict)},""" +
         """"records":[$records],"checks":[$checksJson],"xmp":$xmp,"mpf":$mpf,""" +
         """"extendedXmp":${js(x.extendedStatus)},"motionMarkers":${x.motionMarkers},""" +
         """"iptcCaption":${js(x.iptcCaption)},"mp4Caption":${js(x.mp4Caption)}}"""

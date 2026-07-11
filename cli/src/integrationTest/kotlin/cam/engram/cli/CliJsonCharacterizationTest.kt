@@ -46,7 +46,7 @@ class CliJsonCharacterizationTest {
         val (code, out) = run("verify", "--in", f.path, "--json")
         assertEquals(0, code, out)
         val expected =
-            """{"file":"${f.path}","container":"jpeg","verdict":"unverified",""" +
+            """{"file":"${f.path}","container":"jpeg","integrity":"intact","verdict":"unverified",""" +
                 """"records":[{"kind":"Note","id":"${rec.idHex}","writer":"w","ts":42,"crcOk":true}],""" +
                 """"checks":[],""" +
                 """"xmp":{"present":true,"engram":true,"description":"kept safe",""" +
@@ -64,7 +64,7 @@ class CliJsonCharacterizationTest {
         val (code, out) = run("verify", "--in", f.path, "--json")
         assertEquals(0, code, out)
         val expected =
-            """{"file":"${f.path}","container":"png","verdict":"unverified",""" +
+            """{"file":"${f.path}","container":"png","integrity":"intact","verdict":"unverified",""" +
                 """"records":[{"kind":"Note","id":"${rec.idHex}","writer":"w","ts":42,"crcOk":true}],""" +
                 """"checks":[],""" +
                 """"xmp":{"present":true,"engram":true,"description":"kept safe",""" +
@@ -82,7 +82,7 @@ class CliJsonCharacterizationTest {
         val (code, out) = run("verify", "--in", f.path, "--json")
         assertEquals(0, code, out)
         val expected =
-            """{"file":"${f.path}","container":"mp4","verdict":"unverified",""" +
+            """{"file":"${f.path}","container":"mp4","integrity":"intact","verdict":"unverified",""" +
                 """"records":[{"kind":"Note","id":"${rec.idHex}","writer":"w","ts":42,"crcOk":true}],""" +
                 """"checks":[],""" +
                 """"xmp":{"present":false},""" +
