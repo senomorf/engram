@@ -157,8 +157,7 @@ private fun AnnotateCard(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            // the ViewModel guards are authoritative; disabling the inputs makes the
-            // freeze visible instead of silently swallowing taps (finding D)
+            // VM guards are authoritative; disabling makes the freeze visible (finding D)
             val inputsEnabled = ui.save !is SaveUi.Saving
             NoteField(
                 value = ui.text,
@@ -195,18 +194,23 @@ private fun AnnotateCard(
             SaveWithLocationGuard(
                 saveState = ui.save,
                 recording = ui.recording,
-                labelRes =
-                    when {
-                        ui.save is SaveUi.Saving -> R.string.annotate_saving
-                        vm.hasContent() -> R.string.annotate_save
-                        else -> R.string.annotate_done
-                    },
+                labelRes = saveLabel(ui.save, vm.hasContent()),
                 stripsLocation = stripsLocation(context, ui.item),
                 onSave = vm::save,
             )
         }
     }
 }
+
+private fun saveLabel(
+    save: SaveUi,
+    hasContent: Boolean,
+): Int =
+    when {
+        save is SaveUi.Saving -> R.string.annotate_saving
+        hasContent -> R.string.annotate_save
+        else -> R.string.annotate_done
+    }
 
 @Composable
 private fun SaveWithLocationGuard(

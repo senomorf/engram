@@ -304,19 +304,11 @@ class MediaWriteBack(
             }
         }
 
-    // settle one lingering transaction: once the target is known good (write completed)
-    // or restored, drop the pair; false keeps both for a later attempt or startup
+    // settle one lingering transaction: the pair is dropped only once the target already
+    // carries the expected records (write completed) or the original was restored. false
+    // keeps both for a later attempt or startup (no readable sidecar, or a restore that
+    // could not complete) so the only pristine copy is never lost (finding 2)
     private fun resolveBackup(backup: File): Boolean {
-        if (!recoverBackup(backup)) return false
-        backup.delete()
-        File(backupDir, "${backup.nameWithoutExtension}.meta").delete()
-        return true
-    }
-
-    // true when the backup can be dropped: the target already carries the expected records,
-    // or the original was restored. false keeps it for the next startup (no readable sidecar,
-    // or a restore that could not complete) so the only pristine copy is never lost (finding 2)
-    private fun recoverBackup(backup: File): Boolean {
         val meta = File(backupDir, "${backup.nameWithoutExtension}.meta").takeIf { it.exists() }?.readLines()
         val uri = meta?.getOrNull(0) ?: return false
         val isVideo = meta.getOrNull(1)?.toBoolean() ?: false
@@ -328,7 +320,10 @@ class MediaWriteBack(
                 ?.filter { it.isNotBlank() }
                 ?.toSet()
                 .orEmpty()
-        return writeCompleted(uri, isVideo, mime, expectedIds) || restore(uri, backup)
+        if (!writeCompleted(uri, isVideo, mime, expectedIds) && !restore(uri, backup)) return false
+        backup.delete()
+        File(backupDir, "${backup.nameWithoutExtension}.meta").delete()
+        return true
     }
 
     // a write finished only if the target carries every expected record with a valid
@@ -340,23 +335,16 @@ class MediaWriteBack(
         expectedIds: Set<String>,
     ): Boolean =
         if (expectedIds.isEmpty()) {
-            targetParses(uri, isVideo, mime)
+            runCatching {
+                if (isVideo) {
+                    access.withChannel(uri) { Mp4Channels.topLevel(it) } != null
+                } else {
+                    val bytes = access.readBytes(uri) ?: return false
+                    if (mime == "image/png") PngCodec.parse(bytes) else JpegCodec.parse(bytes)
+                    true
+                }
+            }.getOrDefault(false)
         } else {
             scanner.presentIds(uri, isVideo, mime).containsAll(expectedIds)
         }
-
-    private fun targetParses(
-        uri: String,
-        isVideo: Boolean,
-        mime: String,
-    ): Boolean =
-        runCatching {
-            if (isVideo) {
-                access.withChannel(uri) { Mp4Channels.topLevel(it) } != null
-            } else {
-                val bytes = access.readBytes(uri) ?: return false
-                if (mime == "image/png") PngCodec.parse(bytes) else JpegCodec.parse(bytes)
-                true
-            }
-        }.getOrDefault(false)
 }
