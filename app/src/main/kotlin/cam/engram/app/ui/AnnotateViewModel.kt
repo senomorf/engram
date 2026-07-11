@@ -63,7 +63,13 @@ class AnnotateViewModel(
         }
     }
 
+    // while a save is in flight its snapshot must stay the truth: edits, new recordings,
+    // and audio discards are ignored until it resolves, so the draft delete on success
+    // can never discard newer content the write did not carry (finding D)
+    private fun frozen() = state.value.save is SaveUi.Saving
+
     fun onTextChange(value: String) {
+        if (frozen()) return
         state.value = state.value.copy(text = value)
         saveJob?.cancel()
         saveJob =
@@ -74,7 +80,7 @@ class AnnotateViewModel(
     }
 
     fun startRecording() {
-        if (state.value.recording) return
+        if (frozen() || state.value.recording) return
         val output = File(draftsDir, "$mediaId.ogg")
         runCatching { recorder.start(output) }
             .onSuccess { state.value = state.value.copy(recording = true) }
@@ -89,6 +95,8 @@ class AnnotateViewModel(
     }
 
     fun discardAudio() {
+        // the in-flight write reads the audio file; deleting it mid-save would corrupt the save
+        if (frozen()) return
         state.value.audioPath?.let { File(it).delete() }
         state.value = state.value.copy(audioPath = null)
         viewModelScope.launch { persistDraft() }
@@ -99,6 +107,8 @@ class AnnotateViewModel(
     fun save() {
         val s = state.value
         val item = s.item ?: return
+        // no re-entry, and no snapshot of a recording still being written to disk
+        if (s.save is SaveUi.Saving || s.recording) return
         if (!hasContent()) {
             state.value = s.copy(save = SaveUi.Saved(overSoftCap = false))
             return

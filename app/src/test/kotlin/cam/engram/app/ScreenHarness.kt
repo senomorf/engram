@@ -25,6 +25,7 @@ import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
 import cam.engram.format.testing.SyntheticMedia
 import cam.engram.format.xmp.XmpCoreEngine
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import org.robolectric.Shadows.shadowOf
 import java.io.File
@@ -81,13 +82,15 @@ fun fakeContainer(
     access: FakeContentAccess = FakeContentAccess(),
     placeProvider: PlaceProvider = inertPlace,
     weatherProvider: WeatherProvider = inertWeather,
+    // a test can park io work (e.g. an in-flight save) on a scheduler it controls
+    io: CoroutineDispatcher = Dispatchers.Unconfined,
 ): AppContainer =
     AppContainer(
         context = context,
         db = db,
         access = access,
         source = FakeMediaSource(),
-        io = Dispatchers.Unconfined,
+        io = io,
         recorderFactory = noopRecorderFactory,
         placeProvider = placeProvider,
         weatherProvider = weatherProvider,

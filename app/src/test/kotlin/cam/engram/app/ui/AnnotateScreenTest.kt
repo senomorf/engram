@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Application
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -22,6 +23,8 @@ import cam.engram.app.setScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -203,6 +206,35 @@ class AnnotateScreenTest {
             up()
         }
         compose.onRoot().assertExists()
+    }
+
+    @Test
+    fun noteFieldAndRecordButtonDisabledWhileSaving() {
+        // park the write on a test scheduler so the Saving state is observable
+        val scheduler = TestCoroutineScheduler()
+        val slowApp = fakeContainer(io = StandardTestDispatcher(scheduler))
+        runBlocking { slowApp.seedMemory(13, note = "existing") }
+        var done = false
+        compose.setScreen(slowApp) { AnnotateScreen(mediaIds = listOf(13), startIndex = 0, onDone = { done = true }) }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("in flight")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.annotate_save)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.annotate_save)).performClick()
+
+        // while the write is parked every input surface is frozen (a disabled text
+        // field loses its SetText action, so match it by its visible text)
+        compose.onNodeWithText("in flight").assertIsNotEnabled()
+        compose.onNodeWithText(strings.getString(R.string.annotate_hold_to_record)).assertIsNotEnabled()
+
+        // releasing the scheduler completes the save and navigation resumes
+        compose.waitUntil(10_000) {
+            scheduler.advanceUntilIdle()
+            done
+        }
+        assertTrue(done)
+        slowApp.db.close()
     }
 
     @Test

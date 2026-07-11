@@ -157,12 +157,16 @@ private fun AnnotateCard(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+            // the ViewModel guards are authoritative; disabling the inputs makes the
+            // freeze visible instead of silently swallowing taps (finding D)
+            val inputsEnabled = ui.save !is SaveUi.Saving
             NoteField(
                 value = ui.text,
                 onValueChange = vm::onTextChange,
                 speech = speech,
                 dictationTag = dictationTag,
                 onPickLanguage = { tag -> scope.launch { store.setDictationLanguage(tag) } },
+                enabled = inputsEnabled,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Row(
@@ -174,10 +178,11 @@ private fun AnnotateCard(
                     recording = ui.recording,
                     onStart = vm::startRecording,
                     onStop = vm::stopRecording,
+                    enabled = inputsEnabled,
                     modifier = Modifier.weight(1f),
                 )
                 ui.audioPath?.let { path ->
-                    AudioChip(path = path, onDiscard = vm::discardAudio)
+                    AudioChip(path = path, onDiscard = vm::discardAudio, discardEnabled = inputsEnabled)
                 }
             }
             (ui.save as? SaveUi.Error)?.let {
@@ -189,6 +194,7 @@ private fun AnnotateCard(
             }
             SaveWithLocationGuard(
                 saveState = ui.save,
+                recording = ui.recording,
                 labelRes =
                     when {
                         ui.save is SaveUi.Saving -> R.string.annotate_saving
@@ -205,6 +211,7 @@ private fun AnnotateCard(
 @Composable
 private fun SaveWithLocationGuard(
     saveState: SaveUi,
+    recording: Boolean,
     labelRes: Int,
     stripsLocation: Boolean,
     onSave: () -> Unit,
@@ -213,7 +220,7 @@ private fun SaveWithLocationGuard(
     var showWarning by remember { mutableStateOf(false) }
     Button(
         onClick = { if (stripsLocation && !warned) showWarning = true else onSave() },
-        enabled = saveState !is SaveUi.Saving,
+        enabled = saveState !is SaveUi.Saving && !recording,
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
     ) { Text(stringResource(labelRes)) }
     if (showWarning) {
@@ -273,11 +280,13 @@ private fun NoteField(
     speech: SpeechInput,
     dictationTag: String,
     onPickLanguage: (String) -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         label = { Text(stringResource(R.string.annotate_note_hint)) },
         modifier = modifier,
         minLines = 2,
@@ -340,6 +349,7 @@ private fun RecordButton(
     recording: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -355,9 +365,10 @@ private fun RecordButton(
         }
     FilledTonalButton(
         onClick = { if (!micGranted) launcher.launch(Manifest.permission.RECORD_AUDIO) },
+        enabled = enabled,
         modifier =
-            modifier.pointerInput(micGranted) {
-                if (micGranted) {
+            modifier.pointerInput(micGranted, enabled) {
+                if (micGranted && enabled) {
                     detectTapGestures(
                         onPress = {
                             onStart()
@@ -382,6 +393,7 @@ private fun RecordButton(
 private fun AudioChip(
     path: String,
     onDiscard: () -> Unit,
+    discardEnabled: Boolean,
 ) {
     var playing by remember { mutableStateOf<MediaPlayer?>(null) }
     // release the player and its file descriptor if the chip leaves composition
@@ -418,11 +430,14 @@ private fun AudioChip(
             )
         },
     )
-    TextButton(onClick = {
-        playing?.release()
-        playing = null
-        onDiscard()
-    }) {
+    TextButton(
+        enabled = discardEnabled,
+        onClick = {
+            playing?.release()
+            playing = null
+            onDiscard()
+        },
+    ) {
         Text(stringResource(R.string.annotate_delete_audio))
     }
 }
