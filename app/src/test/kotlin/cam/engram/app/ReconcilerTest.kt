@@ -158,6 +158,51 @@ class ReconcilerTest {
         }
 
     @Test
+    fun legacyEmptyHashRowIsRescannedAndBackfilled() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val note = EngramRecord(RecordKind.Note, 1, "legacy".encodeToByteArray())
+            val bytes = embedder.embed(SyntheticMedia.jpegPlain(), listOf(note), "legacy")
+            // v2-era state migrated forward: a scanned media row whose cache row never
+            // stored a content hash (the migration defaulted it to empty)
+            addPhoto(1, bytes)
+            db.media().upsert(
+                listOf(
+                    cam.engram.app.data.db.MediaItemEntity(
+                        1,
+                        "content://media/images/1",
+                        false,
+                        "image/jpeg",
+                        "DCIM/Camera/",
+                        1,
+                        bytes.size.toLong(),
+                        1,
+                        1,
+                        0,
+                        0,
+                    ),
+                ),
+            )
+            db.recordCache().upsert(
+                cam.engram.app.data.db
+                    .RecordCacheEntity(1, 0, bytes.size.toLong(), note.encode(), 1, 0),
+            )
+            val stats = reconciler.reconcile()
+            assertEquals(1, stats.scanned, "the hashless row must be rescanned")
+            assertTrue(
+                db
+                    .recordCache()
+                    .byId(1)!!
+                    .contentHash
+                    .isNotEmpty(),
+                "the backfill stores the hash",
+            )
+            assertEquals(0, reconciler.reconcile().scanned, "the backfill is a one-time pass")
+        }
+
+    @Test
     fun idReuseAfterRemovalPreservesTheOrphan() =
         runBlocking {
             val embedder =

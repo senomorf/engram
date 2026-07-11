@@ -196,3 +196,7 @@ blobs, plus a manifest inventory. All fields are append-only.
 - `<contentHash>` is the sha-256 of the source media file: it names the entry
   and doubles as the import identity key. Archives written before manifest v3
   used md5 names; they stay valid within their own directories.
+- An entry whose source media hash is unknowable (an orphaned pre-hash cache row)
+  is named by the sha-256 of its record log instead, and its JSON view carries
+  `"sourceHashKnown":false` (additive field, absent means true): such an entry
+  preserves the memories but is not an import identity for any media file.

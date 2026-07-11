@@ -75,6 +75,7 @@ class ArchiveExporter(
         val hasLiveMedia: Boolean,
         val blob: ByteArray,
         val count: Int,
+        val sourceHashKnown: Boolean = true,
     ) : Resolution
 
     private suspend fun resolve(entry: RecordCacheEntity): Resolution {
@@ -84,33 +85,49 @@ class ArchiveExporter(
         // prefer the live media hash, but only when the live row is the SAME capture:
         // a reused media id must not lend the new file's hash and name to the displaced
         // capture's records (D29). Legacy identity-0 rows predate the field and match.
-        val item = db.media().byId(entry.mediaId)
-        if (item != null && (entry.identityTakenAt == 0L || entry.identityTakenAt == item.takenAtMillis)) {
+        val live =
+            db.media().byId(entry.mediaId)?.takeIf {
+                entry.identityTakenAt == 0L || entry.identityTakenAt == it.takenAtMillis
+            }
+        if (live != null) {
             // hash by streaming the channel: exporting a video must not load it whole
-            val liveHash = access.withChannel(item.uri) { Digests.sha256Hex(it) }
+            val liveHash = access.withChannel(live.uri) { Digests.sha256Hex(it) }
             if (liveHash != null) {
                 return Resolved(
                     hash = liveHash,
-                    name = item.displayName.ifEmpty { item.relativePath },
+                    name = live.displayName.ifEmpty { live.relativePath },
                     hasLiveMedia = true,
                     blob = entry.recordsBlob,
                     count = entry.recordCount,
                 )
             }
+            // a matching live file that cannot be read right now and stored no hash
+            // either: transient, surface as failed rather than minting a blob-hash
+            // name a healthy rerun would abandon
+            if (entry.contentHash.isEmpty()) return Resolution.Fail
         }
         // no live capture: fall back to the hash + name stored at scan time so a cache
-        // orphan (moved, deleted, or displaced by id reuse) still exports (finding 9)
-        return when {
-            // no hash stored at scan time either (legacy row): cannot content-address it
-            entry.contentHash.isEmpty() -> Resolution.Fail
-            else ->
-                Resolved(
-                    hash = entry.contentHash,
-                    name = entry.originalName,
-                    hasLiveMedia = false,
-                    blob = entry.recordsBlob,
-                    count = entry.recordCount,
-                )
+        // orphan (moved, deleted, or displaced by id reuse) still exports (finding 9).
+        // A legacy pre-hash orphan is named by its record log's own hash and flagged
+        // sourceHashKnown:false (D28): the memories ship even when the source hash is
+        // unknowable, they just cannot be re-associated to media by name
+        return if (entry.contentHash.isEmpty()) {
+            Resolved(
+                hash = EngramArchive.contentHashName(entry.recordsBlob),
+                name = entry.originalName,
+                hasLiveMedia = false,
+                blob = entry.recordsBlob,
+                count = entry.recordCount,
+                sourceHashKnown = false,
+            )
+        } else {
+            Resolved(
+                hash = entry.contentHash,
+                name = entry.originalName,
+                hasLiveMedia = false,
+                blob = entry.recordsBlob,
+                count = entry.recordCount,
+            )
         }
     }
 
@@ -129,7 +146,10 @@ class ArchiveExporter(
         val name = group.firstOrNull { it.hasLiveMedia }?.name ?: head.name
         val rawFrames = FrameLog.crcOkFrames(blob)
         val records = RecordStream.decodeSequence(blob).mapNotNull { it.decoded.record }
-        val rendered = EngramArchive.render(EngramArchive.Item(head.hash, name, records, rawFrames))
+        val rendered =
+            EngramArchive.render(
+                EngramArchive.Item(head.hash, name, records, rawFrames, group.all { it.sourceHashKnown }),
+            )
         val written = mutableListOf<EngramArchive.ManifestFile>()
 
         fun put(

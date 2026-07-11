@@ -30,6 +30,11 @@ change lands under Unreleased at merge time.
   old photo's cached memories or export them under the new photo's name: the
   recovery cache is now keyed by capture, the displaced memories survive as their
   own archive entry, and existing caches migrate in place.
+- Memories cached by early builds that never stored a content hash are no longer
+  stranded: the index backfills the hash on the next scan while the photo is still
+  around, and if the photo is already gone the memories still export, named by
+  their record log's own hash and marked sourceHashKnown:false instead of being
+  dropped as failed.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a

@@ -269,7 +269,14 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   The validator holds it to that: for v3 the inventory must cover the directory in
   both directions, the archive marker must read engram, and duplicate or
   path-escaping names are refused (a name guard, not a filesystem probe, decides
-  what the validator may read).
+  what the validator may read). An orphan whose source hash is unknowable (a
+  pre-hash legacy row with no live file) is named by the sha-256 of its record log
+  and its JSON carries sourceHashKnown:false (additive field, no version bump):
+  the memories ship rather than fail, they just cannot be re-associated to media
+  by name. The index backfills missing hashes by marking live, identity-matching
+  rows for rescan, so the fallback drains to zero on healthy libraries; a live
+  file that merely fails to read stays a failed tally (a rerun will name it
+  properly).
 - D29 Record cache keyed by capture. record_cache's primary key is (mediaId,
   identityTakenAt), schema v5: MediaStore ids are device-local and reusable (a
   MediaProvider rebuild can hand an old id to a new photo), so the id alone must

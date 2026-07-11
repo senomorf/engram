@@ -63,6 +63,11 @@ class Reconciler(
             if (upserts.isNotEmpty()) db.media().upsert(upserts)
             if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
 
+            // pre-hash cache rows (migrated with an empty contentHash) backfill through
+            // the standard rescan below; a no-op pass once every hash has landed
+            val backfill = db.recordCache().idsNeedingHashBackfill()
+            if (backfill.isNotEmpty()) db.media().markUnscanned(backfill)
+
             var scanned = 0
             for (pending in db.media().unscanned()) {
                 val outcome = scanner.scan(pending.uri, pending.isVideo, pending.mime) ?: continue

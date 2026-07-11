@@ -23,6 +23,9 @@ object EngramArchive {
         // byte-exact CRC-valid frames in log order, typed and opaque alike: the
         // authoritative record log (spec sec 11); the JSON is a readable view of it
         val rawFrames: List<ByteArray> = emptyList(),
+        // false when the source media hash was unknowable (a legacy pre-hash orphan):
+        // the entry is then named by its record log's hash instead (spec sec 11)
+        val sourceHashKnown: Boolean = true,
     )
 
     class AudioBlob(
@@ -81,6 +84,8 @@ object EngramArchive {
                 arrayField("audio", audioBlobs) { quote(it.fileName) }
                 rawField("recordLog", recordLogName?.let { quote(it) } ?: "null")
                 rawField("frameCount", item.rawFrames.size.toString())
+                // emitted only when false so every existing archive's JSON stays byte-stable
+                if (!item.sourceHashKnown) rawField("sourceHashKnown", "false")
             }
         return Rendered(json, audioBlobs, recordLog, recordLogName)
     }
