@@ -56,6 +56,13 @@ change lands under Unreleased at merge time.
   record-like bytes hiding inside photo metadata no longer count as survived
   memories. Verifying a video now streams it instead of loading it whole.
 
+### Security
+
+- The Claude CI workflows now run only for the repository owner (any other account
+  mentioning @claude or opening a pull request no longer spends the repository's
+  credentials), and their actions are pinned by commit SHA like every other
+  workflow.
+
 ### Added
 
 - Engram Archive export now writes a byte-exact record log per item (the exact
