@@ -163,4 +163,41 @@ class RecordsTest {
                 .decodeToString(),
         )
     }
+
+    @Test
+    fun decodeSequenceRecoversFramesAfterDamagedMagic() {
+        // a header that does not decode at all (magic byte flipped) is a harder trap
+        // than a crc-bad frame: there is no hit to fall back from, the loop just ends
+        val real = EngramRecord(RecordKind.Note, 9, "survivor".encodeToByteArray()).encode()
+        val hits = RecordStream.decodeSequence(SyntheticMedia.frameWithDamagedMagic() + real)
+        assertEquals(
+            "survivor",
+            hits
+                .filter { it.decoded.crcOk }
+                .single()
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+            "a frame whose magic is damaged must not hide the frame behind it",
+        )
+    }
+
+    @Test
+    fun decodeSequenceRecoversFramesAfterLengthPastRegionEnd() {
+        // a length claim that overruns the region makes decodeAt return null (no
+        // crc-bad hit exists), so only a byte-wise carve can find the survivor
+        val real = EngramRecord(RecordKind.Note, 9, "survivor".encodeToByteArray()).encode()
+        val bad = SyntheticMedia.frameWithInflatedLength(spanBeyond = real.size + 64)
+        val hits = RecordStream.decodeSequence(bad + real)
+        assertEquals(
+            "survivor",
+            hits
+                .filter { it.decoded.crcOk }
+                .single()
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+            "a length claim past the region end must not hide the frame behind it",
+        )
+    }
 }

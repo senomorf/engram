@@ -139,9 +139,10 @@ object RecordStream {
 
     /**
      * Strict: records must sit back to back starting at [from] and end within [until].
-     * After the first CRC-bad frame the claimed lengths are untrusted, so the rest of
-     * the region degrades to a byte-wise carve ([scan]): a corrupted length can never
-     * hide the intact frames behind it.
+     * After the first damaged frame the rest of the region degrades to a byte-wise
+     * carve ([scan]), whether the frame decoded CRC-bad or did not decode at all
+     * (damaged magic, truncated header, length claim past the region): a damaged
+     * head can never hide the intact frames behind it.
      */
     fun decodeSequence(
         bytes: ByteArray,
@@ -151,7 +152,13 @@ object RecordStream {
         val hits = mutableListOf<RecordHit>()
         var i = from
         while (i < until) {
-            val d = EngramRecord.decodeAt(bytes, i, until) ?: break
+            val d = EngramRecord.decodeAt(bytes, i, until)
+            if (d == null) {
+                // an undecodable header has no span authority either; there is no
+                // hit to surface, so carve from here for whatever survived
+                hits += scan(bytes, i, until)
+                return hits
+            }
             hits += RecordHit(i, d)
             if (!d.crcOk) {
                 hits += scan(bytes, i + 1, until)
