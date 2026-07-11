@@ -155,7 +155,7 @@ object RecordStream {
             hits += RecordHit(i, d)
             if (!d.crcOk) {
                 hits += scan(bytes, i + 1, until)
-                break
+                return hits
             }
             i += d.byteLength
         }
