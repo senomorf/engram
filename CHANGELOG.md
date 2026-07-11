@@ -12,6 +12,10 @@ change lands under Unreleased at merge time.
   running invisibly: the annotate screen now stops the recorder whenever it goes away,
   the captured clip survives as a draft, a recorder failure no longer leaks the native
   recorder, and a failed stop no longer leaves a partial clip file behind.
+- Archive export no longer runs on the UI thread (a large library could freeze the app
+  into an "not responding" dialog) and no longer dies silently when you leave the Tools
+  screen mid-export: the job and its result now survive navigation, and the last run's
+  outcome is still shown when you come back.
 - A record whose header is damaged (not just checksum-corrupt: a lost magic byte, a
   truncated header, a length claim running past the data) no longer hides every
   record stored after it in video reads, cache repair, and archive export; the

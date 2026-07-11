@@ -31,4 +31,35 @@ class ToolsScreenTest {
         compose.onNodeWithText(strings.getString(R.string.tools_export_button)).assertIsDisplayed()
         compose.onNodeWithText(strings.getString(R.string.tools_verify_button)).assertIsDisplayed()
     }
+
+    @Test
+    fun exportStatusRendersDoneWithPartialFailures() {
+        compose.setScreen(app) {
+            ExportStatus(
+                ExportState.Done(
+                    cam.engram.app.export
+                        .ExportResult(3, 2, 1),
+                ),
+            )
+        }
+        compose.onNodeWithText(strings.getString(R.string.tools_export_done, 3, 2)).assertIsDisplayed()
+        compose.onNodeWithText(strings.getString(R.string.tools_export_partial, 1)).assertIsDisplayed()
+    }
+
+    @Test
+    fun exportStatusRendersFailureWithFallbackMessage() {
+        compose.setScreen(app) { ExportStatus(ExportState.Failed(null)) }
+        compose
+            .onNodeWithText(
+                strings.getString(R.string.tools_export_failed, strings.getString(R.string.error_unknown)),
+            ).assertIsDisplayed()
+    }
+
+    @Test
+    fun verifyStatusRendersSurvival() {
+        compose.setScreen(app) {
+            VerifyStatus(VerifyState.Done(cam.engram.format.read.Survival.FULL, 2, 0))
+        }
+        compose.onNodeWithText(strings.getString(R.string.tools_survival_full, 2)).assertIsDisplayed()
+    }
 }
