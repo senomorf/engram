@@ -48,7 +48,7 @@
     <string name="onboard_1_title">Воспоминания внутри самого фото</string>
     <string name="onboard_1_body">Добавьте заметку или голос к фото. Engram записывает это в файл, и оно едет туда же, куда и фото.</string>
     <string name="onboard_2_title">Всегда ваши</string>
-    <string name="onboard_2_body">Ни аккаунтов, ни облака: ничего не покидает телефон, пока вы сами не поделитесь. Файл и есть воспоминание.</string>
+    <string name="onboard_2_body">Ни аккаунтов, ни облака: ничего не покидает телефон, пока вы сами не поделитесь. Файл и есть воспоминание. Engram попросит разрешение на уведомления для вечерней сводки; это можно изменить в настройках.</string>
     <string name="onboard_honesty_title">Одно честное ограничение</string>
     <string name="onboard_honesty_body">Бэкапы и облако в исходном качестве сохраняют воспоминания. Но большинство мессенджеров и соцсетей пережимают фото и вырезают их. Делитесь самим файлом, чтобы сохранить вложенное, и проверяйте любой бэкап верификатором.</string>
     <string name="onboard_next">Далее</string>
@@ -75,6 +75,8 @@
     <string name="settings_digest">Вечерняя сводка</string>
     <string name="settings_digest_hour">Час сводки: %1$d:00</string>
     <string name="settings_burst">Напоминать вскоре после съёмки</string>
+    <string name="settings_notifications_disabled_hint">Уведомления для Engram выключены, поэтому сводка и напоминания молчат.</string>
+    <string name="settings_notifications_open">Открыть настройки</string>
     <string name="settings_enrichment_network">Погода и названия мест (отправляет местоположение фото онлайн-сервису)</string>
     <string name="settings_remote_dictation">Разрешить сетевую диктовку (отправляет голос системному распознавателю, если нет офлайн-модели)</string>
     <string name="settings_dynamic_color">Динамические цвета (Material You)</string>

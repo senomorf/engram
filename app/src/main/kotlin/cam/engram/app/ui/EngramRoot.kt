@@ -1,11 +1,18 @@
 package cam.engram.app.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
 /**
@@ -62,13 +69,28 @@ fun EngramRoot(startInQueue: Boolean = false) {
     val current = settings.settings.collectAsState(initial = null).value
     when {
         current == null -> Unit // brief first settings read; nothing to draw yet
-        !current.onboardingDone ->
+        !current.onboardingDone -> {
+            val context = LocalContext.current
+            // API 33+ never grants notifications silently and the evening digest
+            // defaults on, so ask once when onboarding completes (D30). The result is
+            // deliberately unused: Notifier re-checks at post time and Settings
+            // surfaces the denied state with a tap-through.
+            val notifications =
+                rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
             OnboardingScreen(onDone = {
+                if (needsNotificationPermission(context)) {
+                    notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
                 scope.launch { settings.setOnboardingDone(true) }
             })
+        }
         else -> MainNavigation(startInQueue)
     }
 }
+
+private fun needsNotificationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun MainNavigation(startInQueue: Boolean) {
