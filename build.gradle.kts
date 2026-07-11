@@ -17,7 +17,7 @@ allprojects {
 // this defends the combined number so a regression in one module cannot be masked by the others.
 // Sums the report-level LINE counter of each module's Kover XML (already post-exclusion), so it
 // respects every module's own filters. Enforced in CI; run locally with `./gradlew koverVerifyAggregate`.
-val aggregateCoverageFloor = 95.0
+val aggregateCoverageFloor = 96.0
 
 tasks.register("koverVerifyAggregate") {
     group = "verification"
