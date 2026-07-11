@@ -26,9 +26,12 @@ fun interface ArchiveSink {
  * Builds the Engram Archive from the strip-recovery cache (design D14): one JSON
  * document plus audio blobs per item, content-addressed by the media file's hash
  * so entries stay matchable across reinstall (like the CLI), never touching the
- * network. Pure logic over an [ArchiveSink]; the SAF tree is resolved by
- * [SafArchiveSink]. Every write is checked, so a failed write counts as failed
- * rather than a success the manifest would over-report (finding E).
+ * network. Rows resolving to the same content hash merge their logs superset-style
+ * into one entry: same bytes = same archive identity (spec sec 11), so a duplicate
+ * copy can never overwrite another memory's files (finding E). Pure logic over an
+ * [ArchiveSink]; the SAF tree is resolved by [SafArchiveSink]. Every write is
+ * checked, so a failed write counts as failed rather than a success the manifest
+ * would over-report.
  */
 class ArchiveExporter(
     private val db: EngramDb,
@@ -39,8 +42,16 @@ class ArchiveExporter(
         var exported = 0
         var failed = 0
         val inventory = mutableListOf<EngramArchive.ManifestFile>()
+        val resolved = mutableListOf<Resolved>()
         for (entry in db.recordCache().all()) {
-            val tally = exportEntry(entry, sink)
+            when (val r = resolve(entry)) {
+                Resolution.Skip -> Unit
+                Resolution.Fail -> failed++
+                is Resolved -> resolved += r
+            }
+        }
+        for (group in resolved.groupBy { it.hash }.values) {
+            val tally = exportMerged(group, sink)
             exported += tally.exported
             failed += tally.failed
             audioCount += tally.audio
@@ -52,32 +63,67 @@ class ArchiveExporter(
         return ExportResult(exported, audioCount, if (manifestOk) failed else failed + 1)
     }
 
-    private suspend fun exportEntry(
-        entry: RecordCacheEntity,
-        sink: ArchiveSink,
-    ): EntryTally {
+    private sealed interface Resolution {
+        data object Skip : Resolution
+
+        data object Fail : Resolution
+    }
+
+    private class Resolved(
+        val hash: String,
+        val name: String,
+        val hasLiveMedia: Boolean,
+        val blob: ByteArray,
+        val count: Int,
+    ) : Resolution
+
+    private suspend fun resolve(entry: RecordCacheEntity): Resolution {
         // the byte-exact record log is authoritative: opaque frames (unknown kinds or
         // versions) export too; skip only when nothing CRC-valid survives in the cache
-        val rawFrames = FrameLog.crcOkFrames(entry.recordsBlob)
-        if (rawFrames.isEmpty()) return EntryTally.SKIPPED
-        val records = RecordStream.decodeSequence(entry.recordsBlob).mapNotNull { it.decoded.record }
+        if (FrameLog.crcOkFrames(entry.recordsBlob).isEmpty()) return Resolution.Skip
         // prefer the live media hash; fall back to the hash + name stored at scan time so a cache
         // orphan (the media file moved or was deleted) still exports, never a silent skip (finding 9)
         val item = db.media().byId(entry.mediaId)
         // hash by streaming the channel: exporting a video must not load it whole
         val liveHash = item?.let { i -> access.withChannel(i.uri) { Digests.sha256Hex(it) } }
-        val hash: String
-        val name: String
-        if (item != null && liveHash != null) {
-            hash = liveHash
-            name = item.displayName.ifEmpty { item.relativePath }
-        } else {
-            hash = entry.contentHash
-            name = entry.originalName
+        return when {
+            item != null && liveHash != null ->
+                Resolved(
+                    hash = liveHash,
+                    name = item.displayName.ifEmpty { item.relativePath },
+                    hasLiveMedia = true,
+                    blob = entry.recordsBlob,
+                    count = entry.recordCount,
+                )
+            // no live media and no hash stored at scan time (legacy row): cannot content-address it
+            entry.contentHash.isEmpty() -> Resolution.Fail
+            else ->
+                Resolved(
+                    hash = entry.contentHash,
+                    name = entry.originalName,
+                    hasLiveMedia = false,
+                    blob = entry.recordsBlob,
+                    count = entry.recordCount,
+                )
         }
-        // no live media and no hash stored at scan time (legacy row): cannot content-address it
-        if (hash.isEmpty()) return EntryTally.FAILED
-        val rendered = EngramArchive.render(EngramArchive.Item(hash, name, records, rawFrames))
+    }
+
+    private fun exportMerged(
+        group: List<Resolved>,
+        sink: ArchiveSink,
+    ): EntryTally {
+        val head = group.first()
+        var blob = head.blob
+        var count = head.count
+        for (next in group.drop(1)) {
+            val (merged, mergedCount) = FrameLog.mergeSuperset(blob, count, next.blob)
+            blob = merged
+            count = mergedCount
+        }
+        val name = group.firstOrNull { it.hasLiveMedia }?.name ?: head.name
+        val rawFrames = FrameLog.crcOkFrames(blob)
+        val records = RecordStream.decodeSequence(blob).mapNotNull { it.decoded.record }
+        val rendered = EngramArchive.render(EngramArchive.Item(head.hash, name, records, rawFrames))
         val written = mutableListOf<EngramArchive.ManifestFile>()
 
         fun put(
@@ -88,14 +134,14 @@ class ArchiveExporter(
             if (ok) written += EngramArchive.ManifestFile(fileName, EngramArchive.contentHashName(bytes))
             return ok
         }
-        if (!put("$hash.json", rendered.json.encodeToByteArray())) return EntryTally.FAILED
+        if (!put("${head.hash}.json", rendered.json.encodeToByteArray())) return EntryTally.FAILED
         var itemOk = true
         val log = rendered.recordLog
         val logName = rendered.recordLogName
         if (log != null && logName != null && !put(logName, log)) itemOk = false
         var audio = 0
-        rendered.audio.forEach { blob ->
-            if (put(blob.fileName, blob.data)) audio++ else itemOk = false
+        rendered.audio.forEach { clip ->
+            if (put(clip.fileName, clip.data)) audio++ else itemOk = false
         }
         return if (itemOk) {
             EntryTally(exported = 1, failed = 0, audio = audio, files = written)
@@ -111,7 +157,6 @@ class ArchiveExporter(
         val files: List<EngramArchive.ManifestFile> = emptyList(),
     ) {
         companion object {
-            val SKIPPED = EntryTally(0, 0, 0)
             val FAILED = EntryTally(0, 1, 0)
         }
     }
