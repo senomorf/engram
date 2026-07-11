@@ -84,6 +84,7 @@ fun fakeContainer(
     weatherProvider: WeatherProvider = inertWeather,
     // a test can park io work (e.g. an in-flight save) on a scheduler it controls
     io: CoroutineDispatcher = Dispatchers.Unconfined,
+    recorderFactory: VoiceRecorderFactory = noopRecorderFactory,
 ): AppContainer =
     AppContainer(
         context = context,
@@ -91,7 +92,7 @@ fun fakeContainer(
         access = access,
         source = FakeMediaSource(),
         io = io,
-        recorderFactory = noopRecorderFactory,
+        recorderFactory = recorderFactory,
         placeProvider = placeProvider,
         weatherProvider = weatherProvider,
     )

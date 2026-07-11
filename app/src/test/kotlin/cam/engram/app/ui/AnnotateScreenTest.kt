@@ -13,6 +13,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
 import cam.engram.app.data.db.DraftEntity
@@ -206,6 +209,69 @@ class AnnotateScreenTest {
             up()
         }
         compose.onRoot().assertExists()
+    }
+
+    @Test
+    fun disposingWhileRecordingStopsOnceAndKeepsTheClip() {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.RECORD_AUDIO)
+        var stops = 0
+        val recorder =
+            object : cam.engram.app.audio.VoiceRecorder {
+                override fun start(output: File) {
+                    output.parentFile?.mkdirs()
+                    output.writeBytes(ByteArray(64) { 1 })
+                }
+
+                override fun stop(): Boolean {
+                    stops++
+                    return true
+                }
+            }
+        val counting =
+            fakeContainer(
+                recorderFactory =
+                    object : cam.engram.app.audio.VoiceRecorderFactory {
+                        override fun create() = recorder
+                    },
+            )
+        runBlocking { counting.seedItem(61) }
+        val show = androidx.compose.runtime.mutableStateOf(true)
+        var vm: AnnotateViewModel? = null
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        compose.setScreen(counting) {
+            // same activity store and key as AnnotateCard: this IS the screen's view model
+            // (raw touch injection cannot reach the button's outer pointerInput under
+            // Robolectric, so recording starts through the view model; the gesture itself
+            // is device-layer coverage)
+            vm =
+                viewModel(
+                    key = "annotate-61",
+                    factory =
+                        viewModelFactory {
+                            initializer { AnnotateViewModel(counting, 61, File(context.filesDir, "drafts")) }
+                        },
+                )
+            if (show.value) AnnotateScreen(mediaIds = listOf(61), startIndex = 0, onDone = {})
+        }
+        compose.waitUntil(5_000) {
+            compose
+                .onAllNodesWithText(strings.getString(R.string.annotate_hold_to_record))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        vm!!.startRecording()
+        compose.waitForIdle()
+        assertTrue(vm!!.ui.value.recording, "recording is live before the screen goes away")
+        // rip the screen out of composition mid-recording: navigation and rotation do this
+        show.value = false
+        compose.waitForIdle()
+        kotlin.test.assertEquals(1, stops, "disposal must stop the recorder exactly once, never leave it running")
+        // the captured clip survives: the activity-scoped view model still holds it
+        show.value = true
+        compose.waitForIdle()
+        compose.onNodeWithText(strings.getString(R.string.annotate_play)).assertIsDisplayed()
+        counting.db.close()
     }
 
     @Test
