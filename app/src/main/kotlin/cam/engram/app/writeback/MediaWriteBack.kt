@@ -164,7 +164,7 @@ class MediaWriteBack(
             WriteResult.NotOpened -> Attempt.Rejected
             // the target was truncated but the write did not finish: restore from backup
             WriteResult.OpenedUncertain -> Attempt.Failed("write did not complete")
-            WriteResult.Ok -> verify(item)
+            WriteResult.Ok -> verify(item, expectedIdHexes(records, carryFrames))
         }
     }
 
@@ -181,7 +181,7 @@ class MediaWriteBack(
             when (access.writeFromFile(item.uri, rebuilt)) {
                 WriteResult.NotOpened -> Attempt.Rejected
                 WriteResult.OpenedUncertain -> Attempt.Failed("write did not complete")
-                WriteResult.Ok -> verify(item)
+                WriteResult.Ok -> verify(item, expectedIdHexes(records, carryFrames))
             }
         } finally {
             rebuilt.delete()
@@ -190,11 +190,19 @@ class MediaWriteBack(
 
     // one scan serves both the success verdict and the index rows, so what was
     // verified is exactly what gets persisted (a second scan could silently diverge)
-    private fun verify(item: MediaItemEntity): Attempt {
+    private fun verify(
+        item: MediaItemEntity,
+        expected: Set<String>,
+    ): Attempt {
         val scan =
             scanner.scan(item.uri, item.isVideo, item.mime)
                 ?: return Attempt.Failed("verification could not read file back")
         if (scan.recordCount == 0) return Attempt.Failed("verification found no records after write")
+        // a count alone would let a stale record vouch for a dropped write: the exact
+        // expected ids must be present, the same bar recovery's writeCompleted applies
+        if (!scan.presentIds.containsAll(expected)) {
+            return Attempt.Failed("verification missing expected records after write")
+        }
         val outcome =
             WriteOutcome.Success(
                 recordCount = scan.recordCount,
@@ -253,15 +261,21 @@ class MediaWriteBack(
         File(backupDir, "$mediaId.meta").delete()
     }
 
+    // the ids this write must land, typed records plus carried opaque frames; opaque ids
+    // come from the frozen envelope offsets (8..24), no decode needed
+    private fun expectedIdHexes(
+        records: List<EngramRecord>,
+        carryFrames: List<ByteArray>,
+    ): Set<String> = (records.map { it.idHex } + carryFrames.map { it.copyOfRange(8, 24).toHex() }).toSet()
+
     private fun writeSidecar(
         item: MediaItemEntity,
         records: List<EngramRecord>,
         carryFrames: List<ByteArray>,
     ) {
-        // the expected record ids, carried opaque frames included, let recoverPending tell
-        // a finished write from an interrupted one, instead of trusting a bare container
-        // parse (finding A); opaque ids come from the frozen envelope offsets, no decode
-        val ids = (records.map { it.idHex } + carryFrames.map { it.copyOfRange(8, 24).toHex() }).joinToString(",")
+        // the expected record ids let recoverPending tell a finished write from an
+        // interrupted one, instead of trusting a bare container parse (finding A)
+        val ids = expectedIdHexes(records, carryFrames).joinToString(",")
         val content = "${item.uri}\n${item.isVideo}\n${item.mime}\n$ids"
         val meta = File(backupDir, "${item.mediaId}.meta")
         val tmp = File(backupDir, "${item.mediaId}.meta.tmp")

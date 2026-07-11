@@ -13,6 +13,9 @@ change lands under Unreleased at merge time.
   original from its backup when needed) and refuses to start if it cannot, and a
   retry after an interrupted cleanup no longer drops the records the earlier save
   had already embedded.
+- A save is now verified by the exact records it wrote, not by a bare record count:
+  a write the storage provider silently dropped can no longer report success on the
+  strength of records left over from an earlier save.
 - A corrupted record can no longer hide the intact records stored after it: a record
   whose checksum fails has no say over how far it claims to extend, so the reader
   resynchronizes and finds every intact record behind it (in reads, repair, verify,

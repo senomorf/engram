@@ -256,6 +256,24 @@ class WriteBackSafetyTest {
             assertContentEquals(original, access.files[item.uri])
         }
 
+    // finding B: verification must check the exact new records landed, not just that some
+    // record parses; a stale record from an earlier save must not vouch for a write the
+    // provider silently dropped
+    @Test
+    fun verifyRejectsAWriteThatLostTheNewRecords() =
+        runBlocking {
+            val item = seed(26, SyntheticMedia.jpegPlain())
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("first", null)))
+            val afterFirst = access.files[item.uri]!!.copyOf()
+
+            access.ignoreWrites = true
+            val outcome = writeBack.write(item, Annotation("second", null))
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("verification"), outcome.reason)
+            assertContentEquals(afterFirst, access.files[item.uri], "the target keeps the first save's bytes")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared after the successful restore")
+            assertEquals(1, db.media().byId(26)!!.recordCount)
+        }
+
     // finding A, second path: a crash between verify and cleanup leaves a stale pre-write
     // backup; a retry must not embed from it and silently drop the completed write's records
     @Test

@@ -204,7 +204,9 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   backup. Content writes return a WriteResult tri-state, not a Boolean: NotOpened
   (target byte-for-byte untouched, no restore), OpenedUncertain (opened then failed,
   so the target may be truncated and is restored from backup), Ok (verify by
-  re-parse). The backup is durable and ordered: the .meta sidecar is written
+  re-scan: every expected record id must be present CRC-valid, the same bar
+  recovery applies, so a stale record cannot vouch for a dropped write). The
+  backup is durable and ordered: the .meta sidecar is written
   fsync+rename first, then the .bak is published via tmp+fsync+rename and is never
   overwritten once committed; it is deleted only after the new file verifies intact
   or the original is restored. A new write attempt first resolves any pending
