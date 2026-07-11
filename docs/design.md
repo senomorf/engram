@@ -207,7 +207,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   re-parse). The backup is durable and ordered: the .meta sidecar is written
   fsync+rename first, then the .bak is published via tmp+fsync+rename and is never
   overwritten once committed; it is deleted only after the new file verifies intact
-  or the original is restored. A per-instance Mutex serializes write-back and recovery
+  or the original is restored. A new write attempt first resolves any pending
+  journal for the same media (recover a completed write or restore the original)
+  and refuses to start, touching neither .bak nor .meta, when it cannot: NotOpened
+  only proves the target untouched by the current attempt, so a rejected retry over
+  unresolved state must not clean up the prior transaction's only pristine copy.
+  A per-instance Mutex serializes write-back and recovery
   so a foreground save and background recovery never interleave on the same file
   (finding 2).
 - D27 Frame envelope frozen across wire versions. Spec sec 10 now freezes the frame

@@ -202,12 +202,14 @@ class WriteBackSafetyTest {
             assertContentEquals(original, access.files[item.uri])
         }
 
-    // finding 2, mechanism 3: a same-session retry must rebuild from the committed backup,
-    // never re-copy the now-corrupt target over the last pristine copy
+    // finding 2, mechanism 3: a retry after a damaged attempt must never source the write
+    // from the corrupt target; resolving the pending journal restores the original first,
+    // then the fresh backup is copied from pristine bytes
     @Test
-    fun sameSessionRetryReusesPristineBackup() =
+    fun retryAfterFailedRestoreResolvesThenSucceeds() =
         runBlocking {
-            val item = seed(23, SyntheticMedia.jpegPlain())
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(23, original)
             access.failWriteAfterTruncate = true
             access.rejectRestore = true
             assertIs<WriteOutcome.Failed>(writeBack.write(item, Annotation("note", null)))
@@ -217,8 +219,70 @@ class WriteBackSafetyTest {
             access.failWriteAfterTruncate = false
             access.rejectRestore = false
             assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("note", null)))
-            assertEquals(copiesAfterFirst, access.copyToFileCount, "retry must reuse the backup, not re-copy")
+            assertEquals(
+                copiesAfterFirst + 1,
+                access.copyToFileCount,
+                "the retry resolves the journal (restoring the original) and backs up the restored bytes",
+            )
             assertEquals(1, RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk })
             assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared after the successful retry")
+        }
+
+    // finding A: a retry whose target cannot even be opened must not delete the only
+    // pristine copy left behind by an earlier damaged attempt
+    @Test
+    fun rejectedRetryAfterFailedRestoreKeepsTheOnlyBackup() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(24, original)
+            access.failWriteAfterTruncate = true
+            access.rejectRestore = true
+            assertIs<WriteOutcome.Failed>(writeBack.write(item, Annotation("note", null)))
+            assertTrue(File(backupDir, "24.bak").exists())
+            val copiesAfterFirst = access.copyToFileCount
+
+            // the target is still damaged and now nothing can be opened at all
+            access.failWriteAfterTruncate = false
+            access.rejectWrites = true
+            val outcome = writeBack.write(item, Annotation("note", null))
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("unresolved"), outcome.reason)
+            assertTrue(File(backupDir, "24.bak").exists(), "the only pristine copy must survive a rejected retry")
+            assertEquals(copiesAfterFirst, access.copyToFileCount)
+
+            // once the device can write again, startup recovery restores the original
+            access.rejectWrites = false
+            access.rejectRestore = false
+            writeBack.recoverPending()
+            assertContentEquals(original, access.files[item.uri])
+        }
+
+    // finding A, second path: a crash between verify and cleanup leaves a stale pre-write
+    // backup; a retry must not embed from it and silently drop the completed write's records
+    @Test
+    fun retryAfterCompletedButUncleanedWriteKeepsPriorRecords() =
+        runBlocking {
+            val pristine = SyntheticMedia.jpegPlain()
+            val item = seed(25, pristine)
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("first", null)))
+            val afterFirst = access.files[item.uri]!!.copyOf()
+            val firstIds =
+                RecordStream
+                    .scan(afterFirst)
+                    .filter { it.decoded.crcOk }
+                    .mapNotNull { it.decoded.record?.idHex }
+
+            // crash after verify but before cleanup: the pre-write original lingers as backup
+            File(backupDir, "25.bak").writeBytes(pristine)
+            File(backupDir, "25.meta").writeText("${item.uri}\nfalse\nimage/jpeg\n${firstIds.joinToString(",")}")
+
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("second", null)))
+            val ids =
+                RecordStream
+                    .scan(access.files[item.uri]!!)
+                    .filter { it.decoded.crcOk }
+                    .mapNotNull { it.decoded.record?.idHex }
+            assertEquals(2, ids.size, "the completed first write must survive the retry")
+            assertTrue(ids.containsAll(firstIds))
+            assertTrue(backupDir.listFiles()!!.isEmpty())
         }
 }

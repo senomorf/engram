@@ -48,7 +48,7 @@ rationale. Docs map and update rules: docs/README.md.
 - XMP namespace https://ns.engram.cam/1.0/ is frozen; wire-format changes need a spec version bump and a design decision.
 - Records are append-only; nothing may silently drop or rewrite existing payload. The IPTC caption upsert likewise preserves other IIM datasets (keywords, by-line, copyright); only 2:120 is replaced.
 - Reads of user media go through ResolverContentAccess.readUri (MediaStore.setRequireOriginal, gated on ACCESS_MEDIA_LOCATION); a new reader that opens the URI directly strips a camera photo's GPS (design.md D25).
-- Content writes are a WriteResult tri-state (NotOpened/OpenedUncertain/Ok), not Boolean; durable .meta-before-.bak backup, the .bak is deleted only after the new file verifies intact or the original is restored, a Mutex serializes write and recovery (design.md D26).
+- Content writes are a WriteResult tri-state (NotOpened/OpenedUncertain/Ok), not Boolean; durable .meta-before-.bak backup, the .bak is deleted only after the new file verifies intact or the original is restored, a new attempt resolves any pending journal first and bails without touching it when it cannot, a Mutex serializes write and recovery (design.md D26).
 - Escape NUL as `\u0000` in source, never literal control bytes.
 - lab/corpus/ holds private personal media: never commit contents, never weaken its .gitignore.
 - Licensing (D18): code under PolyForm Noncommercial 1.0.0 (root LICENSE); spec/ under CC BY 4.0 (spec/LICENSE). New code vs spec files go under the right one.
