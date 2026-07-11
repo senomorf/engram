@@ -64,6 +64,15 @@ class FrameLogTest {
     }
 
     @Test
+    fun crcOkFramesSurviveADamagedMagicFrame() {
+        // a cache blob whose head frame lost its magic must not read as empty:
+        // that would silently skip the entry in archive export and strip repair
+        val realBytes = note(2, "b", 2).encode()
+        val frames = FrameLog.crcOkFrames(SyntheticMedia.frameWithDamagedMagic() + realBytes)
+        assertContentEquals(realBytes, frames.single())
+    }
+
+    @Test
     fun opaqueFramesParticipateWithoutDecoding() {
         val scanned = RecordStream.encode(listOf(note(1, "a", 1)))
         val cached = SyntheticMedia.unknownKindFrame() + SyntheticMedia.unknownVersionFrame()

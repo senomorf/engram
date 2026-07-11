@@ -234,9 +234,11 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   and verify must see it) and a CRC-bad unknown-version candidate drops as noise, and
   either way the scan resyncs one byte at a time so a real frame inside a bogus
   claimed span is always found. decodeSequence degrades to the carve after the first
-  CRC-bad frame instead of trusting its claimed length. decodeAt also does its length
-  checks in Long so a hostile payload length cannot wrap the bounds and crash the
-  reader.
+  damaged frame, whether it decoded CRC-bad or did not decode at all (damaged magic,
+  truncated header, length claim past the region): an undecodable header has no span
+  authority and no hit to surface, so the carve alone can recover the frames behind
+  it. decodeAt also does its length checks in Long so a hostile payload length cannot
+  wrap the bounds and crash the reader.
 - D28 Archive record log. The Engram Archive is a commitment, not a convenience: spec
   sec 11 now defines it. The JSON view alone lost record order, ids, writers,
   timestamps, enrichment history, and every opaque frame, so calling it

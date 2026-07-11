@@ -45,6 +45,16 @@ object SyntheticMedia {
         return frame
     }
 
+    /**
+     * A note frame whose first magic byte is damaged: decodeAt returns null at its
+     * offset (the CRC is stale by construction, but decode never gets that far).
+     * A sequence reader must not let it hide the frames stored behind it.
+     */
+    fun frameWithDamagedMagic(): ByteArray =
+        EngramRecord(RecordKind.Note, 1L, "damaged".encodeToByteArray()).encode().also {
+            it[0] = 'X'.code.toByte()
+        }
+
     // encode a Note, patch one header byte, recompute the trailing CRC so the frame stays wire-valid
     private fun notePatchedAt(
         offset: Int,

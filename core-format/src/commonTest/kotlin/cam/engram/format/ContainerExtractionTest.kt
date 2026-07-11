@@ -186,6 +186,20 @@ class ContainerExtractionTest {
     }
 
     @Test
+    fun mp4DamagedMagicFrameClassifiesDamagedWithSurvivor() {
+        // a head frame whose magic is gone yields no hit at all, so the box must
+        // still classify damaged (consumed < span) and the survivor must still read
+        val real = note("survivor").encode()
+        val box = Mp4Codec.buildEngramBox(SyntheticMedia.frameWithDamagedMagic() + real)
+        val mp4 = inspect(SyntheticMedia.mp4MoovLast() + box)!!
+        assertEquals(Survival.DAMAGED, ContainerExtraction.classify(mp4, captionVisible = false))
+        assertTrue(
+            mp4.records.any { it.crcOk && it.record?.payload?.decodeToString() == "survivor" },
+            "the intact record behind the damaged header must still read",
+        )
+    }
+
+    @Test
     fun opaqueFramesCountTowardFull() {
         val out =
             JpegEmbedder(xmp).embed(

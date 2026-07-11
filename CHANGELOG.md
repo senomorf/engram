@@ -8,6 +8,10 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A record whose header is damaged (not just checksum-corrupt: a lost magic byte, a
+  truncated header, a length claim running past the data) no longer hides every
+  record stored after it in video reads, cache repair, and archive export; the
+  reader now carves the remainder and finds the survivors.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a

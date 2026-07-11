@@ -16,6 +16,7 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -203,6 +204,44 @@ class ArchiveExporterTest {
             assertEquals(1, result.audioCount)
             assertEquals(1, result.failedCount, "the unreadable item counts as failed")
             assertTrue(written.keys.any { it.endsWith(".ogg") || it.endsWith(".m4a") }, "the voice clip is written")
+        }
+
+    @Test
+    fun cacheBlobWithDamagedMagicHeadStillExportsSurvivors() =
+        runBlocking {
+            // a cache blob whose head frame lost its magic used to read as empty and
+            // silently skip the entry; the survivor behind the damage must still export
+            val note = EngramRecord(RecordKind.Note, 1, "kept".encodeToByteArray())
+            val bytes = SyntheticMedia.jpegPlain()
+            val uri = "content://media/9"
+            access.files[uri] = bytes
+            db.media().upsert(
+                listOf(
+                    MediaItemEntity(9, uri, false, "image/jpeg", "DCIM/Camera/", 9, bytes.size.toLong(), 9, 1, 0, 0),
+                ),
+            )
+            db.recordCache().upsert(
+                RecordCacheEntity(
+                    9,
+                    9,
+                    bytes.size.toLong(),
+                    SyntheticMedia.frameWithDamagedMagic() + note.encode(),
+                    2,
+                    0,
+                ),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount, "the damaged head must not skip the whole entry")
+            assertContentEquals(
+                note.encode(),
+                written["${EngramArchive.contentHashName(bytes)}.records"],
+                "the record log carries exactly the surviving frame",
+            )
         }
 
     @Test
