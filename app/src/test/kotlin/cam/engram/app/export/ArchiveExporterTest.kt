@@ -284,6 +284,31 @@ class ArchiveExporterTest {
         }
 
     @Test
+    fun orphanWithEmptyHashExportsUnderBlobHash() =
+        runBlocking {
+            // a pre-hash cache row whose media is gone: rather than dropping the only
+            // copy forever, the entry is named by its record log's own hash and flagged
+            val blob = EngramRecord(RecordKind.Note, 1, "legacy orphan".encodeToByteArray()).encode()
+            db.recordCache().upsert(
+                RecordCacheEntity(31, 100, 10, blob, 1, 0, originalName = "gone.jpg"),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount, "the orphan exports instead of failing")
+            assertEquals(0, result.failedCount)
+            val hash = EngramArchive.contentHashName(blob)
+            assertTrue(written.containsKey("$hash.json"), "named by the record log's own hash")
+            assertTrue(
+                written["$hash.json"]!!.decodeToString().contains("\"sourceHashKnown\":false"),
+                "the entry declares its source hash unknown",
+            )
+        }
+
+    @Test
     fun cacheOrphanWithStoredHashExportsMediaLess() =
         runBlocking {
             // reconcile removed the media row but kept the cache (a moved/deleted media file); the

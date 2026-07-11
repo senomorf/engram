@@ -48,6 +48,9 @@ interface MediaDao {
 
     @Query("DELETE FROM media_items WHERE mediaId IN (:ids)")
     suspend fun delete(ids: List<Long>)
+
+    @Query("UPDATE media_items SET recordCount = -1 WHERE mediaId IN (:ids)")
+    suspend fun markUnscanned(ids: List<Long>)
 }
 
 @Dao
@@ -81,6 +84,15 @@ interface RecordCacheDao {
 
     @Delete
     suspend fun delete(entry: RecordCacheEntity)
+
+    // pre-hash rows (v2 era) whose live, identity-matching media can still be hashed;
+    // the reconciler marks them for the standard rescan path, which stores the hash
+    @Query(
+        "SELECT rc.mediaId FROM record_cache rc JOIN media_items m ON m.mediaId = rc.mediaId " +
+            "AND (rc.identityTakenAt = 0 OR rc.identityTakenAt = m.takenAtMillis) " +
+            "WHERE rc.contentHash = ''",
+    )
+    suspend fun idsNeedingHashBackfill(): List<Long>
 }
 
 @Dao
