@@ -22,6 +22,7 @@ import cam.engram.app.enrich.GeocoderPlaceProvider
 import cam.engram.app.enrich.OpenMeteoWeatherProvider
 import cam.engram.app.enrich.PlaceProvider
 import cam.engram.app.enrich.WeatherProvider
+import cam.engram.app.export.ArchiveExporter
 import cam.engram.app.writeback.ConsentGate
 import cam.engram.app.writeback.MediaStoreConsentGate
 import cam.engram.app.writeback.MediaWriteBack
@@ -97,4 +98,8 @@ class AppContainer(
         )
 
     val stripRepair: StripRepair = StripRepair(db, writeBack, scanner)
+
+    // container-built so the private io dispatcher stays private: the exporter does
+    // its own withContext(io), keeping full-media hashing off the main thread (R8)
+    val archiveExporter: ArchiveExporter = ArchiveExporter(db, access, io)
 }

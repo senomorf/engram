@@ -7,6 +7,8 @@ import cam.engram.format.Digests
 import cam.engram.format.archive.EngramArchive
 import cam.engram.format.records.FrameLog
 import cam.engram.format.records.RecordStream
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 class ExportResult(
     val itemCount: Int,
@@ -36,32 +38,36 @@ fun interface ArchiveSink {
 class ArchiveExporter(
     private val db: EngramDb,
     private val access: ContentAccess,
+    private val io: CoroutineDispatcher,
 ) {
-    suspend fun exportTo(sink: ArchiveSink): ExportResult {
-        var audioCount = 0
-        var exported = 0
-        var failed = 0
-        val inventory = mutableListOf<EngramArchive.ManifestFile>()
-        val resolved = mutableListOf<Resolved>()
-        for (entry in db.recordCache().all()) {
-            when (val r = resolve(entry)) {
-                Resolution.Skip -> Unit
-                Resolution.Fail -> failed++
-                is Resolved -> resolved += r
+    // the whole pass (full-media hashing, sink writes) runs on [io]: exporting a large
+    // library from a UI scope must never occupy the main thread (finding R8)
+    suspend fun exportTo(sink: ArchiveSink): ExportResult =
+        withContext(io) {
+            var audioCount = 0
+            var exported = 0
+            var failed = 0
+            val inventory = mutableListOf<EngramArchive.ManifestFile>()
+            val resolved = mutableListOf<Resolved>()
+            for (entry in db.recordCache().all()) {
+                when (val r = resolve(entry)) {
+                    Resolution.Skip -> Unit
+                    Resolution.Fail -> failed++
+                    is Resolved -> resolved += r
+                }
             }
+            for (group in resolved.groupBy { it.hash }.values) {
+                val tally = exportMerged(group, sink)
+                exported += tally.exported
+                failed += tally.failed
+                audioCount += tally.audio
+                inventory += tally.files
+            }
+            // a dropped manifest write leaves an unusable archive, so surface it as a failure (finding 9)
+            val manifestOk =
+                sink.write("manifest.json", EngramArchive.manifest(exported, inventory).encodeToByteArray())
+            ExportResult(exported, audioCount, if (manifestOk) failed else failed + 1)
         }
-        for (group in resolved.groupBy { it.hash }.values) {
-            val tally = exportMerged(group, sink)
-            exported += tally.exported
-            failed += tally.failed
-            audioCount += tally.audio
-            inventory += tally.files
-        }
-        // a dropped manifest write leaves an unusable archive, so surface it as a failure (finding 9)
-        val manifestOk =
-            sink.write("manifest.json", EngramArchive.manifest(exported, inventory).encodeToByteArray())
-        return ExportResult(exported, audioCount, if (manifestOk) failed else failed + 1)
-    }
 
     private sealed interface Resolution {
         data object Skip : Resolution

@@ -11,11 +11,14 @@ import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.concurrent.Executors
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -25,7 +28,7 @@ import kotlin.test.assertTrue
 class ArchiveExporterTest {
     private val db = EngramDb.inMemory(ApplicationProvider.getApplicationContext())
     private val access = FakeContentAccess()
-    private val exporter = ArchiveExporter(db, access)
+    private val exporter = ArchiveExporter(db, access, Dispatchers.Unconfined)
 
     @After
     fun tearDown() = db.close()
@@ -396,5 +399,22 @@ class ArchiveExporterTest {
             // the item writes fine but the manifest write is dropped
             val result = exporter.exportTo { name, _ -> name != "manifest.json" }
             assertTrue(result.failedCount > 0, "a dropped manifest write must be surfaced as a failure")
+        }
+
+    @Test
+    fun exportRunsOnTheInjectedDispatcher() =
+        runBlocking {
+            seed(41, SyntheticMedia.jpegPlain(), listOf(EngramRecord(RecordKind.Note, 1, "io".encodeToByteArray())))
+            val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "export-io") }
+            val threads = mutableSetOf<String>()
+            val result =
+                ArchiveExporter(db, access, exec.asCoroutineDispatcher()).exportTo { _, _ ->
+                    threads += Thread.currentThread().name
+                    true
+                }
+            exec.shutdown()
+            // the coroutine debug agent may suffix the name with " @coroutine#N"
+            assertTrue(threads.isNotEmpty() && threads.all { it.startsWith("export-io") }, threads.toString())
+            assertEquals(1, result.itemCount)
         }
 }

@@ -13,58 +13,28 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
-import cam.engram.app.export.ArchiveExporter
-import cam.engram.app.export.ExportResult
 import cam.engram.app.export.SafArchiveSink
-import cam.engram.app.verify.BackupVerifier
 import cam.engram.format.read.Survival
-import kotlinx.coroutines.launch
-
-internal sealed interface ExportState {
-    data object Idle : ExportState
-
-    data object Running : ExportState
-
-    data class Done(
-        val result: ExportResult,
-    ) : ExportState
-
-    data class Failed(
-        val message: String,
-    ) : ExportState
-}
-
-internal sealed interface VerifyState {
-    data object Idle : VerifyState
-
-    data object Running : VerifyState
-
-    data class Done(
-        val survival: Survival,
-        val audioClips: Int,
-        val corruptCount: Int,
-    ) : VerifyState
-}
 
 @Composable
 fun ToolsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val container = currentAppContainer()
-    val scope = rememberCoroutineScope()
-    var export by remember { mutableStateOf<ExportState>(ExportState.Idle) }
-    var verify by remember { mutableStateOf<VerifyState>(VerifyState.Idle) }
-    // resolved in composition; the failure lambda below runs off the UI thread
-    val unknownError = stringResource(R.string.error_unknown)
+    // activity scoped: the export keeps running and its result survives navigation (R8)
+    val vm: ToolsViewModel =
+        viewModel(factory = viewModelFactory { initializer { ToolsViewModel(container) } })
+    val export by vm.exportState.collectAsState()
+    val verify by vm.verifyState.collectAsState()
 
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -73,29 +43,15 @@ fun ToolsScreen(onBack: () -> Unit) {
                     uri,
                     android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                 )
-                scope.launch {
-                    export = ExportState.Running
-                    export =
-                        runCatching {
-                            val sink = SafArchiveSink.open(context, uri) ?: error("cannot open chosen folder")
-                            ArchiveExporter(container.db, container.access).exportTo(sink)
-                        }.fold(
-                            onSuccess = { ExportState.Done(it) },
-                            onFailure = { ExportState.Failed(it.message ?: unknownError) },
-                        )
-                }
+                // opening the sink is one provider call; every per-file read and write
+                // runs on the io dispatcher inside the exporter
+                vm.export(SafArchiveSink.open(context, uri))
             }
         }
 
     val verifyLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
-                scope.launch {
-                    verify = VerifyState.Running
-                    val report = BackupVerifier(container.access).verify(uri.toString())
-                    verify = VerifyState.Done(report.summary, report.audioClips, report.corruptCount)
-                }
-            }
+            if (uri != null) vm.verify(uri.toString())
         }
 
     EngramScaffold(title = stringResource(R.string.open_tools), onBack = onBack) { padding ->
@@ -134,7 +90,13 @@ internal fun ExportStatus(state: ExportState) {
                     Text(stringResource(R.string.tools_export_partial, state.result.failedCount))
                 }
             }
-        is ExportState.Failed -> Text(stringResource(R.string.tools_export_failed, state.message))
+        is ExportState.Failed ->
+            Text(
+                stringResource(
+                    R.string.tools_export_failed,
+                    state.message ?: stringResource(R.string.error_unknown),
+                ),
+            )
     }
 }
 
