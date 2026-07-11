@@ -19,9 +19,12 @@ internal data class Expectation(
     val recordCount: Int,
     val mpfExpected: String,
     val extendedExpected: Boolean,
+    // every record id present at generate time; absent in legacy sidecars (count-only)
+    val ids: List<String> = emptyList(),
 ) {
     fun write(file: File) {
         val lines = mutableListOf("engram-expect=1", "container=$container", "records=$recordCount")
+        if (ids.isNotEmpty()) lines += "ids=" + ids.joinToString(",")
         noteText?.let { lines += "note.b64=" + Base64.getEncoder().encodeToString(it.encodeToByteArray()) }
         noteId?.let { lines += "note.id=$it" }
         audioId?.let { lines += "audio.id=$it" }
@@ -52,6 +55,7 @@ internal data class Expectation(
                 recordCount = map["records"]?.toIntOrNull() ?: 0,
                 mpfExpected = map["mpf"] ?: "absent",
                 extendedExpected = map["extended"] == "true",
+                ids = map["ids"]?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
             )
         }
     }

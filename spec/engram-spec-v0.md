@@ -123,11 +123,15 @@ Line-based `key=value`, written by `generate` next to its output, consumed by
     engram-expect=1
     container=jpeg|png|mp4
     records=N
+    ids=<hex>,<hex>,...                (optional; every record id present at generate time)
     note.b64=<base64 of note text>     (optional)
     note.id=<hex record id>            (optional)
     audio.id=<hex>  audio.mime=<mime>  audio.sha256=<hex of raw audio bytes>
     mpf=valid|absent
     extended=true|false
+
+The format is append-only: readers ignore unknown keys, and a sidecar without
+`ids=` (written by an older tool) is judged by `records=` count alone.
 
 ## 8. Verify semantics
 
@@ -135,7 +139,13 @@ Per planted payload: `exact` (record present, id and content match),
 `degraded` (record gone but a caption mirror still carries the note text),
 `corrupted` (record present but CRC or content mismatch), `gone`. File
 verdict: `intact` (all exact), `degraded`, `damaged`; process exit codes
-0 / 3 / 4. `--json` emits one object with records, checks, xmp, mpf,
+0 / 3 / 4. Beyond the planted payloads, verify also judges losses the
+dedicated checks cannot see: a damaged record carrier or any CRC-bad record
+fragment degrades the verdict, and a sidecar-recorded id that is missing
+(outside the note/audio ladders, which may fall back to caption mirrors) or,
+for a legacy sidecar without ids, fewer CRC-valid records than recorded,
+damages it. Records appended after the sidecar never fail verification.
+`--json` emits one object with integrity, records, checks, xmp, mpf,
 extendedXmp and caption fields; the schema is append-only.
 
 ## 9. Size budget

@@ -12,6 +12,11 @@ change lands under Unreleased at merge time.
   truncated header, a length claim running past the data) no longer hides every
   record stored after it in video reads, cache repair, and archive export; the
   reader now carves the remainder and finds the survivors.
+- engram verify no longer reports a file intact when damage sits outside the planted
+  note or audio: a damaged record carrier or a stray corrupt record fragment now
+  degrades the verdict, and a lost historical record (the sidecar now lists every
+  planted record id) damages it. Legitimate appends after the sidecar still verify
+  intact, and old sidecars keep working by record count alone.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a
