@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Retrying a save after a badly failed one can no longer delete the only recoverable
+  copy of the photo: a new save first settles the previous attempt (restoring the
+  original from its backup when needed) and refuses to start if it cannot, and a
+  retry after an interrupted cleanup no longer drops the records the earlier save
+  had already embedded.
 - A corrupted record can no longer hide the intact records stored after it: a record
   whose checksum fails has no say over how far it claims to extend, so the reader
   resynchronizes and finds every intact record behind it (in reads, repair, verify,

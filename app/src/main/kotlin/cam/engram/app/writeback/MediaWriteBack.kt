@@ -67,11 +67,20 @@ class MediaWriteBack(
             mutex.withLock {
                 backupDir.mkdirs()
                 val backup = File(backupDir, "${item.mediaId}.bak")
+                // a lingering pair from an earlier attempt is an unresolved transaction: the
+                // target may be damaged and this .bak its only pristine copy. Settle it first
+                // (recover or restore), before this attempt's sidecar clobbers the old journal;
+                // refuse to write over unresolved state (finding A)
+                if (backup.exists() && !resolveBackup(backup)) {
+                    return@withLock WriteOutcome.Failed(
+                        "previous write unresolved; original preserved in backup, will restore on restart",
+                    )
+                }
                 writeSidecar(item, records, carryFrames)
                 // publish the backup atomically (copy to tmp, fsync inside copyToFile, rename) and
-                // never overwrite a committed one, so a partial copy is never restored over an intact
-                // original and a retry reuses the pristine copy instead of re-reading the corrupt
-                // target (finding 2)
+                // never overwrite a committed one, so a partial copy is never restored over an
+                // intact original (finding 2); after resolution no backup can exist here, the
+                // guard is a belt
                 if (!backup.exists()) {
                     val tmp = File(backupDir, "${item.mediaId}.bak.tmp")
                     if (!access.copyToFile(item.uri, tmp) || !tmp.renameTo(backup)) {
@@ -91,7 +100,8 @@ class MediaWriteBack(
                         return@withLock rollback(item, backup, e.message ?: "write failed")
                     }
                 when (attempt) {
-                    // the stream never opened, so the target is untouched: cleanup, no restore
+                    // the stream never opened and any prior transaction was resolved above, so
+                    // the target is genuinely untouched: cleanup, no restore
                     is Attempt.Rejected -> {
                         cleanup(item.mediaId)
                         WriteOutcome.NotOpened
@@ -275,13 +285,19 @@ class MediaWriteBack(
             mutex.withLock {
                 val backups = backupDir.listFiles { f -> f.extension == "bak" } ?: return@withLock
                 for (backup in backups) {
-                    if (recoverBackup(backup)) {
-                        backup.delete()
-                        File(backupDir, "${backup.nameWithoutExtension}.meta").delete()
-                    }
+                    resolveBackup(backup)
                 }
             }
         }
+
+    // settle one lingering transaction: once the target is known good (write completed)
+    // or restored, drop the pair; false keeps both for a later attempt or startup
+    private fun resolveBackup(backup: File): Boolean {
+        if (!recoverBackup(backup)) return false
+        backup.delete()
+        File(backupDir, "${backup.nameWithoutExtension}.meta").delete()
+        return true
+    }
 
     // true when the backup can be dropped: the target already carries the expected records,
     // or the original was restored. false keeps it for the next startup (no readable sidecar,
