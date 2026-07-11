@@ -157,11 +157,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   headless CI emulator cannot provide deterministically. Counted coverage is therefore
   JVM + Robolectric only.
 
-  Enforcement. Per-module `koverVerify` floors (core-format/cli 97, app 90) run inside
-  `check`; the root `koverVerifyAggregate` task defends the combined 95%; both run in
-  CI. Achieved ~98/98/92 per module, aggregate ~95.4%. Floors only ever rise, and they
-  sit below the achieved numbers on purpose: Compose async timing gives ~0.5% run-to-
-  run coverage variance, so a floor must clear the low end of a run, not its average.
+  Enforcement. Per-module `koverVerify` floors (core-format/cli 97, app 93) run inside
+  `check`; the root `koverVerifyAggregate` task defends the combined 96%; both run in
+  CI. Achieved ~97.5/97.7/94.6 per module, aggregate ~96.3% (raised after the round-2
+  fixes landed with their tests). Floors only ever rise, and they sit below the
+  achieved numbers on purpose: Compose async timing gives ~0.5% run-to-run coverage
+  variance, so a floor must clear the low end of a run, not its average.
 
 - D23 Dependency security posture. Shipped artifacts carry only their declared runtime
   graphs (app AndroidX/Compose/Room/coroutines, cli core-format + kotlinx, core-format

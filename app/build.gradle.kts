@@ -186,9 +186,9 @@ kover {
                 annotatedBy("cam.engram.app.DeviceOnly")
             }
         }
-        // floor sits below the achieved ~91.2-91.8% with headroom for Compose-timing coverage variance
-        // (the low end must clear it); the residual to 95% is device-only Compose (MediaPlayer/
+        // floor sits below the achieved ~94.6% with headroom for Compose-timing coverage variance
+        // (the low end must clear it); the residual is device-only Compose (MediaPlayer/
         // SpeechRecognizer) exercised via device QA (design D22). Floor only rises.
-        verify { rule { minBound(90) } }
+        verify { rule { minBound(93) } }
     }
 }
