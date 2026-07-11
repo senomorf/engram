@@ -22,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 /** Exercises the real EngramRoot gate + Navigator/MainNavigation by rendering and clicking through. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -65,6 +66,56 @@ class EngramRootNavigationTest {
         compose.waitForIdle()
         // the onboarding gate keeps the home content off screen until onboarding completes
         compose.onNodeWithText(strings.getString(R.string.home_tagline)).assertDoesNotExist()
+    }
+
+    @Test
+    fun finishingOnboardingRequestsNotificationPermission() {
+        // fresh install: POST_NOTIFICATIONS is never granted silently on API 33+, and
+        // the digest defaults on, so finishing onboarding must ask (D30)
+        runBlocking { app.settings.setOnboardingDone(false) }
+        compose.setScreen(app) { EngramRoot() }
+        walkOnboarding()
+        compose.waitForIdle()
+        val intent =
+            shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
+        kotlin.test.assertTrue(
+            intent != null && intent.action == "android.content.pm.action.REQUEST_PERMISSIONS",
+            "finishing onboarding must launch the notification permission request, got $intent",
+        )
+        // the request never blocks entry into the app
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.home_tagline)).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun grantedNotificationPermissionSkipsTheRequest() {
+        shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>())
+            .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        runBlocking { app.settings.setOnboardingDone(false) }
+        compose.setScreen(app) { EngramRoot() }
+        walkOnboarding()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.home_tagline)).fetchSemanticsNodes().isNotEmpty()
+        }
+        val intent =
+            shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
+        kotlin.test.assertTrue(
+            intent == null || intent.action != "android.content.pm.action.REQUEST_PERMISSIONS",
+            "an already granted permission must not be requested again",
+        )
+    }
+
+    private fun walkOnboarding() {
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.onboard_next)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.onboard_next)).performClick()
+        compose.onNodeWithText(strings.getString(R.string.onboard_next)).performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.onboard_start)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.onboard_start)).performClick()
     }
 
     // mark by the first setting (top of the scrollable screen), so adding settings later

@@ -50,6 +50,10 @@ pass/fail per section.
 - [ ] Enrichment (opt-in: turn it on in Settings first, which discloses the GPS it sends):
       place (Geocoder) and weather (Open-Meteo) attach on the next save.
 - [ ] Digest and nudge: evening digest notification at the set hour; post-burst nudge.
+- [ ] Notification permission (finding R10, D30): on a fresh install the permission
+      prompt appears when onboarding finishes; denying it surfaces the Settings hint row
+      whose button opens the system notification toggle; granting there makes the digest
+      fire. Flipping a nudge toggle on without the grant re-asks.
 - [ ] Export: Engram Archive to a SAF folder; re-open or verify the exported files.
 - [ ] Onboarding: all screens including the backup-honesty page render and dismiss.
 

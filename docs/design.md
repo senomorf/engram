@@ -291,6 +291,19 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   mismatched capture simply finds no row). Chosen over orphan-eviction bookkeeping
   (owner's call): the schema change is the honest model, not a patch around a
   mis-keyed table.
+- D30 Notification permission flow. API 33+ never grants POST_NOTIFICATIONS
+  silently and the evening digest defaults on (D12), so without a request every
+  fresh install got a silently dead digest. The permission is requested once when
+  onboarding completes (rationale on the "Yours, always" page), re-requested when
+  a nudge toggle is flipped on without the grant, and Settings shows a persistent
+  hint with a tap-through to the system notification toggle whenever a nudge mode
+  is on but notifications are off (NotificationManagerCompat.areNotificationsEnabled,
+  the same gate Notifier applies at post time and keeps as the final guard).
+  Denial never blocks anything: the request result is deliberately ignored, state
+  is re-read on resume. Owner chose this over flipping the digest default off
+  (which would silently disable the flagship nudge for installs that never opened
+  Settings) and over a settings-only request (which never fixes a fresh install
+  that does not visit Settings).
 
 ## 5. Assumptions register
 

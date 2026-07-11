@@ -49,7 +49,7 @@
     <string name="onboard_1_title">Memories, in the photo itself</string>
     <string name="onboard_1_body">Add a note or your voice to a photo. Engram writes it into the file, so it travels wherever the photo goes.</string>
     <string name="onboard_2_title">Yours, always</string>
-    <string name="onboard_2_body">No account, no cloud, nothing leaves your phone unless you share it. The file is the memory.</string>
+    <string name="onboard_2_body">No account, no cloud, nothing leaves your phone unless you share it. The file is the memory. Engram will ask to send notifications for the evening digest; change it anytime in Settings.</string>
     <string name="onboard_honesty_title">One honest limit</string>
     <string name="onboard_honesty_body">Backups and original-quality cloud keep your memories. But most messengers and social apps recompress photos and strip them out. Share the file itself to keep the memory attached, and use the verifier to check any backup.</string>
     <string name="onboard_next">Next</string>
@@ -76,6 +76,8 @@
     <string name="settings_digest">Evening digest</string>
     <string name="settings_digest_hour">Digest hour: %1$d:00</string>
     <string name="settings_burst">Nudge soon after shooting</string>
+    <string name="settings_notifications_disabled_hint">Notifications are off for Engram, so the digest and nudges stay silent.</string>
+    <string name="settings_notifications_open">Open settings</string>
     <string name="settings_enrichment_network">Fetch weather and place names (sends the photo\'s location to an online provider)</string>
     <string name="settings_remote_dictation">Allow network dictation (sends your voice to the system recognizer when there is no on-device model)</string>
     <string name="settings_dynamic_color">Dynamic colors (Material You)</string>

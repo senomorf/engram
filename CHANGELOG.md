@@ -16,6 +16,11 @@ change lands under Unreleased at merge time.
   into an "not responding" dialog) and no longer dies silently when you leave the Tools
   screen mid-export: the job and its result now survive navigation, and the last run's
   outcome is still shown when you come back.
+- The app now actually asks for notification permission (Android 13+ never grants it
+  silently), so the default-on evening digest can fire on a fresh install: the request
+  appears when onboarding finishes and again when a nudge toggle is flipped on without
+  the grant, and Settings shows when notifications are blocked with a button straight
+  to the system toggle. Denying never blocks anything else.
 - A record whose header is damaged (not just checksum-corrupt: a lost magic byte, a
   truncated header, a length claim running past the data) no longer hides every
   record stored after it in video reads, cache repair, and archive export; the
