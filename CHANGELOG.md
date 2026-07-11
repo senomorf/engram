@@ -13,6 +13,10 @@ change lands under Unreleased at merge time.
   original from its backup when needed) and refuses to start if it cannot, and a
   retry after an interrupted cleanup no longer drops the records the earlier save
   had already embedded.
+- Notes typed while a save is in flight are no longer silently lost: the annotate
+  inputs freeze until the save resolves, saving is blocked while a recording is
+  still being captured, and discarding audio cannot delete a clip the in-flight
+  save is reading.
 - A save is now verified by the exact records it wrote, not by a bare record count:
   a write the storage provider silently dropped can no longer report success on the
   strength of records left over from an earlier save.
