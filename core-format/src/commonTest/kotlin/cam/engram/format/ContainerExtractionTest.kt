@@ -169,6 +169,23 @@ class ContainerExtractionTest {
     }
 
     @Test
+    fun corruptLengthFrameStillClassifiesDamagedAndKeepsSurvivor() {
+        val real = note("survivor").encode()
+        val bad = SyntheticMedia.frameWithInflatedLength(spanBeyond = real.size)
+        // jpeg trailer, carve path
+        val jpeg = inspect(SyntheticMedia.jpegPlain() + bad + real)!!
+        assertEquals(Survival.DAMAGED, ContainerExtraction.classify(jpeg, captionVisible = false))
+        assertTrue(
+            jpeg.records.any { it.crcOk && it.record?.payload?.decodeToString() == "survivor" },
+            "the intact record behind the corrupt length claim must still read",
+        )
+        // mp4 engram box, strict decode path
+        val mp4 = inspect(SyntheticMedia.mp4MoovLast() + Mp4Codec.buildEngramBox(bad + real))!!
+        assertEquals(Survival.DAMAGED, ContainerExtraction.classify(mp4, captionVisible = false))
+        assertTrue(mp4.records.any { it.crcOk && it.record?.payload?.decodeToString() == "survivor" })
+    }
+
+    @Test
     fun opaqueFramesCountTowardFull() {
         val out =
             JpegEmbedder(xmp).embed(

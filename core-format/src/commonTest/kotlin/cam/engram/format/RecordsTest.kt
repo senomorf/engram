@@ -122,4 +122,45 @@ class RecordsTest {
             "the real record inside the bogus claimed span must still be found",
         )
     }
+
+    @Test
+    fun carveDoesNotTrustCrcBadCurrentVersionSpans() {
+        // same trap as the unknown-version case above, but the frame is ours (version 1):
+        // the crc covers the length field, so once the crc fails the claimed span has no
+        // authority and the intact frame behind it must still be found
+        val real = EngramRecord(RecordKind.Note, 9, "survivor".encodeToByteArray()).encode()
+        val bad = SyntheticMedia.frameWithInflatedLength(spanBeyond = real.size)
+        val hits = RecordStream.scan(bad + real)
+        val head = hits.first()
+        assertEquals(0, head.offset)
+        assertFalse(head.decoded.crcOk, "the damaged head must stay visible for classify/verify")
+        assertEquals(1, head.decoded.version)
+        assertEquals(
+            "survivor",
+            hits
+                .filter { it.decoded.crcOk }
+                .single()
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+            "the real record inside the bogus claimed span must still be found",
+        )
+    }
+
+    @Test
+    fun decodeSequenceRecoversFramesAfterCrcBadLength() {
+        val real = EngramRecord(RecordKind.Note, 9, "survivor".encodeToByteArray()).encode()
+        val bad = SyntheticMedia.frameWithInflatedLength(spanBeyond = real.size)
+        val hits = RecordStream.decodeSequence(bad + real)
+        assertEquals(2, hits.size, "a crc-bad length claim must not hide the frame behind it")
+        assertFalse(hits[0].decoded.crcOk)
+        assertTrue(hits[1].decoded.crcOk)
+        assertEquals(
+            "survivor",
+            hits[1]
+                .decoded.record!!
+                .payload
+                .decodeToString(),
+        )
+    }
 }

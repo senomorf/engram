@@ -234,7 +234,9 @@ object ContainerExtraction {
     }
 
     // frames must fill the declared engram box exactly: an undecodable tail means the
-    // carrier lost data even when the frames before it read back fine
+    // carrier lost data even when the frames before it read back fine. After a crc-bad
+    // frame the sum of claimed lengths is approximate (spans may overlap the carved
+    // survivors), but that frame already forces DAMAGED via the crcOk check in classify
     internal fun engramBoxIntegrity(
         span: Int?,
         consumed: Int,

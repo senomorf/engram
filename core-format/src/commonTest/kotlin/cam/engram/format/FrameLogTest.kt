@@ -54,6 +54,16 @@ class FrameLogTest {
     }
 
     @Test
+    fun crcOkFramesSurviveACorruptLengthFrame() {
+        // a corrupt in-bounds length claim at the head of a cache blob must not make
+        // the frames behind it vanish from superset merges and archive logs
+        val realBytes = note(2, "b", 2).encode()
+        val bad = SyntheticMedia.frameWithInflatedLength(spanBeyond = realBytes.size)
+        val frames = FrameLog.crcOkFrames(bad + realBytes)
+        assertContentEquals(realBytes, frames.single())
+    }
+
+    @Test
     fun opaqueFramesParticipateWithoutDecoding() {
         val scanned = RecordStream.encode(listOf(note(1, "a", 1)))
         val cached = SyntheticMedia.unknownKindFrame() + SyntheticMedia.unknownVersionFrame()

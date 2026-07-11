@@ -218,11 +218,16 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   already preserve opaque frames, so future-version records survive re-embeds instead
   of being invisible and truncating the stream (decodeSequence used to stop at the
   first unknown-version frame, hiding every record after it). Not a wire change:
-  writers still emit version 1, no spec version bump. Carve safety: RecordStream.scan
-  advances a full frame only for CRC-valid or current-version candidates; a CRC-bad
-  unknown-version candidate advances one byte so a real frame inside its claimed span
-  is still found. decodeAt also does its length checks in Long so a hostile payload
-  length cannot wrap the bounds and crash the reader.
+  writers still emit version 1, no spec version bump. Carve safety: a CRC-bad
+  candidate never has length authority, whatever its version, because the CRC covers
+  the length field itself. RecordStream.scan advances a full frame only for CRC-valid
+  candidates; a CRC-bad current-version candidate surfaces as a damaged hit (classify
+  and verify must see it) and a CRC-bad unknown-version candidate drops as noise, and
+  either way the scan resyncs one byte at a time so a real frame inside a bogus
+  claimed span is always found. decodeSequence degrades to the carve after the first
+  CRC-bad frame instead of trusting its claimed length. decodeAt also does its length
+  checks in Long so a hostile payload length cannot wrap the bounds and crash the
+  reader.
 - D28 Archive record log. The Engram Archive is a commitment, not a convenience: spec
   sec 11 now defines it. The JSON view alone lost record order, ids, writers,
   timestamps, enrichment history, and every opaque frame, so calling it

@@ -29,6 +29,22 @@ object SyntheticMedia {
      */
     fun unknownVersionFrame(version: Int = 2): ByteArray = notePatchedAt(4, version) // version byte at offset 4
 
+    /**
+     * A current-version note frame whose payload length field claims [spanBeyond]
+     * extra bytes past the frame's real end, CRC left stale: a reader that grants
+     * a CRC-bad frame's claimed span authority would swallow whatever follows.
+     */
+    fun frameWithInflatedLength(spanBeyond: Int): ByteArray {
+        val frame = EngramRecord(RecordKind.Note, 1L, "corrupt".encodeToByteArray()).encode().copyOf()
+        val payloadLenAt = EngramRecord.HEADER_LEN - 4 // empty writer: payloadLen right after the fixed header
+        val claimed = frame.size + spanBeyond - payloadLenAt - 8
+        frame[payloadLenAt] = (claimed ushr 24 and 0xFF).toByte()
+        frame[payloadLenAt + 1] = (claimed ushr 16 and 0xFF).toByte()
+        frame[payloadLenAt + 2] = (claimed ushr 8 and 0xFF).toByte()
+        frame[payloadLenAt + 3] = (claimed and 0xFF).toByte()
+        return frame
+    }
+
     // encode a Note, patch one header byte, recompute the trailing CRC so the frame stays wire-valid
     private fun notePatchedAt(
         offset: Int,
