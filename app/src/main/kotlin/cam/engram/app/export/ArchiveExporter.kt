@@ -81,21 +81,27 @@ class ArchiveExporter(
         // the byte-exact record log is authoritative: opaque frames (unknown kinds or
         // versions) export too; skip only when nothing CRC-valid survives in the cache
         if (FrameLog.crcOkFrames(entry.recordsBlob).isEmpty()) return Resolution.Skip
-        // prefer the live media hash; fall back to the hash + name stored at scan time so a cache
-        // orphan (the media file moved or was deleted) still exports, never a silent skip (finding 9)
+        // prefer the live media hash, but only when the live row is the SAME capture:
+        // a reused media id must not lend the new file's hash and name to the displaced
+        // capture's records (D29). Legacy identity-0 rows predate the field and match.
         val item = db.media().byId(entry.mediaId)
-        // hash by streaming the channel: exporting a video must not load it whole
-        val liveHash = item?.let { i -> access.withChannel(i.uri) { Digests.sha256Hex(it) } }
-        return when {
-            item != null && liveHash != null ->
-                Resolved(
+        if (item != null && (entry.identityTakenAt == 0L || entry.identityTakenAt == item.takenAtMillis)) {
+            // hash by streaming the channel: exporting a video must not load it whole
+            val liveHash = access.withChannel(item.uri) { Digests.sha256Hex(it) }
+            if (liveHash != null) {
+                return Resolved(
                     hash = liveHash,
                     name = item.displayName.ifEmpty { item.relativePath },
                     hasLiveMedia = true,
                     blob = entry.recordsBlob,
                     count = entry.recordCount,
                 )
-            // no live media and no hash stored at scan time (legacy row): cannot content-address it
+            }
+        }
+        // no live capture: fall back to the hash + name stored at scan time so a cache
+        // orphan (moved, deleted, or displaced by id reuse) still exports (finding 9)
+        return when {
+            // no hash stored at scan time either (legacy row): cannot content-address it
             entry.contentHash.isEmpty() -> Resolution.Fail
             else ->
                 Resolved(

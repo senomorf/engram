@@ -52,6 +52,7 @@ class ReconcilerTest {
         bytes: ByteArray,
         mime: String = "image/jpeg",
         isVideo: Boolean = false,
+        takenAt: Long = id,
     ) {
         val uri = "content://media/images/$id"
         files[uri] = bytes
@@ -62,7 +63,7 @@ class ReconcilerTest {
                 isVideo = isVideo,
                 mime = mime,
                 relativePath = "DCIM/Camera/",
-                takenAtMillis = id,
+                takenAtMillis = takenAt,
                 sizeBytes = bytes.size.toLong(),
                 dateModified = id,
             )
@@ -154,6 +155,30 @@ class ReconcilerTest {
 
             // the cache must keep the superset {A, B}, not shrink to {A}
             assertEquals(2, db.recordCache().byId(1)!!.recordCount, "partial strip must not shrink the cache")
+        }
+
+    @Test
+    fun idReuseAfterRemovalPreservesTheOrphan() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val old = EngramRecord(RecordKind.Note, 1, "first life".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(old), "first life"))
+            reconciler.reconcile()
+
+            // the photo disappears (media row deleted, cache deliberately kept)
+            snapshot.clear()
+            reconciler.reconcile()
+
+            // MediaStore hands the id to a brand new capture with its own records
+            val fresh = EngramRecord(RecordKind.Note, 2, "second life".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegWithFillBytes(), listOf(fresh), "second life"), takenAt = 555)
+            reconciler.reconcile()
+
+            val rows = db.recordCache().all().sortedBy { it.identityTakenAt }
+            assertEquals(2, rows.size, "the old capture's cache must survive the id reuse")
+            assertEquals(listOf(1L, 555L), rows.map { it.identityTakenAt })
         }
 
     @Test

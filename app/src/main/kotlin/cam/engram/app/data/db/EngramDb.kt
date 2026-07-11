@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DraftEntity::class,
         MemoryFts::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class EngramDb : RoomDatabase() {
@@ -62,10 +62,34 @@ abstract class EngramDb : RoomDatabase() {
                 }
             }
 
+        // record_cache is keyed by capture, not by device-local media id alone, so a
+        // reused MediaStore id can never overwrite another capture's cached memories (D29)
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(connection: SupportSQLiteDatabase) {
+                    connection.execSQL(
+                        "CREATE TABLE record_cache_new (" +
+                            "mediaId INTEGER NOT NULL, identityTakenAt INTEGER NOT NULL, " +
+                            "sizeBytesAtScan INTEGER NOT NULL, recordsBlob BLOB NOT NULL, " +
+                            "recordCount INTEGER NOT NULL, updatedMillis INTEGER NOT NULL, " +
+                            "originalName TEXT NOT NULL DEFAULT '', contentHash TEXT NOT NULL DEFAULT '', " +
+                            "PRIMARY KEY(mediaId, identityTakenAt))",
+                    )
+                    connection.execSQL(
+                        "INSERT INTO record_cache_new (mediaId, identityTakenAt, sizeBytesAtScan, " +
+                            "recordsBlob, recordCount, updatedMillis, originalName, contentHash) " +
+                            "SELECT mediaId, identityTakenAt, sizeBytesAtScan, recordsBlob, recordCount, " +
+                            "updatedMillis, originalName, contentHash FROM record_cache",
+                    )
+                    connection.execSQL("DROP TABLE record_cache")
+                    connection.execSQL("ALTER TABLE record_cache_new RENAME TO record_cache")
+                }
+            }
+
         fun build(context: Context): EngramDb =
             Room
                 .databaseBuilder(context, EngramDb::class.java, "engram.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
 
         fun inMemory(context: Context): EngramDb =

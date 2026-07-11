@@ -21,25 +21,25 @@ class StripRepair(
     private val scanner: RecordScanner,
 ) {
     suspend fun strippedItems(): List<MediaItemEntity> {
-        val cached = db.recordCache().all().associateBy { it.mediaId }
+        val cached = db.recordCache().all().groupBy { it.mediaId }
         if (cached.isEmpty()) return emptyList()
         return db
             .media()
             .all()
             .filter { item ->
-                val c = cached[item.mediaId]
+                val c = cached[item.mediaId]?.let { forCapture(it, item) }
                 // the cache holds more records than the file now carries (total or partial strip)
-                c != null && item.recordCount >= 0 && c.recordCount > item.recordCount && sameIdentity(c, item)
+                c != null && item.recordCount >= 0 && c.recordCount > item.recordCount
             }
     }
 
     suspend fun repair(item: MediaItemEntity): WriteOutcome {
+        // the capture-scoped key (D29) makes the identity guard structural: a reused
+        // media id addresses a different row, so a graft cannot be looked up at all
         val cache =
-            db.recordCache().byId(item.mediaId)
-                ?: return WriteOutcome.Failed("no cached records")
-        if (!sameIdentity(cache, item)) {
-            return WriteOutcome.Failed("cached records belong to a different photo, refusing to graft")
-        }
+            db.recordCache().byKey(item.mediaId, item.takenAtMillis)
+                ?: db.recordCache().byKey(item.mediaId, 0L)
+                ?: return WriteOutcome.Failed("no cached records for this capture")
         val cachedFrames = FrameLog.crcOkFrames(cache.recordsBlob)
         if (cachedFrames.isEmpty()) return WriteOutcome.Failed("cache is empty or corrupt")
         // append only the frames the live file no longer carries, byte-exact and in cache
@@ -64,10 +64,12 @@ class StripRepair(
         return writeBack.writeRecords(item, emptyList(), mirror, missing)
     }
 
-    // identityTakenAt of 0 predates the identity field (legacy cache row): treat
-    // as matching so pre-migration caches still repair rather than silently drop
-    private fun sameIdentity(
-        cache: RecordCacheEntity,
+    // exact capture first; identityTakenAt 0 predates the identity field (legacy
+    // cache row) and matches so pre-migration caches still repair
+    private fun forCapture(
+        rows: List<RecordCacheEntity>,
         item: MediaItemEntity,
-    ): Boolean = cache.identityTakenAt == 0L || cache.identityTakenAt == item.takenAtMillis
+    ): RecordCacheEntity? =
+        rows.firstOrNull { it.identityTakenAt == item.takenAtMillis }
+            ?: rows.firstOrNull { it.identityTakenAt == 0L }
 }
