@@ -244,7 +244,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   opaque frames included; the manifest (v3) inventories every file with its sha-256 so
   completeness is checkable. The JSON stays as the human-readable view. The app
   exports from the strip-recovery cache (superset semantics, D3); the cli exports
-  from the file. Identity hashing is sha-256, a pure-Kotlin streaming digest, so
+  from the file. Cache rows resolving to the same content hash merge superset-style
+  into one entry (same bytes = same import identity), so a duplicate copy can never
+  overwrite another memory's files, and itemCount counts distinct entries.
+  Identity hashing is sha-256, a pure-Kotlin streaming digest, so
   videos hash without being loaded whole; md5 remains only where the ExtendedXMP
   spec mandates it. Cache rows hashed before the switch refresh on their next scan.
   Entries are named by that hash plus the photo's MediaStore DISPLAY_NAME (captured

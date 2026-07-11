@@ -236,6 +236,56 @@ class ArchiveExporterTest {
             assertTrue(written.containsKey("abc123.json"), "the media-less entry is named by the stored hash")
         }
 
+    // finding E: identical media bytes are one archive identity (spec sec 11), so two
+    // library rows with the same content hash must merge their logs into one entry
+    // instead of the second row silently overwriting the first's files
+    @Test
+    fun sameHashRowsMergeIntoOneSupersetEntry() =
+        runBlocking {
+            val bytes = SyntheticMedia.jpegPlain()
+            val noteA = EngramRecord(RecordKind.Note, 1, "note a".encodeToByteArray(), ByteArray(16) { 1 })
+            val noteB = EngramRecord(RecordKind.Note, 2, "note b".encodeToByteArray(), ByteArray(16) { 2 })
+            seed(6, bytes, listOf(noteA))
+            seed(7, bytes, listOf(noteB))
+            val written = mutableMapOf<String, ByteArray>()
+            val writesPerName = mutableMapOf<String, Int>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    writesPerName[name] = (writesPerName[name] ?: 0) + 1
+                    true
+                }
+            assertEquals(1, result.itemCount, "identical bytes are one archive identity")
+            assertEquals(0, result.failedCount)
+            assertTrue(writesPerName.values.all { it == 1 }, "no entry file may be written twice: $writesPerName")
+            val log = written["${EngramArchive.contentHashName(bytes)}.records"]!!
+            val ids = RecordStream.decodeSequence(log).map { it.decoded.record!!.idHex }
+            assertEquals(2, ids.size, "both memories survive in one merged log")
+            assertEquals(setOf(noteA.idHex, noteB.idHex), ids.toSet())
+        }
+
+    @Test
+    fun sameHashIdenticalLogsExportOnce() =
+        runBlocking {
+            val bytes = SyntheticMedia.jpegPlain()
+            val note = EngramRecord(RecordKind.Note, 1, "same".encodeToByteArray(), ByteArray(16) { 3 })
+            seed(8, bytes, listOf(note))
+            seed(9, bytes, listOf(note))
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount)
+            assertEquals(0, result.failedCount)
+            kotlin.test.assertContentEquals(
+                note.encode(),
+                written["${EngramArchive.contentHashName(bytes)}.records"]!!,
+                "identical logs merge unchanged",
+            )
+        }
+
     @Test
     fun manifestWriteFailureFailsTheExport() =
         runBlocking {
