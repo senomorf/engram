@@ -103,4 +103,55 @@ class EngramDbMigrationTest {
             it.query("SELECT originalName, contentHash FROM record_cache").close()
         }
     }
+
+    @Test
+    fun migration4To5RekeysRecordCachePreservingRows() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val config =
+            SupportSQLiteOpenHelper.Configuration
+                .builder(context)
+                .name(null) // in-memory
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(1) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            // the v4 shape: single-column primary key
+                            db.execSQL(
+                                "CREATE TABLE record_cache (" +
+                                    "mediaId INTEGER PRIMARY KEY NOT NULL, " +
+                                    "identityTakenAt INTEGER NOT NULL DEFAULT 0, " +
+                                    "sizeBytesAtScan INTEGER NOT NULL DEFAULT 0, " +
+                                    "recordsBlob BLOB NOT NULL, " +
+                                    "recordCount INTEGER NOT NULL DEFAULT 0, " +
+                                    "updatedMillis INTEGER NOT NULL DEFAULT 0, " +
+                                    "originalName TEXT NOT NULL DEFAULT '', " +
+                                    "contentHash TEXT NOT NULL DEFAULT '')",
+                            )
+                        }
+
+                        override fun onUpgrade(
+                            db: SupportSQLiteDatabase,
+                            oldVersion: Int,
+                            newVersion: Int,
+                        ) = Unit
+                    },
+                ).build()
+        val db = FrameworkSQLiteOpenHelperFactory().create(config).writableDatabase
+        db.use {
+            it.execSQL(
+                "INSERT INTO record_cache (mediaId, identityTakenAt, recordsBlob, recordCount, contentHash) " +
+                    "VALUES (1, 100, x'01', 1, 'aa'), (2, 0, x'02', 2, '')",
+            )
+            EngramDb.MIGRATION_4_5.migrate(it)
+            it.query("SELECT mediaId, identityTakenAt, contentHash FROM record_cache ORDER BY mediaId").use { c ->
+                check(c.moveToFirst()) { "rows must survive the re-key" }
+                check(c.getLong(0) == 1L && c.getLong(1) == 100L && c.getString(2) == "aa")
+                check(c.moveToNext() && c.getLong(0) == 2L)
+            }
+            // the composite key now allows the same media id under a second capture
+            it.execSQL(
+                "INSERT INTO record_cache (mediaId, identityTakenAt, sizeBytesAtScan, recordsBlob, " +
+                    "recordCount, updatedMillis) VALUES (1, 999, 0, x'03', 1, 0)",
+            )
+        }
+    }
 }

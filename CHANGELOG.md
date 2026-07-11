@@ -26,6 +26,10 @@ change lands under Unreleased at merge time.
   oversized metadata) no longer demands a restore it cannot perform: the file is
   reported untouched, no backup lingers, and the item no longer wedges every later
   save behind "previous write unresolved" until an app restart with storage access.
+- Android reusing a photo's internal id for a new capture can no longer destroy the
+  old photo's cached memories or export them under the new photo's name: the
+  recovery cache is now keyed by capture, the displaced memories survive as their
+  own archive entry, and existing caches migrate in place.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a

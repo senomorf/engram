@@ -245,6 +245,45 @@ class ArchiveExporterTest {
         }
 
     @Test
+    fun staleIdentityRowExportsAsOrphanNotUnderLiveHash() =
+        runBlocking {
+            // the media id was reused: the live file is a different capture, so the old
+            // cache row must export under ITS stored hash and name, never the new file's
+            val liveBytes = SyntheticMedia.jpegPlain()
+            val uri = "content://media/21"
+            access.files[uri] = liveBytes
+            db.media().upsert(
+                listOf(
+                    MediaItemEntity(21, uri, false, "image/jpeg", "DCIM/Camera/", 999, 10, 21, 0, 0, 0),
+                ),
+            )
+            db.recordCache().upsert(
+                RecordCacheEntity(
+                    mediaId = 21,
+                    identityTakenAt = 100,
+                    sizeBytesAtScan = 10,
+                    recordsBlob = EngramRecord(RecordKind.Note, 1, "displaced".encodeToByteArray()).encode(),
+                    recordCount = 1,
+                    updatedMillis = 0,
+                    originalName = "before.jpg",
+                    contentHash = "aaaa1111",
+                ),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            val result =
+                exporter.exportTo { name, data ->
+                    written[name] = data
+                    true
+                }
+            assertEquals(1, result.itemCount)
+            assertTrue(written.containsKey("aaaa1111.json"), "the displaced capture keeps its own identity")
+            assertFalse(
+                written.containsKey("${EngramArchive.contentHashName(liveBytes)}.json"),
+                "the old blob must not be grafted onto the new capture's hash",
+            )
+        }
+
+    @Test
     fun cacheOrphanWithStoredHashExportsMediaLess() =
         runBlocking {
             // reconcile removed the media row but kept the cache (a moved/deleted media file); the

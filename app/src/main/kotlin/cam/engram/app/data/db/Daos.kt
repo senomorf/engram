@@ -1,6 +1,7 @@
 package cam.engram.app.data.db
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -69,11 +70,17 @@ interface RecordCacheDao {
     @Upsert
     suspend fun upsert(entry: RecordCacheEntity)
 
-    @Query("SELECT * FROM record_cache WHERE mediaId = :mediaId")
-    suspend fun byId(mediaId: Long): RecordCacheEntity?
+    @Query("SELECT * FROM record_cache WHERE mediaId = :mediaId AND identityTakenAt = :identityTakenAt")
+    suspend fun byKey(
+        mediaId: Long,
+        identityTakenAt: Long,
+    ): RecordCacheEntity?
 
     @Query("SELECT * FROM record_cache")
     suspend fun all(): List<RecordCacheEntity>
+
+    @Delete
+    suspend fun delete(entry: RecordCacheEntity)
 }
 
 @Dao

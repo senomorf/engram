@@ -270,6 +270,20 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   both directions, the archive marker must read engram, and duplicate or
   path-escaping names are refused (a name guard, not a filesystem probe, decides
   what the validator may read).
+- D29 Record cache keyed by capture. record_cache's primary key is (mediaId,
+  identityTakenAt), schema v5: MediaStore ids are device-local and reusable (a
+  MediaProvider rebuild can hand an old id to a new photo), so the id alone must
+  never address the one non-rebuildable store (D3). With the identity in the key,
+  the "who wins the slot" question disappears structurally: a reused id writes a
+  different row, and the displaced capture's cache survives as an orphan that
+  exports under its own stored hash and name (never the new file's, which closed
+  the graft half of the finding). Legacy pre-identity rows (identityTakenAt 0)
+  match any fresh scan for their mediaId and upgrade in place: the superset merge
+  writes the fully keyed row and drops the 0-key shell, so the table converges
+  without a data backfill. StripRepair's identity refusal became structural (a
+  mismatched capture simply finds no row). Chosen over orphan-eviction bookkeeping
+  (owner's call): the schema change is the honest model, not a patch around a
+  mis-keyed table.
 
 ## 5. Assumptions register
 

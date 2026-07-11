@@ -25,14 +25,17 @@ data class MediaItemEntity(
 )
 
 /**
- * Strip-recovery cache (design D3): last successfully parsed records per item.
+ * Strip-recovery cache (design D3): last successfully parsed records per capture.
  * The one table not rebuildable from files; exported with the Engram Archive.
- * identityTakenAt pins the cached records to a specific capture, so a reused
- * MediaStore id cannot graft one photo's memories onto another (review F6).
+ * identityTakenAt is part of the key (D29): a reused MediaStore id addresses a
+ * different capture and therefore a different row, so it can neither graft one
+ * photo's memories onto another (review F6) nor overwrite the previous capture's
+ * only cached copy. Legacy pre-identity rows carry identityTakenAt 0 and upgrade
+ * in place on their first scan.
  */
-@Entity(tableName = "record_cache")
+@Entity(tableName = "record_cache", primaryKeys = ["mediaId", "identityTakenAt"])
 data class RecordCacheEntity(
-    @PrimaryKey val mediaId: Long,
+    val mediaId: Long,
     val identityTakenAt: Long,
     val sizeBytesAtScan: Long,
     val recordsBlob: ByteArray,
