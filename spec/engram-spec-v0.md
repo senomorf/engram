@@ -180,6 +180,10 @@ blobs, plus a manifest inventory. All fields are append-only.
   "files":[{"name":...,"sha256":...},...]}`. The `files` array inventories every
   written file with its sha-256, so a validator can prove the archive complete.
   Version 2 inventoried with md5; version 1 (itemCount only) had no inventory.
+  A v3 validator must check the inventory in both directions (every listed file
+  present and matching, every file beside the manifest listed), require the
+  `archive` marker, and reject duplicate or path-escaping names; names never
+  contain separators or dot-dot segments.
 - `<contentHash>.records`: the authoritative record log: the item's CRC-valid
   frames concatenated byte-exact in log order, exactly the wire format of
   section 2. Opaque frames (unknown kinds, future wire versions) are carried

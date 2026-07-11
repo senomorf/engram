@@ -17,6 +17,11 @@ change lands under Unreleased at merge time.
   degrades the verdict, and a lost historical record (the sidecar now lists every
   planted record id) damages it. Legitimate appends after the sidecar still verify
   intact, and old sidecars keep working by record count alone.
+- archive validate now proves completeness in both directions: a manifest that
+  inventories nothing (or omits a file that exists) no longer vouches for a populated
+  archive, duplicate and path-escaping names are refused, item documents must
+  reference inventoried files, and the engram archive marker is required. Validating
+  a directory holding foreign files now fails by design.
 - Retrying a save after a badly failed one can no longer delete the only recoverable
   copy of the photo: a new save first settles the previous attempt (restoring the
   original from its backup when needed) and refuses to start if it cannot, and a
