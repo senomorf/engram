@@ -137,7 +137,12 @@ object RecordStream {
         return b.toByteArray()
     }
 
-    /** Strict: records must sit back to back starting at [from] and end within [until]. */
+    /**
+     * Strict: records must sit back to back starting at [from] and end within [until].
+     * After the first CRC-bad frame the claimed lengths are untrusted, so the rest of
+     * the region degrades to a byte-wise carve ([scan]): a corrupted length can never
+     * hide the intact frames behind it.
+     */
     fun decodeSequence(
         bytes: ByteArray,
         from: Int = 0,
@@ -148,6 +153,10 @@ object RecordStream {
         while (i < until) {
             val d = EngramRecord.decodeAt(bytes, i, until) ?: break
             hits += RecordHit(i, d)
+            if (!d.crcOk) {
+                hits += scan(bytes, i + 1, until)
+                break
+            }
             i += d.byteLength
         }
         return hits
@@ -157,19 +166,25 @@ object RecordStream {
     fun scan(
         bytes: ByteArray,
         from: Int = 0,
+        until: Int = bytes.size,
     ): List<RecordHit> {
         val hits = mutableListOf<RecordHit>()
         var i = from
-        while (i + EngramRecord.HEADER_LEN <= bytes.size) {
+        while (i + EngramRecord.HEADER_LEN <= until) {
             if (bytes.startsWith(EngramRecord.MAGIC, i)) {
-                val d = EngramRecord.decodeAt(bytes, i)
-                // trust a claimed frame span only when the crc holds or the frame is
-                // ours (current version); a crc-bad future-version candidate is likely
-                // foreign bytes, so step one byte and keep looking for real frames
-                if (d != null && (d.crcOk || d.version == EngramRecord.WIRE_VERSION)) {
+                val d = EngramRecord.decodeAt(bytes, i, until)
+                if (d != null && d.crcOk) {
                     hits += RecordHit(i, d)
                     i += d.byteLength
                     continue
+                }
+                // the crc covers the length field, so a crc-bad frame has no span
+                // authority regardless of version: surface ours as a damaged hit
+                // (classify/verify must see it), drop a foreign-version candidate as
+                // noise (D27), and resync byte-wise either way so an inflated length
+                // cannot swallow intact frames behind it
+                if (d != null && d.version == EngramRecord.WIRE_VERSION) {
+                    hits += RecordHit(i, d)
                 }
             }
             i++

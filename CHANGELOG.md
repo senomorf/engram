@@ -8,6 +8,10 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A corrupted record can no longer hide the intact records stored after it: a record
+  whose checksum fails has no say over how far it claims to extend, so the reader
+  resynchronizes and finds every intact record behind it (in reads, repair, verify,
+  and archive export alike).
 - Records written by a future Engram version now survive re-embeds and strip repair
   instead of disappearing: the reader surfaces them as opaque frames (like unknown
   kinds) rather than stopping at the first one, and the frame envelope is now frozen
