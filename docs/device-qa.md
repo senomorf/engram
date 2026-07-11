@@ -28,6 +28,10 @@ pass/fail per section.
 - [ ] Ingest: camera and screenshot media show up in the annotate queue.
 - [ ] Text note: add and save a note; it writes back into the file with MediaStore consent.
 - [ ] Voice note: hold-to-record an Opus clip, save, and play it back in the detail view.
+- [ ] Recorder lifecycle (finding R7): rotate the phone mid-recording, then navigate away
+      mid-recording; both times the mic indicator clears immediately and the captured
+      clip survives as the draft chip. An instant tap-release (no audio captured) leaves
+      no stray file and the next recording works.
 - [ ] GPS preserved (finding 1): with location granted, annotate a camera photo that has
       GPS, then confirm the saved file still carries its location (Google Photos map, or
       `exiftool -gps*`). Deny location and confirm the save warns before removing it.

@@ -89,7 +89,11 @@ class AnnotateViewModel(
     fun stopRecording() {
         if (!state.value.recording) return
         val ok = recorder.stop()
-        val path = File(draftsDir, "$mediaId.ogg").takeIf { ok && it.exists() && it.length() > 0 }?.absolutePath
+        val output = File(draftsDir, "$mediaId.ogg")
+        val path = output.takeIf { ok && it.exists() && it.length() > 0 }?.absolutePath
+        // a failed stop leaves an unplayable partial file; clean it up here where
+        // every recorder implementation is covered
+        if (path == null) output.delete()
         state.value = state.value.copy(recording = false, audioPath = path)
         viewModelScope.launch { persistDraft() }
     }

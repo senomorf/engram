@@ -234,4 +234,27 @@ class AnnotateSaveTest {
             assertIs<SaveUi.Saved>(vm.ui.value.save)
             assertEquals(null, db.drafts().byId(11))
         }
+
+    @Test
+    fun failedStopDeletesThePartialClip() =
+        runBlocking {
+            // MediaRecorder.stop can throw on an immediate stop; the recorder reports
+            // false and whatever partial file it left behind must not linger on disk
+            val partialWriter =
+                object : VoiceRecorder {
+                    override fun start(output: File) {
+                        output.parentFile?.mkdirs()
+                        output.writeBytes(ByteArray(3))
+                    }
+
+                    override fun stop(): Boolean = false
+                }
+            seed(12)
+            val vm = AnnotateViewModel(container(recorder = partialWriter), mediaId = 12, draftsDir = draftsDir)
+            settle()
+            vm.startRecording()
+            vm.stopRecording()
+            assertEquals(null, vm.ui.value.audioPath)
+            assertEquals(false, File(draftsDir, "12.ogg").exists(), "a failed stop must not leave a partial clip")
+        }
 }

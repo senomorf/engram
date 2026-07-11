@@ -96,6 +96,12 @@ private fun AnnotateCard(
                 },
         )
     val ui by vm.ui.collectAsState()
+    // the view model is activity scoped (hand-rolled nav has no per-screen owner), so
+    // onCleared never fires on a pop or rotation: stop any live recording here; the
+    // captured clip is kept and survives in the view model (guard makes this free when idle)
+    DisposableEffect(vm) {
+        onDispose { vm.stopRecording() }
+    }
     val store = remember { container.settings }
     val scope = rememberCoroutineScope()
     // recording language is decoupled from the UI language: an explicit choice,
@@ -350,8 +356,13 @@ private fun RecordButton(
                     detectTapGestures(
                         onPress = {
                             onStart()
-                            tryAwaitRelease()
-                            onStop()
+                            try {
+                                tryAwaitRelease()
+                            } finally {
+                                // composition disposal (navigation, rotation) cancels this
+                                // coroutine mid-await; the mic must never stay on
+                                onStop()
+                            }
                         },
                     )
                 }
