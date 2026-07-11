@@ -25,6 +25,7 @@ class ArchiveReaderTest {
         val m = ArchiveReader.parseManifest(json)
         assertEquals(3, m.manifestVersion)
         assertEquals(2, m.itemCount)
+        assertEquals("engram", m.archive)
         assertEquals(listOf("a.json", "a.records"), m.files.map { it.name })
         assertEquals(listOf("11aa", "22bb"), m.files.map { it.hash })
     }

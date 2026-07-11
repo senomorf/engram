@@ -257,6 +257,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   Entries are named by that hash plus the photo's MediaStore DISPLAY_NAME (captured
   at reconcile into media_items.displayName), and every export writes into a fresh
   directory, so a manifest is always authoritative for exactly the files beside it.
+  The validator holds it to that: for v3 the inventory must cover the directory in
+  both directions, the archive marker must read engram, and duplicate or
+  path-escaping names are refused (a name guard, not a filesystem probe, decides
+  what the validator may read).
 
 ## 5. Assumptions register
 

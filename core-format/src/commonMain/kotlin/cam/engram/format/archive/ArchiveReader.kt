@@ -11,6 +11,8 @@ object ArchiveReader {
         val manifestVersion: Int,
         val itemCount: Int,
         val files: List<EngramArchive.ManifestFile>,
+        // "engram" in every archive this project ever wrote; null when absent
+        val archive: String? = null,
     )
 
     class ItemView(
@@ -26,6 +28,7 @@ object ArchiveReader {
         return Manifest(
             manifestVersion = root.int("manifestVersion"),
             itemCount = root.int("itemCount"),
+            archive = root["archive"] as? String,
             files =
                 (root["files"] as? List<*>).orEmpty().map {
                     val o = it as? Map<*, *> ?: error("files entry is not an object")
