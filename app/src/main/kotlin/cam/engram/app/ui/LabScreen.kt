@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,14 +38,26 @@ import kotlinx.coroutines.launch
 @Composable
 fun LabScreen(onBack: () -> Unit) {
     val transcripts = remember { mutableStateListOf<String>() }
+    val container = currentAppContainer()
+    val store = remember { container.settings }
+    val scope = rememberCoroutineScope()
+    val prefs = store.settings.collectAsState(initial = null).value
     val uiTag = Dictation.recognizerLanguageTag(LocalConfiguration.current.locales[0].toLanguageTag())
-    // the lab is a debug diagnostics screen for exercising whichever recognizer exists and it
-    // already surfaces the on-device/network state, so it opts in to remote recognition
-    val speech = rememberSpeechInput(uiTag, remoteConsent = true, onRemoteConsentNeeded = {}) { transcripts.add(0, it) }
+    // the lab is a diagnostics surface, not a consent bypass: remote recognition needs the
+    // same persisted opt-in the annotate flow uses (D15, finding C)
+    val speech =
+        rememberDictation(
+            dictationTag = uiTag,
+            remoteConsent = prefs?.remoteDictationEnabled == true,
+            onEnableRemote = { scope.launch { store.setRemoteDictation(true) } },
+        ) { transcripts.add(0, it) }
     EngramScaffold(title = stringResource(R.string.lab_title), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), Arrangement.spacedBy(12.dp)) {
             Text(
-                text = stringResource(if (speech.available) R.string.lab_on_device_yes else R.string.lab_on_device_no),
+                text =
+                    stringResource(
+                        if (speech.onDeviceAvailable) R.string.lab_on_device_yes else R.string.lab_on_device_no,
+                    ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button(onClick = speech.start, enabled = speech.available, modifier = Modifier.fillMaxWidth()) {

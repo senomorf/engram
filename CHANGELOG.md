@@ -13,6 +13,11 @@ change lands under Unreleased at merge time.
   original from its backup when needed) and refuses to start if it cannot, and a
   retry after an interrupted cleanup no longer drops the records the earlier save
   had already embedded.
+- The transcription lab now honors the remote-dictation consent setting instead of
+  silently opting in: on a device without an on-device speech model it shows the same
+  disclosure as the note screen before any audio can reach a network recognizer, and
+  its status line no longer claims on-device recognition when only a network
+  recognizer exists.
 - Exporting two identical copies of the same photo no longer silently overwrites
   one memory set with the other in the recovery archive: rows with the same content
   hash merge into one entry carrying every record, and the export count now means

@@ -89,7 +89,9 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   chooses from a supported list, so any supported language dictates regardless of
   UI language; a missing on-device model is fetched via triggerModelDownload. On a device
   with no on-device model, dictation uses the network recognizer only after an explicit
-  one-time consent (finding 6).
+  one-time consent (finding 6). Every dictation surface routes through that gate, the
+  diagnostics Lab included: no screen may hardcode consent or present generic recognizer
+  availability as on-device processing.
   Audio is always recorded and stored regardless, so a weak transcript never costs
   the voice clip.
 - D16 Archive model: each person annotates their own media on their own phone.

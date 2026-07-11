@@ -247,32 +247,6 @@ private fun stripsLocation(
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_MEDIA_LOCATION) !=
         PackageManager.PERMISSION_GRANTED
 
-// manages the one-time remote-dictation disclosure so the note screen stays lean: dictation
-// asks before it ever uses the network recognizer, and enabling it persists the consent
-@Composable
-private fun rememberDictation(
-    dictationTag: String,
-    remoteConsent: Boolean,
-    onEnableRemote: () -> Unit,
-    onResult: (String) -> Unit,
-): SpeechInput {
-    var showConsent by remember { mutableStateOf(false) }
-    val speech = rememberSpeechInput(dictationTag, remoteConsent, { showConsent = true }, onResult)
-    if (showConsent) {
-        ConfirmDialog(
-            titleRes = R.string.dictation_remote_consent_title,
-            bodyRes = R.string.dictation_remote_consent_body,
-            confirmRes = R.string.dictation_remote_consent_enable,
-            onConfirm = {
-                onEnableRemote()
-                showConsent = false
-            },
-            onDismiss = { showConsent = false },
-        )
-    }
-    return speech
-}
-
 @Composable
 private fun NoteField(
     value: String,

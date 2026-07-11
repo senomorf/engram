@@ -22,7 +22,7 @@
     <string name="open_lab">Transcription lab</string>
     <string name="lab_title">Speech to text lab</string>
     <string name="lab_on_device_yes">On-device recognition: available</string>
-    <string name="lab_on_device_no">On-device recognition: NOT available, network recognizer in use</string>
+    <string name="lab_on_device_no">On-device recognition: NOT available</string>
     <string name="lab_speak">Speak</string>
     <string name="annotate_save">Save into the photo</string>
     <string name="annotate_saving">Saving…</string>
