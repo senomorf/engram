@@ -19,6 +19,9 @@ class ScanOutcome(
     // sha-256 content hash of the media for cache-orphan export (finding 9); videos are
     // hashed by streaming the channel, never by loading them whole
     val contentHash: String,
+    // idHexes of the CRC-valid frames in this scan, so write-back can verify the exact
+    // expected records landed without a second read (finding B)
+    val presentIds: Set<String>,
 )
 
 /** Reads a media file and reports the engram records it carries. */
@@ -99,7 +102,7 @@ class RecordScanner(
         frames: List<ByteArray>,
         contentHash: String,
     ): ScanOutcome {
-        if (frames.isEmpty()) return ScanOutcome(0, 0, null, "", contentHash)
+        if (frames.isEmpty()) return ScanOutcome(0, 0, null, "", contentHash, emptySet())
         val blob = ByteArrayBuilder()
         var payload = 0L
         frames.forEach {
@@ -107,6 +110,7 @@ class RecordScanner(
             payload += it.size
         }
         val text = Memory.fromRecords(frames.mapNotNull { EngramRecord.decodeAt(it, 0)?.record }).searchableText()
-        return ScanOutcome(frames.size, payload, blob.toByteArray(), text, contentHash)
+        val ids = frames.map { it.copyOfRange(8, 24).toHex() }.toSet()
+        return ScanOutcome(frames.size, payload, blob.toByteArray(), text, contentHash, ids)
     }
 }

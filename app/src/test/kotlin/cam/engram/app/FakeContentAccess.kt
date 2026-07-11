@@ -23,6 +23,10 @@ class FakeContentAccess : ContentAccess {
     // copyToFile writes only a prefix then fails: models a partial backup (finding 2, mechanism 1)
     var partialCopyToFile = false
 
+    // writeBytes reports Ok without changing the target: models a provider that lies about
+    // the write landing, which only id-based verification can catch (finding B)
+    var ignoreWrites = false
+
     // counts backup copies so a test can prove a retry reused the committed backup
     var copyToFileCount = 0
 
@@ -51,6 +55,7 @@ class FakeContentAccess : ContentAccess {
             files[uri] = ByteArray(3) { 0x11 } // "wt" already truncated the target
             return WriteResult.OpenedUncertain
         }
+        if (ignoreWrites) return WriteResult.Ok
         files[uri] = if (corruptWrites) ByteArray(4) { 0x11 } else bytes
         return WriteResult.Ok
     }
