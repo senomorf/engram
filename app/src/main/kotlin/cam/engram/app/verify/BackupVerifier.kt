@@ -59,11 +59,24 @@ class BackupVerifier(
     private fun report(x: Extraction?): VerifyReport {
         val all = x?.records.orEmpty()
         val valid = all.count { it.crcOk }
-        // a damaged carrier lost frames beyond the CRC-bad ones: exact for png
-        // (undecodable chunks), at least one for an undecodable engram-box tail
+        // carrier damage beyond the CRC-bad records already counted below. For png that is
+        // the egRm chunks that vanished entirely; if none vanished but the carrier is still
+        // damaged (a bad outer chunk crc, e.g. a corrupt image), surface one, unless a decoded
+        // record already reads corrupt (that same chunk's damage is counted below, not twice).
         val carrierLost =
             if (x != null && x.integrity is CarrierIntegrity.CarrierDamaged) {
-                if (x.container == ContainerType.PNG) (x.pngEngramChunks - all.size).coerceAtLeast(1) else 1
+                if (x.container == ContainerType.PNG) {
+                    val lostChunks = (x.pngEngramChunks - all.size).coerceAtLeast(0)
+                    if (lostChunks > 0) {
+                        lostChunks
+                    } else if (all.size == valid) {
+                        1
+                    } else {
+                        0
+                    }
+                } else {
+                    1
+                }
             } else {
                 0
             }
