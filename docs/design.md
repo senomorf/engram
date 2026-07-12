@@ -330,6 +330,21 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   (which would silently disable the flagship nudge for installs that never opened
   Settings) and over a settings-only request (which never fixes a fresh install
   that does not visit Settings).
+- D31 Media access is full, partial, or denied (finding H5). Engram ingests the whole
+  camera library (reconcile scans everything, background workers keep it current), so a
+  partial grant is fundamentally at odds with the model. The manifest declares
+  READ_MEDIA_VISUAL_USER_SELECTED, which on Android 14+ opts out of the transient
+  compatibility-mode grant and makes a "Select photos" choice a first-class, detectable
+  PARTIAL state (MediaPermissions.state: FULL when READ_MEDIA_IMAGES+VIDEO are granted,
+  PARTIAL when only the selected-subset is, else DENIED). Two consequences follow. Data
+  safety: the reconcile prune runs only under FULL access (Reconciler.hasFullMediaAccess),
+  so a lapsed or partial grant returns a subset (or empty) snapshot that can never be
+  mistaken for deletions and wipe the index; a background worker on a lapsed grant is a
+  no-op prune, not a purge. UX: the queue re-checks access on resume (a partial grant lapses
+  after backgrounding) and steers PARTIAL toward "Allow all" rather than proceeding on an
+  ephemeral subset. Chosen over a full partial-access model with a photo-picker reselection
+  flow (owner's call): reselection fits an app that shows a chosen set, not one that ingests
+  the whole library.
 
 ## 5. Assumptions register
 

@@ -22,6 +22,12 @@ pass/fail per section.
 - [ ] Media (photos/videos), notifications, microphone (voice), and location (preserves a
       photo's GPS on annotation, and enrichment) prompts appear when first needed.
 - [ ] Denying each is handled gracefully (feature degrades, no crash); granting later works.
+- [ ] Partial media access (Android 14+, finding H5): choose "Select photos" at the media
+      prompt; the queue shows the "Allow all photos" steer instead of proceeding, and picking
+      "Allow all" then lets it in. Background the app until the partial grant lapses and return:
+      the queue re-checks and re-steers, and no seen media is dropped (the index is not pruned
+      without full access). Confirm a background reconcile on a partial/denied grant never
+      empties the library.
 
 ## Core flows
 

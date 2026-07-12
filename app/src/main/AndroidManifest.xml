@@ -4,6 +4,10 @@
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Android 14+ selected-photos access: declaring it opts out of the transient
+         compatibility-mode grant, so a partial "Select photos" choice is a first-class,
+         detectable state instead of a grant that silently lapses after backgrounding (H5) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <!-- read original (unredacted) photo bytes so annotating never strips GPS (finding 1) -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

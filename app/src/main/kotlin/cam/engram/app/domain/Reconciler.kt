@@ -34,6 +34,9 @@ class Reconciler(
     // background enrichment prefetch (review F5): returns the encoded enrichment
     // record for an item, or null. Network work, off the user save path.
     private val enrichmentPrefetch: suspend (MediaItemEntity) -> ByteArray? = { null },
+    // media access gate (finding H5): the whole-library prune runs only with durable full
+    // access, so a lapsed or partial grant (a subset, or empty, snapshot) never wipes the index
+    private val hasFullMediaAccess: suspend () -> Boolean = { true },
     private val clock: () -> Long,
 ) {
     suspend fun reconcile(): ReconcileStats =
@@ -72,7 +75,9 @@ class Reconciler(
                     }
                 }
             }
-            val removedIds = existing.keys - seen
+            // prune only with durable full access: a partial or lost grant returns a subset
+            // (or empty) snapshot that must not be mistaken for deletions and wipe the index (H5)
+            val removedIds = if (hasFullMediaAccess()) existing.keys - seen else emptySet()
             if (upserts.isNotEmpty()) db.media().upsert(upserts)
             if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
             // a reused id's old enrichment and draft are keyed by media id alone, so drop them

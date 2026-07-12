@@ -10,6 +10,8 @@
     <string name="queue_empty">Nothing is waiting. Go take a photo worth remembering.</string>
     <string name="queue_permission_rationale">Engram needs access to your photos and videos to find the ones waiting for a memory. Everything stays on this device.</string>
     <string name="grant_access">Allow access</string>
+    <string name="queue_partial_media_rationale">Engram works across your whole library to find photos waiting for a memory, so it needs access to all photos, not just a selected few. Everything stays on this device.</string>
+    <string name="queue_allow_all">Allow all photos</string>
     <string name="annotate_progress">%1$d of %2$d</string>
     <string name="annotate_skip">Skip</string>
     <string name="annotate_note_hint">What made this moment matter?</string>

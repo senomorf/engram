@@ -8,6 +8,14 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A lapsed or partial photo permission can no longer make a background sync wipe the app's
+  record of what it has seen: the library is only pruned while full "all photos" access is
+  held, so an Android 14 "Select photos" grant that expires after the app is backgrounded no
+  longer looks like every photo was deleted.
+- On Android 14 and later, choosing "Select photos" is now recognized as partial access: the
+  queue asks for full "Allow all" access (Engram works across your whole library to find
+  photos waiting for a memory) instead of proceeding on an ephemeral subset, and it re-checks
+  the grant when you return to the app.
 - When Android reassigns a photo's internal id to a different picture without the app ever
   seeing the old one removed, the app no longer scans the new photo under the old one's
   identity: it now re-derives the identity so the old memories stay as their own entry, the

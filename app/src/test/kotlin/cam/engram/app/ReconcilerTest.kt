@@ -227,6 +227,31 @@ class ReconcilerTest {
             assertEquals(listOf(1L, 555L), rows.map { it.identityTakenAt })
         }
 
+    // finding H5: a partial or lost media grant returns a subset (here empty) snapshot, which
+    // must not be read as "everything was deleted"; the prune runs only with full access
+    @Test
+    fun reconcileWithoutFullAccessDoesNotPruneTheIndex() =
+        runBlocking {
+            addPhoto(1, SyntheticMedia.jpegPlain())
+            reconciler.reconcile()
+            assertEquals(1, db.media().all().size)
+
+            snapshot.clear()
+            val guarded =
+                Reconciler(
+                    db = db,
+                    source = source,
+                    scanner = RecordScanner(access),
+                    includeScreenshots = { true },
+                    io = Dispatchers.Unconfined,
+                    hasFullMediaAccess = { false },
+                    clock = { 1000L },
+                )
+            val stats = guarded.reconcile()
+            assertEquals(0, stats.removed, "no prune without full access")
+            assertEquals(1, db.media().all().size, "the index survives a partial or lost grant")
+        }
+
     // finding H1: a media id reused in place (no reconcile ever seeing it absent) must not
     // scan the new capture under the old one's identity and graft the old private records
     @Test

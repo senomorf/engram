@@ -9,6 +9,8 @@
     <string name="queue_empty">Очередь пуста. Самое время снять что-то стоящее.</string>
     <string name="queue_permission_rationale">Engram нужен доступ к фото и видео, чтобы найти те, что ждут воспоминания. Всё остаётся на этом устройстве.</string>
     <string name="grant_access">Разрешить доступ</string>
+    <string name="queue_partial_media_rationale">Engram работает со всей вашей медиатекой, чтобы находить фото, ждущие воспоминания, поэтому нужен доступ ко всем фото, а не к нескольким выбранным. Всё остаётся на этом устройстве.</string>
+    <string name="queue_allow_all">Разрешить все фото</string>
     <string name="annotate_progress">%1$d из %2$d</string>
     <string name="annotate_skip">Пропустить</string>
     <string name="annotate_note_hint">Чем дорог этот момент?</string>
