@@ -25,6 +25,7 @@ rationale. Docs map and update rules: docs/README.md.
 
 - Tag-driven signed APK (D24). To cut a release: promote CHANGELOG `[Unreleased]` to `## [X.Y.Z] - <date>`, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` builds, signs, and publishes the APK + SHA-256 + SLSA provenance to GitHub Releases. Trial first with `vX.Y.Z-rc1` (hyphen = prerelease).
 - versionName/Code come from the tag (versionCode = major*1000000+minor*1000+patch); never hand-bump the literals in app/build.gradle.kts. Signing secrets (owner-provisioned, never committed): `ENGRAM_KEYSTORE_BASE64`, `ENGRAM_KEYSTORE_PASSWORD`, `ENGRAM_KEY_ALIAS`, `ENGRAM_KEY_PASSWORD`. Local signed build: copy `keystore.properties.example` to `keystore.properties` (git-ignored).
+- The pushed tag is attacker-influenced: `scripts/derive-version.sh` validates it (strict semver, fail closed, unit-tested in `scripts/derive-version.test.sh`) and the workflow passes the version through quoted env, never interpolated into a `run:` shell (release-tag injection). Keep it that way; the `release` job runs in the `release` environment (configure required reviewers there for an approval gate on the signing secrets).
 - Release gate (Track A v1 exit criteria, docs/plan.md): do not promote a non-rc tag until the survivability-matrix rows 1 to 11 and the landmine verdicts are recorded in lab/survivability-matrix.md and the docs/device-qa.md pass is done. rc tags (hyphen suffix) are exempt so the pipeline can still be trialed.
 
 ## Environment gotchas
