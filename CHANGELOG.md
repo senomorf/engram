@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- When Android reassigns a photo's internal id to a different picture without the app ever
+  seeing the old one removed, the app no longer scans the new photo under the old one's
+  identity: it now re-derives the identity so the old memories stay as their own entry, the
+  new photo is indexed on its own, and the previous photo's cached location and any unsaved
+  draft are dropped instead of carrying onto the unrelated new photo.
 - A save interrupted by the app being killed can now be finished: if restoring the original
   photo needs the storage permission again (Android does not keep the grant across an app
   restart), the app asks for it, on the next launch and from a card in the queue, instead of

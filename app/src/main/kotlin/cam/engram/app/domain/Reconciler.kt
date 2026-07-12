@@ -43,25 +43,44 @@ class Reconciler(
             val seen = snapshot.map { it.mediaId }.toSet()
 
             val upserts = mutableListOf<MediaItemEntity>()
+            val identityChanged = mutableListOf<Long>()
             var added = 0
             for (item in snapshot) {
                 val known = existing[item.mediaId]
-                if (known == null) {
-                    added++
-                    upserts += item.toEntity()
-                } else if (known.sizeBytes != item.sizeBytes || known.dateModified != item.dateModified) {
-                    // file changed on disk (size or mtime): rescan (review F11)
-                    upserts +=
-                        known.copy(
-                            sizeBytes = item.sizeBytes,
-                            dateModified = item.dateModified,
-                            recordCount = -1,
-                        )
+                when {
+                    known == null -> {
+                        added++
+                        upserts += item.toEntity()
+                    }
+                    // the media id now points at a different capture (a reused id): replace the
+                    // whole row so identity, uri, mime and name track the new photo. The old
+                    // record-cache row survives as an orphan under its own identity (composite
+                    // key); the id-keyed enrichment and draft are evicted below so the new capture
+                    // cannot inherit the previous one's private content (finding H1)
+                    item.takenAtMillis != known.takenAtMillis -> {
+                        upserts += item.toEntity()
+                        identityChanged += item.mediaId
+                    }
+                    known.sizeBytes != item.sizeBytes || known.dateModified != item.dateModified -> {
+                        // file changed on disk (size or mtime): rescan (review F11)
+                        upserts +=
+                            known.copy(
+                                sizeBytes = item.sizeBytes,
+                                dateModified = item.dateModified,
+                                recordCount = -1,
+                            )
+                    }
                 }
             }
             val removedIds = existing.keys - seen
             if (upserts.isNotEmpty()) db.media().upsert(upserts)
             if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
+            // a reused id's old enrichment and draft are keyed by media id alone, so drop them
+            // (the record cache is preserved as an orphan by its composite key) (finding H1)
+            identityChanged.forEach {
+                db.enrichmentCache().delete(it)
+                db.drafts().delete(it)
+            }
 
             // pre-hash cache rows (migrated with an empty contentHash) backfill through
             // the standard rescan below; a no-op pass once every hash has landed

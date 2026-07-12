@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -224,6 +225,53 @@ class ReconcilerTest {
             val rows = db.recordCache().all().sortedBy { it.identityTakenAt }
             assertEquals(2, rows.size, "the old capture's cache must survive the id reuse")
             assertEquals(listOf(1L, 555L), rows.map { it.identityTakenAt })
+        }
+
+    // finding H1: a media id reused in place (no reconcile ever seeing it absent) must not
+    // scan the new capture under the old one's identity and graft the old private records
+    @Test
+    fun directIdReuseReDerivesIdentityAndOrphansOldCacheAndEvictsIdKeyedState() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            // photo A: id 1, taken at 100, with its own private record
+            val a = EngramRecord(RecordKind.Note, 1, "photo A private".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(a), "photo A"), takenAt = 100)
+            reconciler.reconcile()
+            // A's id-keyed enrichment and draft
+            db.enrichmentCache().upsert(
+                cam.engram.app.data.db
+                    .EnrichmentCacheEntity(1, "A".encodeToByteArray(), 0),
+            )
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "A's unsaved note", null, 0),
+            )
+
+            // the same id now points at photo B, a different capture (different takenAt), and
+            // no reconcile ever observed id 1 absent (direct in-place reuse)
+            val b = EngramRecord(RecordKind.Note, 2, "photo B private".encodeToByteArray())
+            val bBytes = embedder.embed(SyntheticMedia.jpegWithFillBytes(), listOf(b), "photo B")
+            files["content://media/images/1"] = bBytes
+            snapshot[0] = snapshot[0].copy(takenAtMillis = 200, sizeBytes = bBytes.size.toLong(), dateModified = 2)
+            reconciler.reconcile()
+
+            // the media row now tracks B's capture identity, not A's retained one
+            assertEquals(200, db.media().byId(1)!!.takenAtMillis)
+            // A's cache survives as an orphan at its own identity; B is cached under its own
+            assertEquals(
+                listOf(100L, 200L),
+                db
+                    .recordCache()
+                    .all()
+                    .map { it.identityTakenAt }
+                    .sorted(),
+                "A's cache must be orphaned, B cached separately, not merged under A's identity",
+            )
+            // A's id-keyed enrichment and draft must not carry onto B
+            assertNull(db.enrichmentCache().byId(1), "A's enrichment must not apply to B")
+            assertNull(db.drafts().byId(1), "A's draft must not apply to B")
         }
 
     @Test
