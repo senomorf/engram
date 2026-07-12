@@ -20,6 +20,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # owner-configured approval gate for the signing secrets (design D24). GitHub creates the
+    # environment on first run; set required reviewers in repo Settings > Environments > release.
+    environment: release
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
@@ -30,19 +33,9 @@ jobs:
 
       - name: Derive version from tag
         id: ver
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          VER="${TAG#v}"
-          CORE="${VER%%-*}" # drop any -rc1 suffix for the numeric code
-          IFS=. read -r MAJ MIN PAT <<< "$CORE"
-          CODE=$(( 10#$MAJ * 1000000 + 10#$MIN * 1000 + 10#$PAT )) # 10# forces base-10 (avoid octal on 0-padded parts)
-          {
-            echo "name=$VER"
-            echo "core=$CORE"
-            echo "code=$CODE"
-          } >> "$GITHUB_OUTPUT"
-          if [[ "$TAG" == *-* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
-          echo "version=$VER code=$CODE tag=$TAG"
+        # validate the tag and derive the version in a script that fails closed on a tag
+        # carrying shell metacharacters (release-tag injection); the outputs below are data
+        run: bash scripts/derive-version.sh "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Decode signing keystore
         env:
@@ -55,10 +48,13 @@ jobs:
           ENGRAM_KEYSTORE_PASSWORD: ${{ secrets.ENGRAM_KEYSTORE_PASSWORD }}
           ENGRAM_KEY_ALIAS: ${{ secrets.ENGRAM_KEY_ALIAS }}
           ENGRAM_KEY_PASSWORD: ${{ secrets.ENGRAM_KEY_PASSWORD }}
+          # version reaches gradle as quoted env, never expanded into the run: line
+          VERSION_NAME: ${{ steps.ver.outputs.name }}
+          VERSION_CODE: ${{ steps.ver.outputs.code }}
         run: >
           ./gradlew :app:assembleRelease
-          -PengramVersionName=${{ steps.ver.outputs.name }}
-          -PengramVersionCode=${{ steps.ver.outputs.code }}
+          -PengramVersionName="$VERSION_NAME"
+          -PengramVersionCode="$VERSION_CODE"
           --console=plain
 
       - name: Stage, verify signature, checksum
@@ -106,10 +102,12 @@ jobs:
 
       - name: Extract release notes from CHANGELOG
         id: notes
+        env:
+          VERSION_CORE: ${{ steps.ver.outputs.core }}
         run: |
           # the CHANGELOG heading is always the base X.Y.Z (promoted before an rc trial,
           # AGENTS Releasing), so rc tags must look up the core version, not the full name
-          VER="${{ steps.ver.outputs.core }}"
+          VER="$VERSION_CORE"
           awk -v v="$VER" '
             $0 ~ "^## \\[" v "\\]" { f = 1; next }
             f && /^## \[/ { exit }
@@ -120,13 +118,17 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          # all three flow in as quoted env, not expanded into the run: block below
+          VERSION_NAME: ${{ steps.ver.outputs.name }}
+          PRERELEASE: ${{ steps.ver.outputs.prerelease }}
+          HAVE_NOTES: ${{ steps.notes.outputs.have_notes }}
         run: |
           ARGS=()
-          [ "${{ steps.ver.outputs.prerelease }}" = "true" ] && ARGS+=(--prerelease)
-          if [ "${{ steps.notes.outputs.have_notes }}" = "true" ]; then
+          [ "$PRERELEASE" = "true" ] && ARGS+=(--prerelease)
+          if [ "$HAVE_NOTES" = "true" ]; then
             ARGS+=(--notes-file notes.md)
           else
             ARGS+=(--generate-notes)
           fi
           gh release create "${GITHUB_REF_NAME}" engram.apk engram.apk.sha256 \
-            --title "Engram ${{ steps.ver.outputs.name }}" "${ARGS[@]}"
+            --title "Engram $VERSION_NAME" "${ARGS[@]}"

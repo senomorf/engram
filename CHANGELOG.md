@@ -102,6 +102,12 @@ change lands under Unreleased at merge time.
   mentioning @claude or opening a pull request no longer spends the repository's
   credentials), and their actions are pinned by commit SHA like every other
   workflow.
+- The signed-release workflow no longer trusts the pushed tag name: it is validated
+  against a strict version format (any tag carrying shell metacharacters is rejected
+  before the signing key is ever decoded) and the version flows into the build and
+  publish steps as quoted environment variables instead of being expanded into the
+  shell command, closing a path where a crafted tag could have run code with the
+  signing secrets in scope.
 
 ### Added
 
