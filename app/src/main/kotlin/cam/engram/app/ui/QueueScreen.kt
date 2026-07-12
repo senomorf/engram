@@ -85,8 +85,34 @@ fun QueueScreen(
                 ?.let { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }
         }
     }
+    val pendingRecovery by vm.pendingRecovery.collectAsState()
+    val recoveryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) vm.recoveryConsentHandled()
+        }
     EngramScaffold(title = stringResource(R.string.queue_title, items.size), onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            if (pendingRecovery.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.queue_recovery_banner, pendingRecovery.size),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(
+                            onClick = {
+                                container
+                                    .consentGate
+                                    .consentNeeded(pendingRecovery)
+                                    ?.let { recoveryLauncher.launch(IntentSenderRequest.Builder(it).build()) }
+                            },
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.queue_recovery_restore))
+                        }
+                    }
+                }
+            }
             if (stripped.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     Column(Modifier.padding(12.dp)) {

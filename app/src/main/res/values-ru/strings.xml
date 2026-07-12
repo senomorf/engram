@@ -28,6 +28,8 @@
     <string name="annotate_error">Не удалось сохранить: %1$s</string>
     <string name="queue_stripped_banner">Фото без встроенных воспоминаний: %1$d. Кэшированные копии можно записать обратно.</string>
     <string name="queue_restore">Восстановить воспоминания</string>
+    <string name="queue_recovery_banner">Сохранение прервано, фото ещё восстанавливается: %1$d. Дайте разрешение, чтобы завершить.</string>
+    <string name="queue_recovery_restore">Разрешить и завершить восстановление</string>
     <string name="lab_spike_title">Спайк обратной записи</string>
     <string name="lab_spike_run">Аннотировать новейшее фото тестовой заметкой</string>
     <string name="lab_spike_hint">Затем проверьте: Ultra HDR отображается, Motion воспроизводится, поведение синхронизации Google Photos (план, трек A3).</string>

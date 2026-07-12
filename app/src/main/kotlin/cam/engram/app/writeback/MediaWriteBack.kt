@@ -69,10 +69,17 @@ class MediaWriteBack(
                 // target may be damaged and this .bak its only pristine copy. Settle it first
                 // (recover or restore), before this attempt's sidecar clobbers the old journal;
                 // refuse to write over unresolved state (finding A)
-                if (backup.exists() && !journal.resolve(backup)) {
-                    return@withLock WriteOutcome.Failed(
-                        "previous write unresolved; original preserved in backup, will restore on restart",
-                    )
+                if (backup.exists()) {
+                    when (journal.resolve(backup)) {
+                        is WriteJournal.Resolution.Settled -> Unit
+                        // the pending restore needs the user's write grant: surface it as
+                        // NotOpened so the UI requests consent, the same path a fresh save takes
+                        is WriteJournal.Resolution.NeedsConsent -> return@withLock WriteOutcome.NotOpened
+                        is WriteJournal.Resolution.Unresolved ->
+                            return@withLock WriteOutcome.Failed(
+                                "previous write unresolved; original preserved in backup, will restore on restart",
+                            )
+                    }
                 }
                 val expectedIds = expectedIdHexes(records, carryFrames)
                 journal.writeSidecar(item, expectedIds)
@@ -117,7 +124,7 @@ class MediaWriteBack(
         backup: File,
         reason: String,
     ): WriteOutcome =
-        if (journal.restore(item.uri, backup)) {
+        if (journal.restore(item.uri, backup) == WriteResult.Ok) {
             journal.cleanup(item.mediaId)
             WriteOutcome.Failed(reason)
         } else {
@@ -278,12 +285,16 @@ class MediaWriteBack(
      * diverged from the backup at all ([WriteJournal.resolve]). A parseable
      * container that lost its records is treated as an interrupted write and
      * rolled back, so the only pristine copy is never dropped on a crash
-     * mid-write (finding A, review F3).
+     * mid-write (finding A, review F3). Returns the target URIs whose restore
+     * could not open the file and needs the user's write consent (finding C2);
+     * calling this again after consent is granted completes the restore.
      */
-    suspend fun recoverPending() =
+    suspend fun recoverPending(): List<String> =
         withContext(io) {
             mutex.withLock {
-                journal.pendingBackups().forEach { journal.resolve(it) }
+                journal.pendingBackups().mapNotNull { backup ->
+                    (journal.resolve(backup) as? WriteJournal.Resolution.NeedsConsent)?.uri
+                }
             }
         }
 }

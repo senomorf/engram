@@ -29,13 +29,27 @@ class QueueViewModel(
     private val repairState = MutableStateFlow<String?>(null)
     val repairNeedsConsent: StateFlow<String?> = repairState
 
+    // target uris of writes a lost grant left mid-restore after process death (finding C2):
+    // the pristine backup is safe, but the live file is still damaged until the user re-grants
+    private val pendingRecoveryState = MutableStateFlow<List<String>>(emptyList())
+    val pendingRecovery: StateFlow<List<String>> = pendingRecoveryState
+
     fun refresh() {
         if (reconciling.value) return
         reconciling.value = true
         viewModelScope.launch {
             runCatching { container.reconciler.reconcile() }
             strippedState.value = runCatching { container.stripRepair.strippedItems() }.getOrDefault(emptyList())
+            pendingRecoveryState.value = runCatching { container.writeBack.recoverPending() }.getOrDefault(emptyList())
             reconciling.value = false
+        }
+    }
+
+    // after the user grants the write consent, retrying recovery restores the originals and
+    // clears the ones that settled; any still needing consent stay surfaced
+    fun recoveryConsentHandled() {
+        viewModelScope.launch {
+            pendingRecoveryState.value = runCatching { container.writeBack.recoverPending() }.getOrDefault(emptyList())
         }
     }
 

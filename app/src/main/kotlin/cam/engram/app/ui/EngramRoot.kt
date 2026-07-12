@@ -5,12 +5,17 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
@@ -92,6 +97,36 @@ private fun needsNotificationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
         PackageManager.PERMISSION_GRANTED
 
+/**
+ * Startup safety net for a write stranded by process death (finding C2). recoverPending
+ * settles what it can without a grant and returns the target uris whose restore needs the
+ * user's write consent; this prompts once on launch. The Queue keeps a persistent affordance
+ * as the fallback if this prompt is dismissed. Renders nothing; runs effects only.
+ */
+@Composable
+private fun RecoveryConsentPrompt() {
+    val container = currentAppContainer()
+    val scope = rememberCoroutineScope()
+    var pending by remember { mutableStateOf<List<String>>(emptyList()) }
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+            // re-check after the consent result: a granted restore clears the item, a cancel
+            // leaves it (unchanged list, no re-prompt loop) for the Queue affordance to retry
+            scope.launch { pending = runCatching { container.writeBack.recoverPending() }.getOrDefault(emptyList()) }
+        }
+    LaunchedEffect(Unit) {
+        pending = runCatching { container.writeBack.recoverPending() }.getOrDefault(emptyList())
+    }
+    LaunchedEffect(pending) {
+        if (pending.isNotEmpty()) {
+            container
+                .consentGate
+                .consentNeeded(pending)
+                ?.let { launcher.launch(IntentSenderRequest.Builder(it).build()) }
+        }
+    }
+}
+
 @Composable
 private fun MainNavigation(startInQueue: Boolean) {
     val stack =
@@ -102,6 +137,7 @@ private fun MainNavigation(startInQueue: Boolean) {
         }
     val navigator = remember { Navigator(stack) }
     BackHandler(enabled = stack.size > 1) { navigator.pop() }
+    RecoveryConsentPrompt()
     when (val screen = stack.last()) {
         is Screen.Home ->
             HomeScreen(

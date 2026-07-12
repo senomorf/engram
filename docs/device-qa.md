@@ -35,6 +35,11 @@ pass/fail per section.
 - [ ] GPS preserved (finding 1): with location granted, annotate a camera photo that has
       GPS, then confirm the saved file still carries its location (Google Photos map, or
       `exiftool -gps*`). Deny location and confirm the save warns before removing it.
+- [ ] Crash recovery consent (finding C2): interrupt a save (kill the app mid-write, or seed
+      a pending backup) so the target is left damaged, then relaunch; the app asks for storage
+      permission to finish restoring the photo, and the queue shows a "finish restoring" card
+      if the launch prompt is dismissed. Granting restores the original; the backup is never
+      lost while it waits.
 - [ ] Dictation consent (finding 6): on a device with no on-device speech model, tapping
       dictate shows the network-dictation disclosure; enabling it (or the Settings toggle)
       lets it work, and the toggle revokes it. With an on-device model, no prompt appears.
