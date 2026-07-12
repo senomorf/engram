@@ -9,6 +9,7 @@ import cam.engram.app.audio.VoiceRecorderFactory
 import cam.engram.app.data.SettingsStore
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.media.ContentAccess
+import cam.engram.app.data.media.MediaPermissions
 import cam.engram.app.data.media.MediaSource
 import cam.engram.app.data.media.MediaStoreSource
 import cam.engram.app.data.media.ResolverContentAccess
@@ -80,6 +81,8 @@ class AppContainer(
             includeScreenshots = { settings.current().includeScreenshots },
             io = io,
             enrichmentPrefetch = { enrichmentGateway.fetch(it)?.encode() },
+            // never prune the index from a background worker on a partial or lapsed grant (H5)
+            hasFullMediaAccess = { MediaPermissions.hasFullAccess(context) },
             clock = System::currentTimeMillis,
         )
 

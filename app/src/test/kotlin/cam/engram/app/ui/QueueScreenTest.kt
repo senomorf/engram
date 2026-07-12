@@ -11,6 +11,7 @@ import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
+import cam.engram.app.grantPartialMediaAccess
 import cam.engram.app.seedQueue
 import cam.engram.app.setScreen
 import cam.engram.format.testing.SyntheticMedia
@@ -48,6 +49,16 @@ class QueueScreenTest {
     fun showsPermissionRationaleWhenMediaAccessDenied() {
         compose.setScreen(app) { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) }
         compose.onNodeWithText(strings.getString(R.string.queue_permission_rationale)).assertIsDisplayed()
+    }
+
+    // finding H5: a partial "Select photos" grant cannot drive whole-library ingestion, so the
+    // queue steers toward "Allow all" instead of proceeding on an ephemeral subset
+    @Test
+    fun showsPartialSteerWhenOnlySomePhotosSelected() {
+        grantPartialMediaAccess()
+        compose.setScreen(app) { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) }
+        compose.onNodeWithText(strings.getString(R.string.queue_allow_all)).assertIsDisplayed()
+        compose.onNodeWithText(strings.getString(R.string.queue_partial_media_rationale)).assertIsDisplayed()
     }
 
     @Test

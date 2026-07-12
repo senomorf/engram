@@ -1,7 +1,6 @@
 package cam.engram.app.ui
 
 import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,22 +32,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import cam.engram.app.data.db.MediaItemEntity
+import cam.engram.app.data.media.MediaAccess
+import cam.engram.app.data.media.MediaPermissions
 import coil3.compose.AsyncImage
 
-// READ_MEDIA_* gate entry; ACCESS_MEDIA_LOCATION rides along but is optional: its denial
-// only means annotating strips a photo's location, warned at save time (finding 1)
-private val requiredMediaPermissions =
-    arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-
+// Requested together so Android 14+ shows the picker with an "Allow all" path (finding H5);
+// ACCESS_MEDIA_LOCATION rides along but is optional (its denial only strips a photo's location,
+// warned at save time, finding 1)
 private val requestedPermissions =
-    requiredMediaPermissions + Manifest.permission.ACCESS_MEDIA_LOCATION
+    arrayOf(
+        Manifest.permission.READ_MEDIA_IMAGES,
+        Manifest.permission.READ_MEDIA_VIDEO,
+        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+        Manifest.permission.ACCESS_MEDIA_LOCATION,
+    )
 
 @Composable
 fun QueueScreen(
@@ -56,10 +60,24 @@ fun QueueScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    var granted by remember { mutableStateOf(hasMediaPermissions(context)) }
-    if (!granted) {
-        PermissionGate(onGranted = { granted = true })
-        return
+    // re-check on resume: an Android 14 partial grant lapses after backgrounding, and the user
+    // may grant full access from settings; a one-time read would leave the queue stale (H5)
+    var access by remember { mutableStateOf(MediaPermissions.state(context)) }
+    LifecycleResumeEffect(Unit) {
+        access = MediaPermissions.state(context)
+        onPauseOrDispose { }
+    }
+    when (access) {
+        MediaAccess.DENIED -> {
+            MediaAccessGate(partial = false, onResult = { access = MediaPermissions.state(context) })
+            return
+        }
+        // whole-library ingestion needs full access; steer a "Select photos" grant to "Allow all"
+        MediaAccess.PARTIAL -> {
+            MediaAccessGate(partial = true, onResult = { access = MediaPermissions.state(context) })
+            return
+        }
+        MediaAccess.FULL -> Unit
     }
     val container = currentAppContainer()
     val vm: QueueViewModel =
@@ -177,12 +195,16 @@ private fun RecoveryCard(
     }
 }
 
+// Denied shows the rationale; partial (Android 14 "Select photos") steers toward "Allow all",
+// since whole-library ingestion cannot run on an ephemeral subset (finding H5). The launcher
+// result is re-read as access state (which may become full, still partial, or denied).
 @Composable
-private fun PermissionGate(onGranted: () -> Unit) {
+private fun MediaAccessGate(
+    partial: Boolean,
+    onResult: () -> Unit,
+) {
     val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            if (requiredMediaPermissions.all { result[it] == true }) onGranted()
-        }
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onResult() }
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
@@ -190,20 +212,18 @@ private fun PermissionGate(onGranted: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.queue_permission_rationale),
+                text =
+                    stringResource(
+                        if (partial) R.string.queue_partial_media_rationale else R.string.queue_permission_rationale,
+                    ),
                 style = MaterialTheme.typography.bodyLarge,
             )
             Button(
                 onClick = { launcher.launch(requestedPermissions) },
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                Text(stringResource(R.string.grant_access))
+                Text(stringResource(if (partial) R.string.queue_allow_all else R.string.grant_access))
             }
         }
     }
 }
-
-private fun hasMediaPermissions(context: android.content.Context): Boolean =
-    requiredMediaPermissions.all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }

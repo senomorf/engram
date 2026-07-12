@@ -111,6 +111,11 @@ fun grantMediaPermissions() =
     shadowOf(ApplicationProvider.getApplicationContext<Application>())
         .grantPermissions(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
 
+/** Android 14 "Select photos": only the user-selected subset is granted, i.e. partial access. */
+fun grantPartialMediaAccess() =
+    shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        .grantPermissions(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+
 private fun mediaItem(
     id: Long,
     isVideo: Boolean,
