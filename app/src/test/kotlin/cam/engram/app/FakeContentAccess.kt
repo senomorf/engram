@@ -16,6 +16,10 @@ class FakeContentAccess : ContentAccess {
     // to exercise the "restore also failed, keep the backup" path (review F4)
     var rejectRestore = false
 
+    // restore opens the target but does not complete (OpenedUncertain): the journal stays
+    // Unresolved, distinct from a NotOpened restore that needs consent (finding C2)
+    var uncertainRestore = false
+
     // writeBytes truncates the target then reports the write did not complete: models a
     // disk-full / provider-death mid-write, which must route to restore (finding 2, mechanism 2)
     var failWriteAfterTruncate = false
@@ -81,6 +85,7 @@ class FakeContentAccess : ContentAccess {
         // restore path stays clean under failWriteAfterTruncate so an uncertain forward write
         // can still be rolled back; rejectRestore is the knob for a failing restore
         if (rejectWrites || rejectRestore) return WriteResult.NotOpened
+        if (uncertainRestore) return WriteResult.OpenedUncertain
         files[uri] = source.readBytes()
         return WriteResult.Ok
     }

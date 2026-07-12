@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import cam.engram.app.DeviceOnly
 import cam.engram.app.R
 import cam.engram.app.data.db.MediaItemEntity
 import coil3.compose.AsyncImage
@@ -86,33 +87,9 @@ fun QueueScreen(
         }
     }
     val pendingRecovery by vm.pendingRecovery.collectAsState()
-    val recoveryLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-            if (result.resultCode == android.app.Activity.RESULT_OK) vm.recoveryConsentHandled()
-        }
     EngramScaffold(title = stringResource(R.string.queue_title, items.size), onBack = onBack) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (pendingRecovery.isNotEmpty()) {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(
-                            text = stringResource(R.string.queue_recovery_banner, pendingRecovery.size),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(
-                            onClick = {
-                                container
-                                    .consentGate
-                                    .consentNeeded(pendingRecovery)
-                                    ?.let { recoveryLauncher.launch(IntentSenderRequest.Builder(it).build()) }
-                            },
-                            modifier = Modifier.padding(top = 8.dp),
-                        ) {
-                            Text(stringResource(R.string.queue_recovery_restore))
-                        }
-                    }
-                }
-            }
+            if (pendingRecovery.isNotEmpty()) RecoveryCard(pendingRecovery, vm::recoveryConsentHandled)
             if (stripped.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -162,6 +139,40 @@ private fun QueueGrid(
                         .aspectRatio(1f)
                         .clickable { onAnnotate(items.map { it.mediaId }, index) },
             )
+        }
+    }
+}
+
+// Device-only: MediaStore.createWriteRequest yields a launchable IntentSender only on a real
+// device, so the consent launch cannot run under Robolectric (verified via docs/device-qa.md)
+@DeviceOnly
+@Composable
+private fun RecoveryCard(
+    uris: List<String>,
+    onConsentResult: () -> Unit,
+) {
+    val container = currentAppContainer()
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) onConsentResult()
+        }
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(R.string.queue_recovery_banner, uris.size),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = {
+                    container
+                        .consentGate
+                        .consentNeeded(uris)
+                        ?.let { launcher.launch(IntentSenderRequest.Builder(it).build()) }
+                },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(stringResource(R.string.queue_recovery_restore))
+            }
         }
     }
 }

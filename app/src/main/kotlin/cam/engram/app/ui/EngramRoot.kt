@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import cam.engram.app.DeviceOnly
 import kotlinx.coroutines.launch
 
 /**
@@ -102,7 +103,10 @@ private fun needsNotificationPermission(context: Context): Boolean =
  * settles what it can without a grant and returns the target uris whose restore needs the
  * user's write consent; this prompts once on launch. The Queue keeps a persistent affordance
  * as the fallback if this prompt is dismissed. Renders nothing; runs effects only.
+ * Device-only: MediaStore.createWriteRequest yields a launchable IntentSender only on a real
+ * device, so the consent launch cannot run under Robolectric (verified via docs/device-qa.md).
  */
+@DeviceOnly
 @Composable
 private fun RecoveryConsentPrompt() {
     val container = currentAppContainer()
