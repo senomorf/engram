@@ -21,26 +21,36 @@ object Iptc {
 
     fun isIptcApp13(seg: Segment): Boolean = seg.marker == APP13_MARKER && seg.payload.startsWith(APP13_HEADER)
 
-    /** Returns a full APP13 payload with the caption upserted, preserving other resources. */
+    /**
+     * Returns a full APP13 payload with the caption upserted, preserving other resources.
+     * Every non-owned IIM dataset (keywords, byline, copyright, extended-length and all) is
+     * carried byte-exact. If the existing IIM cannot be safely parsed, the caption mirror is
+     * skipped and the original payload is returned unchanged (finding 7): silently dropping
+     * datasets and then deleting the .bak backup would lose them irreversibly.
+     */
     fun upsertCaption(
         existingPayload: ByteArray?,
         caption: String,
     ): ByteArray {
-        val resources = existingPayload?.let { parseResources(it) } ?: emptyList()
+        if (existingPayload == null) {
+            val b = ByteArrayBuilder()
+            b.append(APP13_HEADER)
+            appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, ByteArray(0)))
+            return b.toByteArray()
+        }
         val b = ByteArrayBuilder()
         b.append(APP13_HEADER)
         var replaced = false
-        for ((id, raw) in resources) {
+        for ((id, raw) in parseResources(existingPayload)) {
             if (id == IPTC_RESOURCE_ID) {
-                // preserve every other IIM dataset (keywords, byline, copyright, ...) in the
-                // existing 0x0404, replacing only the caption (finding 7)
-                appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, resourceData(raw)))
+                val carried = resourceData(raw)?.let { carriedDatasets(it) } ?: return existingPayload
+                appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, carried))
                 replaced = true
             } else {
                 b.append(raw)
             }
         }
-        if (!replaced) appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, null))
+        if (!replaced) appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, ByteArray(0)))
         return b.toByteArray()
     }
 
@@ -49,14 +59,12 @@ object Iptc {
         // second element holds the raw resource; extract its data section
         val data = resourceData(iptc.second) ?: return null
         var i = 0
-        while (i + 5 <= data.size) {
-            if (data.u8(i) != 0x1C) return null
-            val record = data.u8(i + 1)
-            val dataset = data.u8(i + 2)
-            val len = data.u16be(i + 3)
-            if (i + 5 + len > data.size) return null
-            if (record == 2 && dataset == 120) return data.copyOfRange(i + 5, i + 5 + len).decodeToString()
-            i += 5 + len
+        while (i < data.size) {
+            val ds = datasetAt(data, i) ?: return null
+            if (data.u8(i + 1) == 2 && data.u8(i + 2) == 120) {
+                return data.copyOfRange(ds.dataStart, ds.dataStart + ds.len).decodeToString()
+            }
+            i = ds.next
         }
         return null
     }
@@ -114,49 +122,82 @@ object Iptc {
 
     private fun iimCaption(
         caption: String,
-        existing: ByteArray?,
+        carried: ByteArray,
     ): ByteArray {
         val b = ByteArrayBuilder()
+
+        // one standard IIM dataset: tag marker, record, dataset id, 2-byte length, data
+        fun put(
+            record: Int,
+            dataset: Int,
+            data: ByteArray,
+        ) {
+            b
+                .append(0x1C)
+                .append(record)
+                .append(dataset)
+                .appendU16be(data.size)
+                .append(data)
+        }
         // 1:90 coded character set: ESC % G means UTF-8
-        dataset(b, 1, 90, byteArrayOf(0x1B, 0x25, 0x47))
+        put(1, 90, byteArrayOf(0x1B, 0x25, 0x47))
         // 2:00 record version 4
-        dataset(b, 2, 0, byteArrayOf(0x00, 0x04))
-        // carry forward every dataset we do not own so annotation keeps prior IPTC metadata
-        existing?.let { carryDatasets(b, it) }
-        dataset(b, 2, 120, truncateUtf8(caption, CAPTION_LIMIT_BYTES))
+        put(2, 0, byteArrayOf(0x00, 0x04))
+        // every dataset we do not own, already serialized byte-exact (extended-length
+        // datasets included) so annotation keeps prior IPTC metadata
+        b.append(carried)
+        put(2, 120, truncateUtf8(caption, CAPTION_LIMIT_BYTES))
         return b.toByteArray()
     }
 
-    // re-emit each IIM dataset except the ones iimCaption sets (1:90, 2:00, 2:120); mirrors
-    // readCaption's parse and degrades gracefully (stops) on a malformed or extended-length stream
-    private fun carryDatasets(
-        b: ByteArrayBuilder,
-        data: ByteArray,
-    ) {
+    // serialize every IIM dataset except the ones iimCaption sets (1:90, 2:00, 2:120),
+    // byte-exact so an extended-length dataset is preserved verbatim. Returns null if the
+    // stream is malformed, so the caller can leave APP13 untouched rather than drop datasets.
+    private fun carriedDatasets(data: ByteArray): ByteArray? {
+        val b = ByteArrayBuilder()
         var i = 0
-        while (i + 5 <= data.size) {
-            if (data.u8(i) != 0x1C) return
+        while (i < data.size) {
+            val ds = datasetAt(data, i) ?: return null
             val record = data.u8(i + 1)
             val datasetId = data.u8(i + 2)
-            val len = data.u16be(i + 3)
-            if (len and 0x8000 != 0 || i + 5 + len > data.size) return
             val owned = (record == 1 && datasetId == 90) || (record == 2 && (datasetId == 0 || datasetId == 120))
-            if (!owned) dataset(b, record, datasetId, data.copyOfRange(i + 5, i + 5 + len))
-            i += 5 + len
+            if (!owned) b.append(data.copyOfRange(i, ds.next))
+            i = ds.next
         }
+        return b.toByteArray()
     }
 
-    private fun dataset(
-        b: ByteArrayBuilder,
-        record: Int,
-        dataset: Int,
+    private class Dataset(
+        val dataStart: Int,
+        val len: Int,
+        val next: Int,
+    )
+
+    // parse one IIM dataset header at [i]: a standard 2-byte length, or the extended-length
+    // form (high bit set, low 15 bits = count of following big-endian length octets). Null if
+    // the marker is wrong or the declared length runs past the buffer.
+    private fun datasetAt(
         data: ByteArray,
-    ) {
-        b.append(0x1C)
-        b.append(record)
-        b.append(dataset)
-        b.appendU16be(data.size)
-        b.append(data)
+        i: Int,
+    ): Dataset? {
+        if (i + 5 > data.size || data.u8(i) != 0x1C) return null
+        val lenField = data.u16be(i + 3)
+        val len: Int
+        val headerLen: Int
+        if (lenField and 0x8000 != 0) {
+            val n = lenField and 0x7FFF
+            if (n !in 1..4 || i + 5 + n > data.size) return null
+            var l = 0L
+            for (k in 0 until n) l = (l shl 8) or data.u8(i + 5 + k).toLong()
+            if (l > Int.MAX_VALUE) return null
+            len = l.toInt()
+            headerLen = 5 + n
+        } else {
+            len = lenField
+            headerLen = 5
+        }
+        if (i.toLong() + headerLen + len > data.size) return null
+        return Dataset(i + headerLen, len, i + headerLen + len)
     }
 
     // IIM caps caption at 2000 bytes; the full text always lives in XMP anyway

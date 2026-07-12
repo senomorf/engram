@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Adding a caption to a photo whose existing IPTC metadata uses an extended-length field
+  no longer silently drops that field and every keyword, credit, or copyright after it:
+  such datasets are now carried through byte-for-byte, and if the existing IPTC cannot be
+  parsed safely the caption mirror is skipped (leaving the metadata untouched) instead of
+  rewriting a truncated copy.
 - The in-app backup verify no longer reports a file fully intact when a memory was
   cleanly removed: it now checks how many records survived against how many were saved
   and reports the file as incomplete when some are missing, and a corrupt PNG image
