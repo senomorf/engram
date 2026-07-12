@@ -316,6 +316,25 @@ class WriteBackSafetyTest {
             assertTrue(File(backupDir, "30.bak").exists())
         }
 
+    // finding C2: a restore that opens the target but does not complete (OpenedUncertain) is
+    // genuinely unresolved, distinct from a NotOpened restore that needs consent: it fails
+    // (keeping the backup) and is not reported as needing consent
+    @Test
+    fun recoveryLeftUncertainStaysUnresolvedAndFails() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(32, original)
+            access.files[item.uri] = ByteArray(3) { 0x11 }
+            File(backupDir, "32.bak").writeBytes(original)
+            File(backupDir, "32.meta").writeText("${item.uri}\nfalse\nimage/jpeg\ndeadbeef")
+            access.uncertainRestore = true
+
+            val outcome = writeBack.write(item, Annotation("note", null))
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("unresolved"), outcome.reason)
+            assertTrue(File(backupDir, "32.bak").exists(), "an unresolved restore keeps the backup")
+            assertTrue(writeBack.recoverPending().isEmpty(), "an uncertain restore is not consent-needed")
+        }
+
     // finding C2: once the user grants the write consent, retrying recovery restores the
     // original and clears the journal
     @Test
