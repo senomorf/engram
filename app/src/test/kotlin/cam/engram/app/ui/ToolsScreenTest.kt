@@ -62,4 +62,12 @@ class ToolsScreenTest {
         }
         compose.onNodeWithText(strings.getString(R.string.tools_survival_full, 2)).assertIsDisplayed()
     }
+
+    @Test
+    fun verifyStatusRendersIncompleteSurvival() {
+        compose.setScreen(app) {
+            VerifyStatus(VerifyState.Done(cam.engram.format.read.Survival.INCOMPLETE, 1, 0))
+        }
+        compose.onNodeWithText(strings.getString(R.string.tools_survival_incomplete)).assertIsDisplayed()
+    }
 }
