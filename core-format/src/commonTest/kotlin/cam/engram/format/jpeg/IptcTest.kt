@@ -1,6 +1,7 @@
 package cam.engram.format.jpeg
 
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -69,6 +70,50 @@ class IptcTest {
         assertEquals("new caption", Iptc.readCaption(updated))
         assertTrue(containsSubsequence(updated, keywords), "keywords 2:25 must survive the caption upsert")
         assertTrue(containsSubsequence(updated, byline), "byline 2:80 must survive the caption upsert")
+    }
+
+    @Test
+    fun upsertPreservesExtendedLengthAndLaterIimDatasets() {
+        val keywords = byteArrayOf(0x1C, 0x02, 0x19, 0x00, 0x03) + "key".encodeToByteArray()
+        // an extended-length dataset: high bit set, 2 length octets (0x00,0x04) giving length 4
+        val extended =
+            byteArrayOf(0x1C, 0x02, 0xC8.toByte(), 0x80.toByte(), 0x02, 0x00, 0x04) + "eeee".encodeToByteArray()
+        val byline = byteArrayOf(0x1C, 0x02, 0x50, 0x00, 0x03) + "byl".encodeToByteArray()
+        val iim = keywords + extended + byline
+        val updated = Iptc.upsertCaption(Iptc.APP13_HEADER + photoshopResource(0x0404, iim), "new caption")
+        assertEquals("new caption", Iptc.readCaption(updated))
+        assertTrue(containsSubsequence(updated, keywords), "the dataset before the extended one must survive")
+        assertTrue(containsSubsequence(updated, extended), "the extended-length dataset must survive byte-exact")
+        assertTrue(containsSubsequence(updated, byline), "the dataset after the extended one must survive")
+    }
+
+    @Test
+    fun upsertLeavesApp13UntouchedWhenIimCannotBeCarried() {
+        // an extended-length dataset whose length octets claim far more bytes than exist:
+        // the IIM cannot be safely carried, so upsert must skip the mirror and leave the
+        // whole APP13 payload byte-for-byte rather than drop datasets and delete the backup
+        val brokenIim =
+            byteArrayOf(0x1C, 0x02, 0xC8.toByte(), 0x80.toByte(), 0x02, 0x7F, 0xFF.toByte()) + "x".encodeToByteArray()
+        val payload = Iptc.APP13_HEADER + photoshopResource(0x0404, brokenIim)
+        val updated = Iptc.upsertCaption(payload, "new caption")
+        assertContentEquals(payload, updated, "a caption upsert must not rewrite an IIM it cannot safely carry")
+    }
+
+    // 8BIM resource with an empty pascal name and a 4-byte big-endian data length
+    private fun photoshopResource(
+        id: Int,
+        data: ByteArray,
+    ): ByteArray {
+        val header = byteArrayOf(0x38, 0x42, 0x49, 0x4D, (id ushr 8).toByte(), (id and 0xFF).toByte(), 0, 0)
+        val len =
+            byteArrayOf(
+                (data.size ushr 24).toByte(),
+                (data.size ushr 16).toByte(),
+                (data.size ushr 8).toByte(),
+                (data.size and 0xFF).toByte(),
+            )
+        val padded = if (data.size % 2 != 0) data + byteArrayOf(0) else data
+        return header + len + padded
     }
 
     private fun containsSubsequence(
