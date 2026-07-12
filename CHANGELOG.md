@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- The in-app backup verify no longer reports a file fully intact when a memory was
+  cleanly removed: it now checks how many records survived against how many were saved
+  and reports the file as incomplete when some are missing, and a corrupt PNG image
+  (a bad chunk checksum) with a surviving record is reported as damaged rather than
+  intact.
 - A single record frame with a malformed writer id (invalid bytes that expand past the
   size limit when decoded) no longer throws and aborts reading every record behind it:
   the reader now surfaces such a frame as an opaque one and carries on, so verify, cache

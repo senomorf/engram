@@ -114,6 +114,10 @@ object PngCodec {
             .map { it.data }
 
     fun engramChunkCount(file: PngFile): Int = file.chunks.count { it.type == ENGRAM_CHUNK }
+
+    // parse tolerates a bad chunk CRC (so damage stays inspectable); the reader uses this
+    // to surface that damage instead of silently trusting a corrupt carrier
+    fun hasBadChunkCrc(file: PngFile): Boolean = file.chunks.any { !it.crcOk }
 }
 
 class PngEmbedder(

@@ -59,8 +59,13 @@ data class Extraction(
     val pngEngramChunks: Int = 0,
 )
 
-/** Absolute (expectation-free) survival classes, shared by app and tooling. */
-enum class Survival { FULL, DAMAGED, CAPTION_ONLY, GONE, UNREADABLE }
+/**
+ * Absolute (expectation-free) survival classes, shared by app and tooling.
+ * INCOMPLETE sits between FULL and DAMAGED: every surviving frame is intact, but
+ * fewer survive than the carrier's own XMP baseline declared (a clean frame loss the
+ * per-record CRC checks cannot see).
+ */
+enum class Survival { FULL, INCOMPLETE, DAMAGED, CAPTION_ONLY, GONE, UNREADABLE }
 
 /**
  * One shared "what is in this file" reader (design D14): detection by magic
@@ -130,10 +135,19 @@ object ContainerExtraction {
             extraction == null || extraction.integrity is CarrierIntegrity.Unreadable -> Survival.UNREADABLE
             extraction.integrity is CarrierIntegrity.CarrierDamaged -> Survival.DAMAGED
             extraction.records.any { !it.crcOk } -> Survival.DAMAGED
+            extraction.records.isNotEmpty() && declaredLoss(extraction) -> Survival.INCOMPLETE
             extraction.records.isNotEmpty() -> Survival.FULL
             captionVisible -> Survival.CAPTION_ONLY
             else -> Survival.GONE
         }
+
+    // true when the carrier's own XMP baseline declares more records than survive intact:
+    // a clean frame loss the per-record CRC checks cannot see. One-directional (a re-embed
+    // that appends never counts as loss); an absent baseline proves nothing, so it stays FULL.
+    private fun declaredLoss(x: Extraction): Boolean {
+        val declared = x.xmpSummary?.recordCount ?: return false
+        return declared > x.records.count { it.crcOk }
+    }
 
     private fun inspectJpeg(
         bytes: ByteArray,
@@ -180,10 +194,13 @@ object ContainerExtraction {
         val records = PngCodec.engramRecords(file)
         val chunkCount = PngCodec.engramChunkCount(file)
         val integrity =
-            if (chunkCount > records.size) {
-                CarrierIntegrity.CarrierDamaged("$chunkCount egRm chunks but only ${records.size} decode")
-            } else {
-                CarrierIntegrity.Readable
+            when {
+                // a bad outer chunk CRC means the carrier lost data (a corrupt image or a
+                // damaged egRm chunk) even when the surviving records still decode
+                PngCodec.hasBadChunkCrc(file) -> CarrierIntegrity.CarrierDamaged("a png chunk failed its crc")
+                chunkCount > records.size ->
+                    CarrierIntegrity.CarrierDamaged("$chunkCount egRm chunks but only ${records.size} decode")
+                else -> CarrierIntegrity.Readable
             }
         val packet = file.chunks.firstNotNullOfOrNull { PngCodec.xmpPacket(it) }
         return Extraction(

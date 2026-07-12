@@ -471,7 +471,13 @@ that.
 - In-app warning: Storage saver mode and most messengers destroy embedded
   memories (expected; final wording after the Phase 0 matrix).
 - The backup verifier (D14) exists so this stops being theory: verify one file
-  from your own backup path and see the survival report.
+  from your own backup path and see the survival report. classify does not call a
+  file FULL on "any surviving record": it compares the survivors against the carrier's
+  own XMP baseline (recordCount) and reports INCOMPLETE when fewer survive than were
+  embedded, a clean frame loss the per-record CRCs cannot see. The check is
+  one-directional (a re-embed that appends never counts as loss) and an absent baseline
+  proves nothing, so it stays FULL. A bad outer PNG chunk CRC counts as carrier damage
+  too (a corrupt image with a surviving record is not FULL).
 
 ## 13. Scope
 

@@ -120,6 +120,67 @@ class ContainerExtractionTest {
     }
 
     @Test
+    fun survivorsBelowDeclaredCountClassifyIncomplete() {
+        // the XMP baseline records two frames; if only one survives (all crc-ok), the loss
+        // is clean and invisible to the per-record CRC checks, so classify must not say FULL
+        val r1 = EngramRecord(RecordKind.Note, 42, "first".encodeToByteArray(), ByteArray(16) { 1 })
+        val r2 = EngramRecord(RecordKind.Note, 43, "second".encodeToByteArray(), ByteArray(16) { 2 })
+        val embedded = JpegEmbedder(xmp).embed(SyntheticMedia.jpegPlain(), listOf(r1, r2), "kept")
+        val full = inspect(embedded)!!
+        assertEquals(2, full.xmpSummary?.recordCount)
+        assertEquals(Survival.FULL, ContainerExtraction.classify(full, captionVisible = false))
+        // one frame cleanly removed, XMP still declares two
+        val oneLost = full.copy(records = full.records.take(1))
+        assertEquals(Survival.INCOMPLETE, ContainerExtraction.classify(oneLost, captionVisible = false))
+    }
+
+    @Test
+    fun appendsBeyondTheDeclaredCountStayFull() {
+        // more records than the baseline declared (a legitimate re-embed appends) is not a
+        // loss: the completeness check is one-directional
+        val embedded = JpegEmbedder(xmp).embed(SyntheticMedia.jpegPlain(), listOf(note()), "kept")
+        val x = inspect(embedded)!!
+        val extraAppended = x.copy(records = x.records + x.records)
+        assertEquals(Survival.FULL, ContainerExtraction.classify(extraAppended, captionVisible = false))
+    }
+
+    @Test
+    fun outerPngChunkCrcFailureIsCarrierDamage() {
+        // a chunk whose outer PNG CRC is broken (a corrupt IDAT: the image itself is damaged)
+        // must degrade the verdict even though the engram record decodes fine
+        val out = PngEmbedder(xmp).embed(SyntheticMedia.png1x1(), listOf(note()), "kept")
+        val corrupted = corruptChunkCrc(out, "IDAT")
+        val x = inspect(corrupted)!!
+        assertEquals(1, x.records.size, "the engram record still decodes")
+        assertTrue(x.records.single().crcOk)
+        assertIs<CarrierIntegrity.CarrierDamaged>(x.integrity)
+        assertEquals(Survival.DAMAGED, ContainerExtraction.classify(x, captionVisible = false))
+    }
+
+    // flip a byte of the named chunk's stored CRC so PngCodec.parse marks it crcOk=false
+    // (parse tolerates a bad CRC, so the chunk and the file still read)
+    private fun corruptChunkCrc(
+        png: ByteArray,
+        type: String,
+    ): ByteArray {
+        val out = png.copyOf()
+        var i = 8
+        while (i + 12 <= out.size) {
+            val len =
+                ((out[i].toInt() and 0xFF) shl 24) or ((out[i + 1].toInt() and 0xFF) shl 16) or
+                    ((out[i + 2].toInt() and 0xFF) shl 8) or (out[i + 3].toInt() and 0xFF)
+            val t = out.copyOfRange(i + 4, i + 8).decodeToString()
+            val crcAt = i + 8 + len
+            if (t == type) {
+                out[crcAt] = (out[crcAt].toInt() xor 0xFF).toByte()
+                return out
+            }
+            i = crcAt + 4
+        }
+        return out
+    }
+
+    @Test
     fun undecodableTailInTheEngramBoxIsCarrierDamage() {
         val bytes =
             SyntheticMedia.mp4MoovLast() +
