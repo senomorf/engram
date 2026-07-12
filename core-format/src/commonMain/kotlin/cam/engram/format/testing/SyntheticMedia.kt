@@ -55,6 +55,29 @@ object SyntheticMedia {
             it[0] = 'X'.code.toByte()
         }
 
+    /**
+     * A CRC-valid frame whose writer bytes are not valid UTF-8 and are long enough that
+     * decoding them to replacement characters and re-encoding overshoots the 255-byte
+     * writer limit. A decoder that eagerly builds the typed record throws on it, and
+     * because the CRC is recomputed to be valid, tolerating the throw cannot be reduced
+     * to rejecting CRC-bad frames: the carver must surface this frame opaque and keep
+     * scanning (finding: a malformed writer aborted every later record).
+     */
+    fun frameWithUndecodableWriter(writerBytes: Int = 90): ByteArray {
+        val body = ByteArrayBuilder()
+        body.append(EngramRecord.MAGIC)
+        body.append(EngramRecord.WIRE_VERSION)
+        body.append(RecordKind.Note.code)
+        body.appendU16be(0)
+        body.append(ByteArray(EngramRecord.ID_LENGTH)) // id
+        body.appendU64be(1L) // ts
+        body.append(writerBytes) // writerLen
+        body.append(ByteArray(writerBytes) { 0xFF.toByte() }) // not valid UTF-8
+        body.appendU32be(0) // empty payload
+        val bytes = body.toByteArray()
+        return ByteArrayBuilder(bytes.size + 4).append(bytes).appendU32be(Crc32.of(bytes)).toByteArray()
+    }
+
     // encode a Note, patch one header byte, recompute the trailing CRC so the frame stays wire-valid
     private fun notePatchedAt(
         offset: Int,

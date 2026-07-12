@@ -183,6 +183,35 @@ class RecordsTest {
     }
 
     @Test
+    fun decodeAtSurvivesAnUndecodableWriter() {
+        // the writer bytes decode to replacement chars that re-encode past the 255-byte
+        // limit; decode must surface the frame opaque, not throw, even though its crc holds
+        val frame = SyntheticMedia.frameWithUndecodableWriter()
+        val d = EngramRecord.decodeAt(frame, 0)
+        assertNotNull(d, "an undecodable writer must not make the frame vanish")
+        assertNull(d.record, "a writer that cannot round-trip surfaces as an opaque frame")
+        assertTrue(d.crcOk)
+        assertEquals(frame.size, d.byteLength)
+    }
+
+    @Test
+    fun decodeSequenceRecoversFramesAfterUndecodableWriter() {
+        // one hostile frame whose writer throws when built must not abort the scan for
+        // every legitimate record behind it
+        val real = EngramRecord(RecordKind.Note, 9, "survivor".encodeToByteArray()).encode()
+        val hits = RecordStream.decodeSequence(SyntheticMedia.frameWithUndecodableWriter() + real)
+        assertEquals(
+            "survivor",
+            hits
+                .mapNotNull { it.decoded.record }
+                .single()
+                .payload
+                .decodeToString(),
+            "a frame with an undecodable writer must not hide the frame behind it",
+        )
+    }
+
+    @Test
     fun decodeSequenceRecoversFramesAfterLengthPastRegionEnd() {
         // a length claim that overruns the region makes decodeAt return null (no
         // crc-bad hit exists), so only a byte-wise carve can find the survivor

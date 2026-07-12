@@ -248,7 +248,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   truncated header, length claim past the region): an undecodable header has no span
   authority and no hit to surface, so the carve alone can recover the frames behind
   it. decodeAt also does its length checks in Long so a hostile payload length cannot
-  wrap the bounds and crash the reader.
+  wrap the bounds and crash the reader, and it builds the typed record inside a
+  runCatching so a frame whose writer cannot round-trip (invalid UTF-8 that re-encodes
+  past the 255-byte writer limit) surfaces opaque instead of throwing: a valid CRC over
+  hostile writer bytes is still possible, so tolerating the throw cannot be reduced to
+  rejecting CRC-bad frames, and one such frame must not abort the carve for every record
+  behind it.
 - D28 Archive record log. The Engram Archive is a commitment, not a convenience: spec
   sec 11 now defines it. The JSON view alone lost record order, ids, writers,
   timestamps, enrichment history, and every opaque frame, so calling it
