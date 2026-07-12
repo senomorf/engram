@@ -100,14 +100,19 @@ class EngramRecord(
             val crcOk = bytes.u32be(payloadEnd) == Crc32.of(bytes, at, payloadEnd)
             val record =
                 if (version == WIRE_VERSION) {
-                    RecordKind.of(kindCode)?.let {
-                        EngramRecord(
-                            kind = it,
-                            tsMillis = ts,
-                            payload = bytes.copyOfRange(writerEnd + 4, payloadEnd),
-                            id = id,
-                            writer = bytes.copyOfRange(at + FIXED_LEN, writerEnd).decodeToString(),
-                        )
+                    RecordKind.of(kindCode)?.let { kind ->
+                        // decode must never throw on a hostile or corrupt frame: a writer that
+                        // does not round-trip (invalid utf-8 re-encoding past the 255-byte limit)
+                        // surfaces as an opaque frame so the carver keeps scanning past it
+                        runCatching {
+                            EngramRecord(
+                                kind = kind,
+                                tsMillis = ts,
+                                payload = bytes.copyOfRange(writerEnd + 4, payloadEnd),
+                                id = id,
+                                writer = bytes.copyOfRange(at + FIXED_LEN, writerEnd).decodeToString(),
+                            )
+                        }.getOrNull()
                     }
                 } else {
                     null

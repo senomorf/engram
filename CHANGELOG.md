@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A single record frame with a malformed writer id (invalid bytes that expand past the
+  size limit when decoded) no longer throws and aborts reading every record behind it:
+  the reader now surfaces such a frame as an opaque one and carries on, so verify, cache
+  repair, and archive export cannot be wedged by one hostile or corrupt frame.
+
 - Navigating away or rotating the phone mid-recording no longer leaves the microphone
   running invisibly: the annotate screen now stops the recorder whenever it goes away,
   the captured clip survives as a draft, a recorder failure no longer leaks the native
