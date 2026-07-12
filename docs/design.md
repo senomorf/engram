@@ -308,7 +308,15 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   without a data backfill. StripRepair's identity refusal became structural (a
   mismatched capture simply finds no row). Chosen over orphan-eviction bookkeeping
   (owner's call): the schema change is the honest model, not a patch around a
-  mis-keyed table.
+  mis-keyed table. The Reconciler completes this for a direct in-place reuse, an id
+  reassigned with no reconcile ever observing it absent (so the row is never deleted
+  and re-derived): when a known id's capture identity (takenAtMillis) changes, it
+  replaces the whole media row rather than patching size/mtime, so the new capture
+  scans under its own identity and the old cache is left as an orphan instead of the
+  two being merged under the retained identity. The id-keyed enrichment cache and
+  draft (keyed by mediaId alone, not the composite) are evicted on that identity
+  change so the new capture cannot inherit the previous one's context or unsaved note
+  (finding H1).
 - D30 Notification permission flow. API 33+ never grants POST_NOTIFICATIONS
   silently and the evening digest defaults on (D12), so without a request every
   fresh install got a silently dead digest. The permission is requested once when
