@@ -7,10 +7,12 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
 import cam.engram.app.setScreen
+import cam.engram.format.testing.SyntheticMedia
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
@@ -23,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import java.io.File
 
 /** Exercises the real EngramRoot gate + Navigator/MainNavigation by rendering and clicking through. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -103,6 +106,33 @@ class EngramRootNavigationTest {
         kotlin.test.assertTrue(
             intent == null || intent.action != "android.content.pm.action.REQUEST_PERMISSIONS",
             "an already granted permission must not be requested again",
+        )
+    }
+
+    @Test
+    fun startupResolvesASettleablePendingWrite() {
+        // a crash left a journal whose target still equals the backup (nothing landed): startup
+        // recovery settles it grant-free, so no stale backup lingers to wedge later saves (C2)
+        runBlocking { app.settings.setOnboardingDone(true) }
+        grantMediaPermissions()
+        val bytes = SyntheticMedia.jpegPlain()
+        (app.access as FakeContentAccess).files["content://media/50"] = bytes
+        val backupDir =
+            File(strings.filesDir, "writeback").apply {
+                deleteRecursively()
+                mkdirs()
+            }
+        File(backupDir, "50.bak").writeBytes(bytes)
+        File(backupDir, "50.meta").writeText("content://media/50\nfalse\nimage/jpeg\ndeadbeef")
+
+        compose.setScreen(app) { EngramRoot() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(strings.getString(R.string.home_tagline)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
+        kotlin.test.assertTrue(
+            !File(backupDir, "50.bak").exists(),
+            "startup recovery must settle a journal whose target already matches its backup",
         )
     }
 

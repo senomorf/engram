@@ -265,8 +265,8 @@ class WriteBackSafetyTest {
             assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared after the successful retry")
         }
 
-    // finding A: a retry whose target cannot even be opened must not delete the only
-    // pristine copy left behind by an earlier damaged attempt
+    // finding A + C2: a retry whose target cannot even be opened must not delete the only
+    // pristine copy, and now surfaces as consent-needed (NotOpened) rather than a dead-end Failed
     @Test
     fun rejectedRetryAfterFailedRestoreKeepsTheOnlyBackup() =
         runBlocking {
@@ -282,15 +282,59 @@ class WriteBackSafetyTest {
             access.failWriteAfterTruncate = false
             access.rejectWrites = true
             val outcome = writeBack.write(item, Annotation("note", null))
-            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("unresolved"), outcome.reason)
+            assertIs<WriteOutcome.NotOpened>(outcome)
             assertTrue(File(backupDir, "24.bak").exists(), "the only pristine copy must survive a rejected retry")
             assertEquals(copiesAfterFirst, access.copyToFileCount)
 
-            // once the device can write again, startup recovery restores the original
+            // once the user grants consent (writes work again), recovery restores the original
             access.rejectWrites = false
             access.rejectRestore = false
-            writeBack.recoverPending()
+            assertTrue(writeBack.recoverPending().isEmpty())
             assertContentEquals(original, access.files[item.uri])
+        }
+
+    // finding C2: after process death, restoring a truncated target needs a write grant the
+    // background context lacks. That must surface as consent-needed, not a silent dead end.
+    @Test
+    fun recoveryNeedingConsentSurfacesAsNotOpenedNotFailed() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(30, original)
+            // a crash left the target truncated with the pristine original in the backup; the
+            // meta's ids are absent from the target, so recovery must restore, but cannot open it
+            access.files[item.uri] = ByteArray(3) { 0x11 }
+            File(backupDir, "30.bak").writeBytes(original)
+            File(backupDir, "30.meta").writeText("${item.uri}\nfalse\nimage/jpeg\ndeadbeef")
+            access.rejectRestore = true
+
+            // a fresh save on the same item surfaces consent-needed, not a dead-end Failed
+            assertIs<WriteOutcome.NotOpened>(writeBack.write(item, Annotation("note", null)))
+            assertTrue(File(backupDir, "30.bak").exists(), "the only pristine copy must survive")
+
+            // background recovery reports the item as needing consent instead of silently dropping it
+            assertEquals(listOf(item.uri), writeBack.recoverPending())
+            assertTrue(File(backupDir, "30.bak").exists())
+        }
+
+    // finding C2: once the user grants the write consent, retrying recovery restores the
+    // original and clears the journal
+    @Test
+    fun recoveryRetryAfterConsentRestoresTheOriginal() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(31, original)
+            access.files[item.uri] = ByteArray(3) { 0x11 }
+            File(backupDir, "31.bak").writeBytes(original)
+            File(backupDir, "31.meta").writeText("${item.uri}\nfalse\nimage/jpeg\ndeadbeef")
+            access.rejectRestore = true
+
+            assertEquals(listOf(item.uri), writeBack.recoverPending())
+            assertContentEquals(ByteArray(3) { 0x11 }, access.files[item.uri], "still truncated before consent")
+
+            access.rejectRestore = false // the user granted the write consent
+            assertTrue(writeBack.recoverPending().isEmpty())
+            assertContentEquals(original, access.files[item.uri])
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "journal cleared after the restore")
         }
 
     // finding B: verification must check the exact new records landed, not just that some

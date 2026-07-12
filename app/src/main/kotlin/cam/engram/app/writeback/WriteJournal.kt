@@ -60,13 +60,32 @@ class WriteJournal(
         return true
     }
 
-    // settle one lingering transaction: the pair is dropped only once the target already
-    // carries the expected records (write completed), still equals the backup (nothing
-    // ever landed), or the original was restored. false keeps both for a later attempt
-    // or startup so the only pristine copy is never lost (finding 2)
-    fun resolve(backup: File): Boolean {
+    // the outcome of settling one lingering transaction
+    sealed interface Resolution {
+        // dropped: the target needs nothing from the journal (write completed, target still
+        // equals the backup, or the original was restored)
+        data object Settled : Resolution
+
+        // the target must be restored but the write could not open it: a MediaStore write
+        // grant is Activity-bound and not persistable (design D26), so the user's consent is
+        // needed. [uri] identifies the target to request it for (finding C2)
+        data class NeedsConsent(
+            val uri: String,
+        ) : Resolution
+
+        // could not settle for another reason: keep the pair for a later attempt or startup
+        // so the only pristine copy is never lost (finding 2)
+        data object Unresolved : Resolution
+    }
+
+    // settle one lingering transaction: the pair is dropped (Settled) only once the target
+    // already carries the expected records (write completed), still equals the backup (nothing
+    // ever landed), or the original was restored. A restore that cannot open the target
+    // surfaces NeedsConsent so recovery can re-request the grant instead of dead-ending.
+    fun resolve(backup: File): Resolution {
+        val mediaId = backup.nameWithoutExtension.toLongOrNull() ?: return Resolution.Unresolved
         val meta = File(backupDir, "${backup.nameWithoutExtension}.meta").takeIf { it.exists() }?.readLines()
-        val uri = meta?.getOrNull(0) ?: return false
+        val uri = meta?.getOrNull(0) ?: return Resolution.Unresolved
         val isVideo = meta.getOrNull(1)?.toBoolean() ?: false
         val mime = meta.getOrNull(2) ?: "image/jpeg"
         val expectedIds =
@@ -76,19 +95,24 @@ class WriteJournal(
                 ?.filter { it.isNotBlank() }
                 ?.toSet()
                 .orEmpty()
-        val settled =
-            writeCompleted(uri, isVideo, mime, expectedIds) ||
-                targetMatchesBackup(uri, backup) ||
-                restore(uri, backup)
-        if (!settled) return false
-        cleanup(backup.nameWithoutExtension.toLongOrNull() ?: return false)
-        return true
+        if (writeCompleted(uri, isVideo, mime, expectedIds) || targetMatchesBackup(uri, backup)) {
+            cleanup(mediaId)
+            return Resolution.Settled
+        }
+        return when (restore(uri, backup)) {
+            WriteResult.Ok -> {
+                cleanup(mediaId)
+                Resolution.Settled
+            }
+            WriteResult.NotOpened -> Resolution.NeedsConsent(uri)
+            WriteResult.OpenedUncertain -> Resolution.Unresolved
+        }
     }
 
     fun restore(
         uri: String,
         backup: File,
-    ): Boolean = backup.exists() && access.writeFromFile(uri, backup) == WriteResult.Ok
+    ): WriteResult = if (backup.exists()) access.writeFromFile(uri, backup) else WriteResult.OpenedUncertain
 
     fun cleanup(mediaId: Long) {
         File(backupDir, "$mediaId.bak").delete()

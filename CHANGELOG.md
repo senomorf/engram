@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A save interrupted by the app being killed can now be finished: if restoring the original
+  photo needs the storage permission again (Android does not keep the grant across an app
+  restart), the app asks for it, on the next launch and from a card in the queue, instead of
+  silently failing every retry. The untouched backup is always kept until the restore lands,
+  so the photo is never lost, only its restore waits for permission.
 - Adding a caption to a photo whose existing IPTC metadata uses an extended-length field
   no longer silently drops that field and every keyword, credit, or copyright after it:
   such datasets are now carried through byte-for-byte, and if the existing IPTC cannot be

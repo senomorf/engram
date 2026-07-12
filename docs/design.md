@@ -228,7 +228,19 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   its backup byte for byte (digest compare) is residue from before any write and
   is dropped without needing write access, so a crash mid-preparation cannot
   wedge the item behind a consent prompt. Journal mechanics live in WriteJournal;
-  MediaWriteBack owns orchestration and the mutex.
+  MediaWriteBack owns orchestration and the mutex. Recovery preserves the
+  needs-consent case (finding C2): a MediaStore write grant is Activity-bound and
+  not persistable across process death, so restoring a truncated target from a
+  background worker can fail to open it. resolve returns a typed Resolution
+  (Settled / NeedsConsent / Unresolved) instead of a bare Boolean, and
+  recoverPending returns the target uris whose restore needs the grant rather than
+  discarding them. Those surface to an Activity that can request consent and retry:
+  a one-shot prompt on launch (EngramRoot) plus a persistent Queue affordance as
+  the fallback, both reusing the MediaStore createWriteRequest consent gate; the
+  foreground write path maps a needs-consent journal to NotOpened so the same
+  consent UI fires. The pristine .bak always survives until the restore lands, so
+  the photo bytes are never at risk, only the live file stays damaged until the
+  user re-grants.
 - D27 Frame envelope frozen across wire versions. Spec sec 10 now freezes the frame
   field layout, so a v0 reader can locate every field of any future version.
   Records.decodeAt no longer rejects frames whose version byte is not 1: it decodes
