@@ -334,6 +334,31 @@ class ReconcilerTest {
             assertEquals("A's unsaved note", db.drafts().byId(1)!!.text, "A's draft must survive the rollback")
         }
 
+    // reviewer follow-up to F3/H1: the in-place-reuse path evicts the id-keyed draft, but a removed
+    // capture's draft must also die with its media row. Otherwise a later reused id arrives through
+    // the known == null new-item path (no identity eviction) and annotation surfaces the removed
+    // capture's private draft on the new photo.
+    @Test
+    fun removedThenReusedMediaIdDoesNotGraftOldDraft() =
+        runBlocking {
+            addPhoto(1, SyntheticMedia.jpegPlain(), takenAt = 100)
+            reconciler.reconcile()
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "A's unsaved note", null, 0),
+            )
+
+            // A is deleted: a full-access reconcile prunes id 1 and must evict its draft
+            snapshot.clear()
+            reconciler.reconcile()
+            assertNull(db.drafts().byId(1), "a removed capture's draft must not outlive its media row")
+
+            // the id is reused for a different capture B, arriving as a new item (known == null)
+            addPhoto(1, SyntheticMedia.jpegWithFillBytes(), takenAt = 200)
+            reconciler.reconcile()
+            assertNull(db.drafts().byId(1), "a reused id must not inherit the old capture's draft")
+        }
+
     @Test
     fun videoScanPopulatesAStreamingContentHash() =
         runBlocking {

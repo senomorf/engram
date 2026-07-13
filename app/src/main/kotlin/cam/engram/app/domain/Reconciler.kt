@@ -85,6 +85,10 @@ class Reconciler(
             db.withTransaction {
                 if (upserts.isNotEmpty()) db.media().upsert(upserts)
                 if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
+                // a removed capture's id-keyed draft must die with its media row, atomically: else a
+                // later reused id inherits it through the known == null new-item path and grafts the old
+                // private note onto the new photo (reviewer follow-up to F3/H1)
+                removedIds.forEach { db.drafts().delete(it) }
                 // a reused id's old enrichment and draft are keyed by media id alone, so drop them
                 // (the record cache is preserved as an orphan by its composite key) (finding H1)
                 identityChanged.forEach {
