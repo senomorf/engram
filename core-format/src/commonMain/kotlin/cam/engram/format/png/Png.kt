@@ -118,6 +118,12 @@ object PngCodec {
     // parse tolerates a bad chunk CRC (so damage stays inspectable); the reader uses this
     // to surface that damage instead of silently trusting a corrupt carrier
     fun hasBadChunkCrc(file: PngFile): Boolean = file.chunks.any { !it.crcOk }
+
+    // parse stops at EOF, so a png truncated on a chunk boundary before its terminal IEND
+    // still parses; the reader uses this to refuse FULL/verified on a structurally incomplete
+    // carrier (a valid png opens with IHDR and closes with a zero-length IEND)
+    fun isComplete(file: PngFile): Boolean =
+        file.chunks.firstOrNull()?.type == "IHDR" && file.chunks.lastOrNull()?.type == "IEND"
 }
 
 class PngEmbedder(

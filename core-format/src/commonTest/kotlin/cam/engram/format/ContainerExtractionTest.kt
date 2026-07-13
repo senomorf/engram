@@ -120,6 +120,21 @@ class ContainerExtractionTest {
     }
 
     @Test
+    fun pngTruncatedBeforeIendIsCarrierDamage() {
+        // records are inserted before IEND, so a crash can leave every egRm chunk present in a
+        // png whose terminal IEND was never written; parse tolerates the missing IEND, so
+        // without a structural check the truncated file reads FULL and its pristine backup is
+        // deleted on a "verified" write
+        val out = PngEmbedder(xmp).embed(SyntheticMedia.png1x1(), listOf(note()), "kept")
+        val truncated = out.copyOfRange(0, out.size - 12) // drop the terminal IEND on its chunk boundary
+        val x = inspect(truncated)!!
+        assertEquals(1, x.records.size, "every record chunk still decodes")
+        assertTrue(x.records.single().crcOk)
+        assertIs<CarrierIntegrity.CarrierDamaged>(x.integrity)
+        assertEquals(Survival.DAMAGED, ContainerExtraction.classify(x, captionVisible = false))
+    }
+
+    @Test
     fun survivorsBelowDeclaredCountClassifyIncomplete() {
         // the XMP baseline records two frames; if only one survives (all crc-ok), the loss
         // is clean and invisible to the per-record CRC checks, so classify must not say FULL
