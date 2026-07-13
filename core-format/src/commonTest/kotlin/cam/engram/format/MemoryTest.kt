@@ -56,7 +56,7 @@ class MemoryTest {
                 EngramRecord(RecordKind.Enrichment, 9, EnrichmentPayload(mapOf("place" to "new town")).encode()),
                 EngramRecord(RecordKind.Note, 1, "hello".encodeToByteArray()),
             )
-        val hits = records.map { RecordHit(0, DecodedRecord(it, it.kind.code, 0, crcOk = true)) }
+        val hits = records.map { RecordHit(0, DecodedRecord(it, it.kind.code, 0, crcOk = true, idHex = it.idHex)) }
         val memory = Memory.from(hits)
         assertEquals("new town", memory.enrichment["place"]) // higher-ts enrichment wins
         assertEquals("hello", memory.currentNote?.text)

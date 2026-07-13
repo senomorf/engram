@@ -117,16 +117,23 @@ class EngramRecord(
                 } else {
                     null
                 }
-            return DecodedRecord(record, kindCode, payloadEnd + 4 - at, crcOk, version)
+            return DecodedRecord(record, kindCode, payloadEnd + 4 - at, crcOk, id.toHex(), version)
         }
     }
 }
 
+/**
+ * One decoded frame. [record] is null for an opaque frame (a future wire version or a writer
+ * that does not round-trip); [idHex] is the 16-byte envelope id read straight from the frozen
+ * header, so it stays available even when [record] is null (verify baselines and strip-repair
+ * must name opaque frames without re-slicing raw bytes).
+ */
 class DecodedRecord(
     val record: EngramRecord?,
     val kindCode: Int,
     val byteLength: Int,
     val crcOk: Boolean,
+    val idHex: String,
     val version: Int = EngramRecord.WIRE_VERSION,
 )
 
