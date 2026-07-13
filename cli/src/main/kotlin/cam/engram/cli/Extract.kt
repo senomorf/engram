@@ -59,7 +59,9 @@ private fun toExtracted(decoded: List<DecodedRecord>): List<ExtractedRecord> =
     decoded.map { d ->
         ExtractedRecord(
             kind = d.record?.kind?.name ?: "unknown(${d.kindCode})",
-            idHex = d.record?.idHex.orEmpty(),
+            // the envelope id is present even for an opaque frame (future version / unknown kind),
+            // so verify baselines record and can later detect the loss of such a frame (finding F4)
+            idHex = d.idHex,
             writer = d.record?.writer.orEmpty(),
             tsMillis = d.record?.tsMillis ?: 0,
             crcOk = d.crcOk,
