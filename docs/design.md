@@ -240,7 +240,12 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   foreground write path maps a needs-consent journal to NotOpened so the same
   consent UI fires. The pristine .bak always survives until the restore lands, so
   the photo bytes are never at risk, only the live file stays damaged until the
-  user re-grants.
+  user re-grants. Recovery also refuses to restore onto a reused MediaStore id
+  (finding F1): the .meta records the original's capture identity (DATE_TAKEN),
+  which survives a partial write but differs once the id is recycled to a different
+  photo. On a positive mismatch resolve orphans the backup (renamed out of the .bak
+  scan, never deleted) instead of overwriting the unrelated new capture, so neither
+  photo is lost; a legacy sidecar without the identity line keeps today's restore.
 - D27 Frame envelope frozen across wire versions. Spec sec 10 now freezes the frame
   field layout, so a v0 reader can locate every field of any future version.
   Records.decodeAt no longer rejects frames whose version byte is not 1: it decodes

@@ -9,6 +9,10 @@ import java.nio.channels.SeekableByteChannel
 /** In-memory ContentResolver stand-in shared by unit tests. */
 class FakeContentAccess : ContentAccess {
     val files = mutableMapOf<String, ByteArray>()
+
+    // capture identity (DATE_TAKEN) per uri; unset means null, so the reuse guard never fires
+    // for tests that do not model a reused id
+    val captureIdentity = mutableMapOf<String, Long>()
     var rejectWrites = false
     var corruptWrites = false
 
@@ -35,6 +39,8 @@ class FakeContentAccess : ContentAccess {
     var copyToFileCount = 0
 
     override fun readBytes(uri: String): ByteArray? = files[uri]
+
+    override fun readCaptureIdentity(uri: String): Long? = captureIdentity[uri]
 
     override fun <T> withChannel(
         uri: String,
