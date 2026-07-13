@@ -114,6 +114,35 @@ class XmpCoreEngineTest {
     }
 
     @Test
+    fun splitPreservesAllLocalizedDescriptions() {
+        val big = "D".repeat(70000)
+        val foreign =
+            """
+            <x:xmpmeta xmlns:x="adobe:ns:meta/">
+              <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                <rdf:Description rdf:about=""
+                    xmlns:dc="http://purl.org/dc/elements/1.1/"
+                    xmlns:t="http://test.example/ns/" t:Big="$big">
+                  <dc:description><rdf:Alt>
+                    <rdf:li xml:lang="x-default">XD_default</rdf:li>
+                    <rdf:li xml:lang="fr">FR_bonjour</rdf:li>
+                    <rdf:li xml:lang="de">DE_hallo</rdf:li>
+                  </rdf:Alt></dc:description>
+                </rdf:Description>
+              </rdf:RDF>
+            </x:xmpmeta>
+            """.trimIndent()
+        // mirror is null, so the split must carry the existing descriptions; every language must
+        // survive in the standard packet (it reads without ExtendedXMP support), not just x-default
+        val result = engine.apply(foreign, null, XmpUpdate(null, 5, 1), 60000)
+        assertNotNull(result.extendedPacket, "oversized packet must split")
+        val std = result.standardPacket
+        assertTrue(std.contains("XD_default"), "x-default description must survive the split")
+        assertTrue(std.contains("FR_bonjour"), "the French description must survive the split")
+        assertTrue(std.contains("DE_hallo"), "the German description must survive the split")
+    }
+
+    @Test
     fun extendedPacketMergesBackOnNextApply() {
         val big = "B".repeat(70000)
         val foreign =
