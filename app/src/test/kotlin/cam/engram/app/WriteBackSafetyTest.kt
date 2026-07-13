@@ -76,6 +76,23 @@ class WriteBackSafetyTest {
             assertTrue(backupDir.listFiles()!!.isEmpty(), "stale backup should be cleared")
         }
 
+    // reviewer D: a save that committed the write but died before the draft delete is retried with
+    // the same annotation. Content-addressed record ids let write() recognize the records already
+    // landed and skip the append, so the append-only file never gains duplicate note/audio records.
+    @Test
+    fun repeatedWriteOfSameAnnotationIsIdempotent() =
+        runBlocking {
+            val item = seed(20, SyntheticMedia.jpegPlain())
+            val annotation = Annotation("remember this", null)
+            assertIs<WriteOutcome.Success>(writeBack.write(item, annotation))
+            val afterFirst = RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk }
+            assertEquals(1, afterFirst)
+
+            assertIs<WriteOutcome.Success>(writeBack.write(item, annotation))
+            val afterSecond = RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk }
+            assertEquals(afterFirst, afterSecond, "a repeated identical write must not duplicate records")
+        }
+
     @Test
     fun recoveryRestoresACorruptTarget() =
         runBlocking {
