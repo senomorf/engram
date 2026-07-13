@@ -164,6 +164,12 @@ change lands under Unreleased at merge time.
   publish steps as quoted environment variables instead of being expanded into the
   shell command, closing a path where a crafted tag could have run code with the
   signing secrets in scope.
+- The signed-release workflow now gates publishing on the tag's full build, tests, and
+  coverage passing for that exact commit, on the commit already being merged to the main
+  branch, and on the release-readiness evidence (the survivability matrix and device-QA
+  checklist) being recorded; a stable tag on an unmerged commit, or one whose checks fail
+  or whose evidence is incomplete, no longer publishes a signed release. Prerelease (rc)
+  tags skip the merge and evidence checks so the pipeline can still be trialed.
 
 ### Added
 

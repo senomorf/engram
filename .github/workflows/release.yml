@@ -17,7 +17,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate the signing job on the tag SHA's full build/tests/coverage, plus (for a stable tag) that
+  # it is merged to main and the release evidence is recorded. No secrets here, so it runs before
+  # the environment approval; the release job needs it (finding F7).
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # gate job: only reads history and builds, never writes or signs
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0 # full history so the ancestry check can walk to origin/main
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-kotlin-2.3.21
+      - name: Derive version from tag
+        id: ver
+        run: bash scripts/derive-version.sh "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+      # a stable tag must sit on a commit already merged to main (and so already through main's ci
+      # + instrumented run); rc tags are exempt so the pipeline can be trialed on any commit
+      - name: Require the tag be reachable from main (stable only)
+        if: steps.ver.outputs.prerelease == 'false'
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::tag $GITHUB_REF_NAME ($GITHUB_SHA) is not reachable from origin/main; refusing to release an unmerged commit" >&2
+            exit 1
+          fi
+      # the survivability matrix and device-QA pass are the documented v1 release gate; a stable
+      # tag must not publish before they are recorded (rc tags exempt)
+      - name: Require survivability and device-QA evidence (stable only)
+        if: steps.ver.outputs.prerelease == 'false'
+        run: bash scripts/check-release-evidence.sh
+      - name: Full build, tests, coverage, iOS tripwire
+        run: ./gradlew build koverVerifyAggregate :core-format:compileKotlinIosArm64 --console=plain
+
   release:
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # owner-configured approval gate for the signing secrets (design D24). GitHub creates the
