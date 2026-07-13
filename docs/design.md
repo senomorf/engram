@@ -512,7 +512,10 @@ that.
   embedded, a clean frame loss the per-record CRCs cannot see. The check is
   one-directional (a re-embed that appends never counts as loss) and an absent baseline
   proves nothing, so it stays FULL. A bad outer PNG chunk CRC counts as carrier damage
-  too (a corrupt image with a surviving record is not FULL).
+  too (a corrupt image with a surviving record is not FULL), as does a PNG missing its
+  terminal IEND: records are written before IEND, so a truncated write can keep every egRm
+  chunk yet lose the structural terminator, and such a file must never read FULL (its
+  pristine backup would otherwise be deleted on a "verified" write).
 
 ## 13. Scope
 

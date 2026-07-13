@@ -36,6 +36,9 @@ change lands under Unreleased at merge time.
   and reports the file as incomplete when some are missing, and a corrupt PNG image
   (a bad chunk checksum) with a surviving record is reported as damaged rather than
   intact.
+- The verify now reports a PNG that was cut off before its final marker (a save
+  interrupted partway) as damaged instead of intact, even when every embedded memory
+  chunk is present: a structurally incomplete image is no longer treated as a clean file.
 - A single record frame with a malformed writer id (invalid bytes that expand past the
   size limit when decoded) no longer throws and aborts reading every record behind it:
   the reader now surfaces such a frame as an opaque one and carries on, so verify, cache

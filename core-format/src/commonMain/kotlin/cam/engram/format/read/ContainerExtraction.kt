@@ -198,6 +198,9 @@ object ContainerExtraction {
                 // a bad outer chunk CRC means the carrier lost data (a corrupt image or a
                 // damaged egRm chunk) even when the surviving records still decode
                 PngCodec.hasBadChunkCrc(file) -> CarrierIntegrity.CarrierDamaged("a png chunk failed its crc")
+                // records are written before IEND, so a truncated write can keep every egRm
+                // chunk yet lose the terminal IEND: structurally incomplete, never FULL
+                !PngCodec.isComplete(file) -> CarrierIntegrity.CarrierDamaged("png truncated before iend")
                 chunkCount > records.size ->
                     CarrierIntegrity.CarrierDamaged("$chunkCount egRm chunks but only ${records.size} decode")
                 else -> CarrierIntegrity.Readable
