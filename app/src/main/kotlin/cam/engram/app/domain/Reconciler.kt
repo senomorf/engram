@@ -78,13 +78,19 @@ class Reconciler(
             // prune only with durable full access: a partial or lost grant returns a subset
             // (or empty) snapshot that must not be mistaken for deletions and wipe the index (H5)
             val removedIds = if (hasFullMediaAccess()) existing.keys - seen else emptySet()
-            if (upserts.isNotEmpty()) db.media().upsert(upserts)
-            if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
-            // a reused id's old enrichment and draft are keyed by media id alone, so drop them
-            // (the record cache is preserved as an orphan by its composite key) (finding H1)
-            identityChanged.forEach {
-                db.enrichmentCache().delete(it)
-                db.drafts().delete(it)
+            // the row replacement and the id-keyed eviction commit together: a crash or a failed
+            // delete between them would leave a reused id's new row in place with the old capture's
+            // private draft and enrichment still attached, and the next reconcile (identity now
+            // matching) would never re-evict them (finding F3)
+            db.withTransaction {
+                if (upserts.isNotEmpty()) db.media().upsert(upserts)
+                if (removedIds.isNotEmpty()) db.media().delete(removedIds.toList())
+                // a reused id's old enrichment and draft are keyed by media id alone, so drop them
+                // (the record cache is preserved as an orphan by its composite key) (finding H1)
+                identityChanged.forEach {
+                    db.enrichmentCache().delete(it)
+                    db.drafts().delete(it)
+                }
             }
 
             // pre-hash cache rows (migrated with an empty contentHash) backfill through

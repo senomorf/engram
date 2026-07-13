@@ -299,6 +299,41 @@ class ReconcilerTest {
             assertNull(db.drafts().byId(1), "A's draft must not apply to B")
         }
 
+    // finding F3: the row replacement and the id-keyed eviction must commit atomically. If the
+    // eviction throws (here a trigger aborts the draft delete), the media row must roll back to A's
+    // identity, not be left as B with A's private draft still attached (which the next reconcile,
+    // identity now matching, would never re-evict).
+    @Test
+    fun identityChangeEvictionIsAtomicWithTheRowReplacement() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val a = EngramRecord(RecordKind.Note, 1, "photo A".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(a), "photo A"), takenAt = 100)
+            reconciler.reconcile()
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "A's unsaved note", null, 0),
+            )
+
+            // force the eviction's draft delete to abort mid-transaction
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_draft_delete BEFORE DELETE ON drafts BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            )
+            // the same id now points at photo B (different identity): a direct in-place reuse
+            val b = EngramRecord(RecordKind.Note, 2, "photo B".encodeToByteArray())
+            val bBytes = embedder.embed(SyntheticMedia.jpegWithFillBytes(), listOf(b), "photo B")
+            files["content://media/images/1"] = bBytes
+            snapshot[0] = snapshot[0].copy(takenAtMillis = 200, sizeBytes = bBytes.size.toLong(), dateModified = 2)
+            runCatching { reconciler.reconcile() }
+
+            // the transaction rolled back: the row still tracks A and A's draft survives, so the
+            // next reconcile (identity mismatch still present) can retry the whole change
+            assertEquals(100, db.media().byId(1)!!.takenAtMillis, "the media row must roll back to A")
+            assertEquals("A's unsaved note", db.drafts().byId(1)!!.text, "A's draft must survive the rollback")
+        }
+
     @Test
     fun videoScanPopulatesAStreamingContentHash() =
         runBlocking {
