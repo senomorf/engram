@@ -68,11 +68,11 @@ internal data class Expectation(
             val extended =
                 map["extended"]?.takeIf { it == "true" || it == "false" }
                     ?: throw IllegalArgumentException("expectation missing or malformed extended: ${file.path}")
+            // ids lists only the crc-valid frames while records counts every frame, so the two
+            // legitimately differ when a carrier holds a crc-broken frame (preserved verbatim by
+            // the append-only embedder); a truncated ids line is already caught because mpf and
+            // extended are written after it and would then be missing (finding F6)
             val ids = map["ids"]?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
-            // a present id list must match the record count, or the sidecar was truncated mid-list
-            require(ids.isEmpty() || ids.size == recordCount) {
-                "expectation ids (${ids.size}) inconsistent with records ($recordCount): ${file.path}"
-            }
             return Expectation(
                 container = container,
                 noteText = map["note.b64"]?.let { Base64.getDecoder().decode(it).decodeToString() },

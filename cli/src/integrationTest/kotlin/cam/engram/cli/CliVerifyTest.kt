@@ -121,6 +121,21 @@ class CliVerifyTest {
         assertEquals(EXIT_DAMAGED, code, output)
     }
 
+    // finding F6 follow-up: generate on a carrier that already holds a crc-broken frame writes a
+    // sidecar whose records count (all frames) exceeds its ids list (crc-valid only); read must
+    // accept that sidecar and judge the file, not reject its own output
+    @Test
+    fun generatedSidecarWithACrcBadFrameStillReads() {
+        val corrupt = EngramRecord(RecordKind.Note, 1, "corrupt".encodeToByteArray()).encode()
+        corrupt[corrupt.size - 6] = 0x00 // break the payload, leave the crc stale
+        val src = File(dir, "cb.jpg").apply { writeBytes(SyntheticMedia.jpegPlain() + corrupt) }
+        val out = File(dir, "cb-out.jpg")
+        run("generate", "--in", src.path, "--out", out.path, "--note", "typed")
+        // the crc-broken frame makes the file degraded, but its own sidecar must be accepted
+        val (code, output) = run("verify", "--in", out.path, "--expect", out.path + Expectation.SUFFIX)
+        assertEquals(EXIT_DEGRADED, code, output)
+    }
+
     @Test
     fun carrierDamageDegradesVerdict() {
         // undecodable bytes inside the engram box: the planted note is exact, but the
