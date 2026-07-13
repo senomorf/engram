@@ -35,6 +35,10 @@ class FakeContentAccess : ContentAccess {
     // the write landing, which only id-based verification can catch (finding B)
     var ignoreWrites = false
 
+    // writeBytes lands the file but drops its last 12 bytes: models a png write cut off before its
+    // terminal IEND chunk, a structurally incomplete file the verify must reject (finding F2)
+    var truncateWrites = false
+
     // counts backup copies so a test can prove a retry reused the committed backup
     var copyToFileCount = 0
 
@@ -66,6 +70,10 @@ class FakeContentAccess : ContentAccess {
             return WriteResult.OpenedUncertain
         }
         if (ignoreWrites) return WriteResult.Ok
+        if (truncateWrites) {
+            files[uri] = bytes.copyOfRange(0, maxOf(0, bytes.size - 12)) // cut before the terminal chunk
+            return WriteResult.Ok
+        }
         files[uri] = if (corruptWrites) ByteArray(4) { 0x11 } else bytes
         return WriteResult.Ok
     }

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.nio.channels.SeekableByteChannel
 
 /**
@@ -123,7 +124,12 @@ class ResolverContentAccess(
                 ?: return WriteResult.NotOpened
         // the target is now truncated: any failure past this point is uncertain, not untouched
         return runCatching {
-            out.use { it.write(bytes) }
+            out.use {
+                it.write(bytes)
+                // fsync so a crash cannot leave a truncated tail the write-back verify would miss
+                // (the readback hits the page cache); MediaStore file streams are FileOutputStream
+                (it as? FileOutputStream)?.fd?.sync()
+            }
             WriteResult.Ok
         }.getOrDefault(WriteResult.OpenedUncertain)
     }
@@ -150,7 +156,12 @@ class ResolverContentAccess(
             runCatching { resolver.openOutputStream(Uri.parse(uri), "wt") }.getOrNull()
                 ?: return WriteResult.NotOpened
         return runCatching {
-            out.use { source.inputStream().use { inp -> inp.copyTo(out) } }
+            out.use { o ->
+                source.inputStream().use { inp -> inp.copyTo(o) }
+                // fsync the restored bytes so the recovery's verify sees the durable file, not a
+                // page-cache tail a crash could still truncate
+                (o as? FileOutputStream)?.fd?.sync()
+            }
             WriteResult.Ok
         }.getOrDefault(WriteResult.OpenedUncertain)
     }

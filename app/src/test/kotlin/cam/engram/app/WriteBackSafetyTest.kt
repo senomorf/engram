@@ -48,11 +48,12 @@ class WriteBackSafetyTest {
         id: Long,
         bytes: ByteArray,
         takenAt: Long = id,
+        mime: String = "image/jpeg",
     ): MediaItemEntity {
         val uri = "content://media/$id"
         access.files[uri] = bytes
         val item =
-            MediaItemEntity(id, uri, false, "image/jpeg", "DCIM/Camera/", takenAt, bytes.size.toLong(), id, 0, 0, 0)
+            MediaItemEntity(id, uri, false, mime, "DCIM/Camera/", takenAt, bytes.size.toLong(), id, 0, 0, 0)
         db.media().upsert(listOf(item))
         return item
     }
@@ -395,6 +396,43 @@ class WriteBackSafetyTest {
 
             assertContentEquals(original, access.files[uri], "a matching identity restores the original")
             assertTrue(backupDir.listFiles()!!.isEmpty(), "journal cleared after the restore")
+        }
+
+    // finding F2: a png write that lands but is cut off before its terminal IEND is structurally
+    // incomplete even though every record chunk is present; verify must reject it and roll back to
+    // the pristine original rather than "succeed" and delete the backup for a broken file
+    @Test
+    fun verifyRejectsAStructurallyTruncatedPngAndRollsBack() =
+        runBlocking {
+            val item = seed(50, SyntheticMedia.png1x1(), mime = "image/png")
+            access.truncateWrites = true // the png write lands but loses its terminal IEND
+            val outcome = writeBack.write(item, Annotation("note", null))
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("structurally"), outcome.reason)
+            assertContentEquals(SyntheticMedia.png1x1(), access.files[item.uri], "the truncated write is rolled back")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared only after the restore")
+        }
+
+    // finding F2: recovery must not settle (and delete the backup for) a structurally truncated png
+    // just because it carries every expected record id; it must restore the pristine original
+    @Test
+    fun recoveryRestoresAStructurallyTruncatedPng() =
+        runBlocking {
+            val donor = seed(51, SyntheticMedia.png1x1(), mime = "image/png")
+            assertIs<WriteOutcome.Success>(writeBack.write(donor, Annotation("memory", null)))
+            val complete = access.files[donor.uri]!!.copyOf() // a valid embedded png (records + IEND)
+            val ids = RecordScanner(access).presentIds(donor.uri, false, "image/png")
+
+            // a crash truncated the png before its terminal IEND: every record is present but the
+            // file is structurally incomplete; the backup holds the pristine pre-write original
+            val uri = "content://media/52"
+            access.files[uri] = complete.copyOfRange(0, complete.size - 12)
+            File(backupDir, "52.bak").writeBytes(SyntheticMedia.png1x1())
+            File(backupDir, "52.meta").writeText("$uri\nfalse\nimage/png\n${ids.joinToString(",")}")
+
+            writeBack.recoverPending()
+
+            assertContentEquals(SyntheticMedia.png1x1(), access.files[uri], "a truncated png restores the original")
+            assertTrue(!File(backupDir, "52.bak").exists(), "the backup is cleared only after the restore")
         }
 
     // finding B: verification must check the exact new records landed, not just that some

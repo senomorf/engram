@@ -45,6 +45,11 @@ change lands under Unreleased at merge time.
 - The verify now reports a PNG that was cut off before its final marker (a save
   interrupted partway) as damaged instead of intact, even when every embedded memory
   chunk is present: a structurally incomplete image is no longer treated as a clean file.
+- A save whose PNG ends up cut off before its final marker no longer deletes the safety
+  backup: the save is treated as failed and the original photo is restored, and crash
+  recovery likewise restores the original instead of settling on the broken file. The write
+  is also flushed to disk before it is verified, so a not-yet-saved tail cannot pass the
+  check and then be lost.
 - A single record frame with a malformed writer id (invalid bytes that expand past the
   size limit when decoded) no longer throws and aborts reading every record behind it:
   the reader now surfaces such a frame as an opaque one and carries on, so verify, cache
