@@ -49,7 +49,7 @@ class MediaWriteBack(
         item: MediaItemEntity,
         annotation: Annotation,
     ): WriteOutcome {
-        val records = recordFactory.fromAnnotation(annotation).toMutableList()
+        val records = recordFactory.fromAnnotation(annotation, item.mediaId).toMutableList()
         if (records.isEmpty()) return WriteOutcome.Failed("nothing to write")
         cachedEnrichment(item)?.let { records += it }
         return writeRecords(item, records, annotation.noteText)
@@ -82,6 +82,20 @@ class MediaWriteBack(
                     }
                 }
                 val expectedIds = expectedIdHexes(records, carryFrames)
+                // idempotency (reviewer D): a save that committed the write but died before its draft
+                // was deleted is retried with the same annotation. Content-addressed ids let us spot
+                // records already in the target; when the whole annotation is present in a sound file,
+                // skip the append (reconcile the db, consume the draft), else append only the records
+                // still missing so a partial retry cannot duplicate the ones already there.
+                val preScan = scanner.scan(item.uri, item.isVideo, item.mime)
+                val present = preScan?.presentIds.orEmpty()
+                if (preScan != null && preScan.structurallyComplete && present.containsAll(expectedIds)) {
+                    val outcome = successOf(preScan)
+                    finishSuccess(item, outcome, preScan)
+                    return@withLock outcome
+                }
+                val recordsToWrite = records.filterNot { it.idHex in present }
+                val framesToWrite = carryFrames.filterNot { it.copyOfRange(8, 24).toHex() in present }
                 journal.writeSidecar(item, expectedIds)
                 if (!journal.publishBackup(item)) {
                     return@withLock WriteOutcome.Failed("cannot back up original")
@@ -90,7 +104,7 @@ class MediaWriteBack(
                 // target untouched by construction, so the journal is discarded, never restored
                 // (restore itself opens the target with truncation and must not run needlessly)
                 val prepared =
-                    runCatching { prepare(item, backup, records, mirrorText, carryFrames) }
+                    runCatching { prepare(item, backup, recordsToWrite, mirrorText, framesToWrite) }
                         .getOrElse { e ->
                             journal.cleanup(item.mediaId)
                             return@withLock WriteOutcome.Failed(e.message ?: "write preparation failed")
@@ -230,14 +244,16 @@ class MediaWriteBack(
         if (!scan.presentIds.containsAll(expected)) {
             return Attempt.Failed("verification missing expected records after write")
         }
-        val outcome =
-            WriteOutcome.Success(
-                recordCount = scan.recordCount,
-                payloadLength = scan.payloadLength,
-                overSoftCap = scan.payloadLength > SOFT_CAP_BYTES,
-            )
-        return Attempt.Verified(outcome, scan)
+        return Attempt.Verified(successOf(scan), scan)
     }
+
+    // the success verdict for a scan: records landed, payload size, soft-cap flag
+    private fun successOf(scan: ScanOutcome): WriteOutcome.Success =
+        WriteOutcome.Success(
+            recordCount = scan.recordCount,
+            payloadLength = scan.payloadLength,
+            overSoftCap = scan.payloadLength > SOFT_CAP_BYTES,
+        )
 
     private suspend fun finishSuccess(
         item: MediaItemEntity,
