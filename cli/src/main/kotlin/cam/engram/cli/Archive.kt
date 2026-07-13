@@ -1,8 +1,11 @@
 package cam.engram.cli
 
+import cam.engram.format.Digests
 import cam.engram.format.archive.EngramArchive
+import cam.engram.format.mp4.Mp4Channels
 import cam.engram.format.read.ContainerExtraction
 import java.io.File
+import java.io.FileInputStream
 
 /**
  * Reference Engram Archive export: reads one media file's records and writes
@@ -15,16 +18,25 @@ internal fun archive(a: Args) {
     require(input.isFile) { "input not found: ${input.path}" }
     outDir.mkdirs()
 
-    val bytes = input.readBytes()
     val x = extract(input)
     val records = x.records.mapNotNull { it.toEngramRecord() }
-    // the byte-exact log carries opaque frames (unknown kinds or versions) too
-    val rawFrames = ContainerExtraction.rawFrames(bytes)
+    // the byte-exact log carries opaque frames (unknown kinds or versions) too. An mp4 can be
+    // multi-gb, so hash and carve it by streaming the channel, never loading it whole; images are
+    // bounded, so a single read is fine (finding F5)
+    val hash: String
+    val rawFrames: List<ByteArray>
+    if (x.container == Container.MP4) {
+        hash = FileInputStream(input).use { Digests.sha256Hex(it.channel) }
+        rawFrames = FileInputStream(input).use { Mp4Channels.readRawFrames(it.channel) }
+    } else {
+        val bytes = input.readBytes()
+        hash = EngramArchive.contentHashName(bytes)
+        rawFrames = ContainerExtraction.rawFrames(bytes)
+    }
     if (rawFrames.isEmpty()) {
         println("no engram records in ${input.path}, nothing to archive")
         return
     }
-    val hash = EngramArchive.contentHashName(bytes)
     val rendered = EngramArchive.render(EngramArchive.Item(hash, input.name, records, rawFrames))
     val written = mutableListOf<EngramArchive.ManifestFile>()
 
