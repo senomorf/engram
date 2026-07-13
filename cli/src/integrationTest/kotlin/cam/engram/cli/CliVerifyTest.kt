@@ -179,6 +179,31 @@ class CliVerifyTest {
         assertTrue(output.contains("verdict: intact"), output)
     }
 
+    // finding F6: a damaged sidecar (marker-only, a duplicate key, or a malformed record count)
+    // must fail closed (verify exits with an error), not degrade to an empty baseline that reports
+    // any readable file intact
+    @Test
+    fun malformedSidecarFailsClosed() {
+        val src = File(dir, "m.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
+        val out = File(dir, "m-out.jpg")
+        run("generate", "--in", src.path, "--out", out.path, "--note", "kept")
+        val good = File(out.path + Expectation.SUFFIX).readText()
+
+        fun rejects(
+            name: String,
+            content: String,
+        ) {
+            val sidecar = File(dir, name).apply { writeText(content) }
+            assertEquals(1, run("verify", "--in", out.path, "--expect", sidecar.path).first, name)
+        }
+        rejects("marker-only.expect", "engram-expect=1\n") // no baseline fields
+        rejects("duplicate-key.expect", good + "records=0\n") // a second, shadowing records= line
+        rejects(
+            "malformed-records.expect",
+            good.lines().joinToString("\n") { if (it.startsWith("records=")) "records=notanumber" else it },
+        )
+    }
+
     @Test
     fun degradedWhenOnlyCaptionSurvives() {
         val src = File(dir, "s2.jpg").apply { writeBytes(SyntheticMedia.jpegPlain()) }
