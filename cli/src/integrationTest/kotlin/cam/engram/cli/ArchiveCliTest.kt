@@ -1,5 +1,10 @@
 package cam.engram.cli
 
+import cam.engram.format.archive.EngramArchive
+import cam.engram.format.mp4.Mp4Codec
+import cam.engram.format.read.ContainerExtraction
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.RecordKind
 import cam.engram.format.testing.SyntheticMedia
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -61,6 +66,29 @@ class ArchiveCliTest {
             log.readBytes().toList(),
             "the record log is byte-identical to the source file's frames",
         )
+    }
+
+    @Test
+    fun archiveStreamsMp4WithoutLoadingItWhole() {
+        // an mp4 is archived by streaming the channel (hash + frame carve), never a whole-file
+        // read; the streamed output must be byte-identical to the in-memory path (finding F5)
+        val note = EngramRecord(RecordKind.Note, 1, "clip memory".encodeToByteArray())
+        val mp4 = Mp4Codec.embed(SyntheticMedia.mp4MoovLast(), listOf(note))
+        val out = File(dir, "clip.mp4").apply { writeBytes(mp4) }
+        val archiveDir = File(dir, "mp4-archive")
+        assertEquals(0, cliMain(arrayOf("archive", "--in", out.path, "--out", archiveDir.path)))
+        assertEquals(0, cliMain(arrayOf("archive", "validate", "--in", archiveDir.path)))
+        // the streamed record log is byte-identical to the frames the source file carries
+        val log = archiveDir.listFiles { f -> f.name.endsWith(".records") }!!.single()
+        val sourceFrames = ContainerExtraction.rawFrames(out.readBytes())
+        assertEquals(
+            sourceFrames.fold(ByteArray(0)) { acc, f -> acc + f }.toList(),
+            log.readBytes().toList(),
+            "the streamed mp4 record log matches the source frames byte for byte",
+        )
+        // the archive is named by the streaming hash, which equals the whole-file hash
+        val json = archiveDir.listFiles { f -> f.name.endsWith(".json") && f.name != "manifest.json" }!!.single()
+        assertEquals("${EngramArchive.contentHashName(out.readBytes())}.json", json.name)
     }
 
     @Test

@@ -56,6 +56,9 @@ change lands under Unreleased at merge time.
 - The `verify` tool now rejects a damaged or truncated expectation sidecar (missing fields,
   duplicate keys, or a malformed record count) instead of treating it as an empty baseline
   that would report any readable file intact.
+- The `archive` tool now streams a video instead of loading it entirely into memory, so
+  exporting a large video no longer risks running out of memory. The archive output is
+  unchanged (same content hash and record log).
 - A single record frame with a malformed writer id (invalid bytes that expand past the
   size limit when decoded) no longer throws and aborts reading every record behind it:
   the reader now surfaces such a frame as an opaque one and carries on, so verify, cache
