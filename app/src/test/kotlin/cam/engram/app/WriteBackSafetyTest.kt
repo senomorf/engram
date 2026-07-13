@@ -8,6 +8,8 @@ import cam.engram.app.writeback.Annotation
 import cam.engram.app.writeback.MediaWriteBack
 import cam.engram.app.writeback.StripRepair
 import cam.engram.app.writeback.WriteOutcome
+import cam.engram.format.records.EngramRecord
+import cam.engram.format.records.RecordKind
 import cam.engram.format.records.RecordStream
 import cam.engram.format.testing.SyntheticMedia
 import kotlinx.coroutines.Dispatchers
@@ -91,6 +93,42 @@ class WriteBackSafetyTest {
             assertIs<WriteOutcome.Success>(writeBack.write(item, annotation))
             val afterSecond = RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk }
             assertEquals(afterFirst, afterSecond, "a repeated identical write must not duplicate records")
+        }
+
+    // reviewer D, partial retry: an enrichment cached between the crash and the retry must be the
+    // only record appended on the retry, never a second copy of the note already in the file.
+    @Test
+    fun retryAppendsOnlyNewlyCachedEnrichmentNotADuplicateNote() =
+        runBlocking {
+            var enrichment: EngramRecord? = null
+            val wb =
+                MediaWriteBack(
+                    db = db,
+                    access = access,
+                    scanner = RecordScanner(access),
+                    backupDir = backupDir,
+                    io = Dispatchers.Unconfined,
+                    cachedEnrichment = { enrichment },
+                )
+            val item = seed(21, SyntheticMedia.jpegPlain())
+            val annotation = Annotation("remember this", null)
+
+            // first save: nothing enriched yet, so the file gets just the note
+            assertIs<WriteOutcome.Success>(wb.write(item, annotation))
+            assertEquals(1, RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk })
+
+            // an enrichment lands in the cache, then the same save is retried (the draft survived)
+            enrichment =
+                EngramRecord(RecordKind.Enrichment, 7, "sunny, at the lake".encodeToByteArray(), ByteArray(16) { 9 })
+            assertIs<WriteOutcome.Success>(wb.write(item, annotation))
+
+            // the note is not duplicated; only the enrichment is added, in file order
+            val kinds =
+                RecordStream
+                    .scan(access.files[item.uri]!!)
+                    .filter { it.decoded.crcOk }
+                    .mapNotNull { it.decoded.record?.kind }
+            assertEquals(listOf(RecordKind.Note, RecordKind.Enrichment), kinds)
         }
 
     @Test
