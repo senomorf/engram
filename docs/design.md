@@ -321,7 +321,10 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   two being merged under the retained identity. The id-keyed enrichment cache and
   draft (keyed by mediaId alone, not the composite) are evicted on that identity
   change so the new capture cannot inherit the previous one's context or unsaved note
-  (finding H1).
+  (finding H1). The row replacement and that eviction commit in one Room transaction,
+  so a crash or failed delete between them cannot strand the old draft or enrichment on
+  the new row, where a later reconcile (identity now matching) would never re-evict it
+  (finding F3).
 - D30 Notification permission flow. API 33+ never grants POST_NOTIFICATIONS
   silently and the evening digest defaults on (D12), so without a request every
   fresh install got a silently dead digest. The permission is requested once when
