@@ -356,6 +356,47 @@ class WriteBackSafetyTest {
             assertTrue(backupDir.listFiles()!!.isEmpty(), "journal cleared after the restore")
         }
 
+    // finding F1: a reused MediaStore id now points at a different capture; restoring the old
+    // backup would overwrite the unrelated new photo and delete the journal, losing it. A positive
+    // capture-identity mismatch must orphan the backup instead of writing it over the new photo.
+    @Test
+    fun recoveryRefusesToOverwriteAReusedTarget() =
+        runBlocking {
+            val uri = "content://media/40"
+            val captureB = SyntheticMedia.jpegWithFillBytes() // a distinct, unrelated photo
+            access.files[uri] = captureB
+            access.captureIdentity[uri] = 200L // the target now reports capture B's identity
+            val backupA = SyntheticMedia.jpegPlain()
+            File(backupDir, "40.bak").writeBytes(backupA)
+            // 5-line sidecar: A's identity (100) is the anchor; A's expected id is absent from B
+            File(backupDir, "40.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef\n100")
+
+            assertTrue(writeBack.recoverPending().isEmpty(), "a reused target is not consent-needed")
+
+            assertContentEquals(captureB, access.files[uri], "the unrelated reused photo must not be overwritten")
+            assertTrue(!File(backupDir, "40.bak").exists(), "the backup is renamed out of the recovery scan")
+            assertTrue(File(backupDir, "40.bak.orphan").exists(), "A's backup is preserved as an orphan, not deleted")
+            assertTrue(!File(backupDir, "40.meta").exists(), "the journal is cleared so resolve stops retrying")
+        }
+
+    // finding F1: the same id still points at capture A (a partial write truncated it), so the
+    // capture identity is unchanged and recovery must restore the backup exactly as before
+    @Test
+    fun recoveryRestoresWhenIdentityStillMatches() =
+        runBlocking {
+            val uri = "content://media/41"
+            access.files[uri] = ByteArray(3) { 0x11 } // A, truncated by a partial write
+            access.captureIdentity[uri] = 100L // still A's identity
+            val original = SyntheticMedia.jpegPlain()
+            File(backupDir, "41.bak").writeBytes(original)
+            File(backupDir, "41.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef\n100")
+
+            writeBack.recoverPending()
+
+            assertContentEquals(original, access.files[uri], "a matching identity restores the original")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "journal cleared after the restore")
+        }
+
     // finding B: verification must check the exact new records landed, not just that some
     // record parses; a stale record from an earlier save must not vouch for a write the
     // provider silently dropped

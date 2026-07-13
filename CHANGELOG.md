@@ -26,6 +26,10 @@ change lands under Unreleased at merge time.
   restart), the app asks for it, on the next launch and from a card in the queue, instead of
   silently failing every retry. The untouched backup is always kept until the restore lands,
   so the photo is never lost, only its restore waits for permission.
+- Finishing an interrupted save can no longer overwrite an unrelated photo: if Android has
+  reassigned the photo's internal id to a different picture since the save was interrupted,
+  recovery keeps that new photo untouched and preserves the old backup on the side instead of
+  writing it over the wrong image.
 - Adding a caption to a photo whose existing IPTC metadata uses an extended-length field
   no longer silently drops that field and every keyword, credit, or copyright after it:
   such datasets are now carried through byte-for-byte, and if the existing IPTC cannot be

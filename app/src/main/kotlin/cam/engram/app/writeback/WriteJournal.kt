@@ -33,9 +33,11 @@ class WriteJournal(
         item: MediaItemEntity,
         expectedIds: Set<String>,
     ) {
-        // the expected record ids let recovery tell a finished write from an
-        // interrupted one, instead of trusting a bare container parse (finding A)
-        val content = "${item.uri}\n${item.isVideo}\n${item.mime}\n${expectedIds.joinToString(",")}"
+        // the expected record ids let recovery tell a finished write from an interrupted one
+        // (finding A); the capture identity (takenAtMillis) lets it tell a partial write of the
+        // original from a reused MediaStore id now holding a different photo (finding F1)
+        val content =
+            "${item.uri}\n${item.isVideo}\n${item.mime}\n${expectedIds.joinToString(",")}\n${item.takenAtMillis}"
         val meta = File(backupDir, "${item.mediaId}.meta")
         val tmp = File(backupDir, "${item.mediaId}.meta.tmp")
         // durable (fsync + rename) so the backup is never published before its sidecar exists
@@ -81,7 +83,8 @@ class WriteJournal(
     // settle one lingering transaction: the pair is dropped (Settled) only once the target
     // already carries the expected records (write completed), still equals the backup (nothing
     // ever landed), or the original was restored. A restore that cannot open the target
-    // surfaces NeedsConsent so recovery can re-request the grant instead of dead-ending.
+    // surfaces NeedsConsent so recovery can re-request the grant instead of dead-ending. A target
+    // whose capture identity no longer matches (a reused id) is orphaned, never overwritten (F1).
     fun resolve(backup: File): Resolution {
         val mediaId = backup.nameWithoutExtension.toLongOrNull() ?: return Resolution.Unresolved
         val meta = File(backupDir, "${backup.nameWithoutExtension}.meta").takeIf { it.exists() }?.readLines()
@@ -95,9 +98,21 @@ class WriteJournal(
                 ?.filter { it.isNotBlank() }
                 ?.toSet()
                 .orEmpty()
+        val expectedIdentity = meta.getOrNull(4)?.toLongOrNull()
         if (writeCompleted(uri, isVideo, mime, expectedIds) || targetMatchesBackup(uri, backup)) {
             cleanup(mediaId)
             return Resolution.Settled
+        }
+        // a reused MediaStore id now points at a different capture: restoring our backup would
+        // overwrite an unrelated photo. Capture identity (DATE_TAKEN) survives a partial write of
+        // the original but differs for a reused target, so a positive mismatch means orphan the
+        // backup (kept on disk, out of the *.bak scan), never write it over the new photo (F1)
+        if (expectedIdentity != null) {
+            val current = access.readCaptureIdentity(uri)
+            if (current != null && current != expectedIdentity) {
+                orphan(mediaId)
+                return Resolution.Settled
+            }
         }
         return when (restore(uri, backup)) {
             WriteResult.Ok -> {
@@ -116,6 +131,14 @@ class WriteJournal(
 
     fun cleanup(mediaId: Long) {
         File(backupDir, "$mediaId.bak").delete()
+        File(backupDir, "$mediaId.meta").delete()
+    }
+
+    // a reused-target backup must not be written over the new photo, nor deleted (it is the old
+    // capture's only copy): rename it out of the *.bak recovery scan and drop the sidecar so
+    // resolve stops retrying it (finding F1)
+    fun orphan(mediaId: Long) {
+        File(backupDir, "$mediaId.bak").renameTo(File(backupDir, "$mediaId.bak.orphan"))
         File(backupDir, "$mediaId.meta").delete()
     }
 

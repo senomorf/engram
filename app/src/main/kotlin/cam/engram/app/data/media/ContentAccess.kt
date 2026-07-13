@@ -31,6 +31,13 @@ interface ContentAccess {
         block: (SeekableByteChannel) -> T,
     ): T?
 
+    /**
+     * The target's capture identity (DATE_TAKEN, or DATE_ADDED*1000 when untagged), null when the
+     * row is gone. Recovery compares it against the identity the journal recorded, so a reused
+     * MediaStore id now holding a different photo is never overwritten by the old backup.
+     */
+    fun readCaptureIdentity(uri: String): Long?
+
     /** Truncates the target then writes [bytes]; the result distinguishes untouched from partial. */
     fun writeBytes(
         uri: String,
@@ -80,6 +87,30 @@ class ResolverContentAccess(
             resolver.openFileDescriptor(readUri(uri), "r")?.use { pfd ->
                 FileInputStream(pfd.fileDescriptor).channel.use(block)
             }
+        }.getOrNull()
+
+    override fun readCaptureIdentity(uri: String): Long? =
+        runCatching {
+            resolver
+                .query(
+                    Uri.parse(uri),
+                    arrayOf(MediaStore.MediaColumns.DATE_TAKEN, MediaStore.MediaColumns.DATE_ADDED),
+                    null,
+                    null,
+                    null,
+                )?.use { c ->
+                    if (!c.moveToFirst()) {
+                        null
+                    } else {
+                        val taken = c.getColumnIndex(MediaStore.MediaColumns.DATE_TAKEN)
+                        // DATE_TAKEN is epoch millis; DATE_ADDED is epoch seconds, so scale the fallback
+                        if (taken >= 0 && !c.isNull(taken)) {
+                            c.getLong(taken)
+                        } else {
+                            c.getLong(c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)) * 1000
+                        }
+                    }
+                }
         }.getOrNull()
 
     override fun writeBytes(
