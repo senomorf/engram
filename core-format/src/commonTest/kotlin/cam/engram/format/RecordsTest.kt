@@ -72,6 +72,18 @@ class RecordsTest {
     }
 
     @Test
+    fun opaqueFrameExposesItsEnvelopeId() {
+        // a future-version frame stays opaque (no typed record), but its 16-byte envelope id
+        // sits at a frozen offset; DecodedRecord must expose it so verify baselines and
+        // strip-repair can name opaque frames without re-slicing raw bytes
+        val frame = SyntheticMedia.unknownVersionFrame()
+        val d = EngramRecord.decodeAt(frame, 0)!!
+        assertNull(d.record)
+        assertTrue(d.crcOk)
+        assertEquals(frame.copyOfRange(8, 24).toHex(), d.idHex)
+    }
+
+    @Test
     fun decodeSequenceCarriesUnknownVersionFramesMidStream() {
         val bytes =
             EngramRecord(RecordKind.Note, 1, "before".encodeToByteArray()).encode() +
