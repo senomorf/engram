@@ -41,5 +41,7 @@ jobs:
           bash -n scripts/*.sh
           shellcheck scripts/*.sh
       - name: Run script unit tests
-        # guards the release-tag validation (release-tag injection) against regressions
-        run: bash scripts/derive-version.test.sh
+        # guards the release-tag validation (release-tag injection) and the release-evidence gate
+        run: |
+          bash scripts/derive-version.test.sh
+          bash scripts/check-release-evidence.test.sh
