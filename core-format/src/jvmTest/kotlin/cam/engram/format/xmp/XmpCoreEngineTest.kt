@@ -143,6 +143,33 @@ class XmpCoreEngineTest {
     }
 
     @Test
+    fun splitAppliesMirrorAsXDefaultAndKeepsForeignLanguages() {
+        val big = "E".repeat(70000)
+        val foreign =
+            """
+            <x:xmpmeta xmlns:x="adobe:ns:meta/">
+              <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                <rdf:Description rdf:about=""
+                    xmlns:dc="http://purl.org/dc/elements/1.1/"
+                    xmlns:t="http://test.example/ns/" t:Big="$big">
+                  <dc:description><rdf:Alt>
+                    <rdf:li xml:lang="x-default">XD_original</rdf:li>
+                    <rdf:li xml:lang="fr">FR_bonjour</rdf:li>
+                  </rdf:Alt></dc:description>
+                </rdf:Description>
+              </rdf:RDF>
+            </x:xmpmeta>
+            """.trimIndent()
+        // our note replaces x-default, but the foreign French caption still survives the split
+        val result = engine.apply(foreign, null, XmpUpdate("MIRROR_note", 5, 1), 60000)
+        assertNotNull(result.extendedPacket, "oversized packet must split")
+        val std = result.standardPacket
+        assertEquals("MIRROR_note", engine.read(std).description, "the mirror becomes x-default")
+        assertTrue(std.contains("FR_bonjour"), "the French description survives the split")
+        assertTrue(!std.contains("XD_original"), "the mirror replaces the original x-default")
+    }
+
+    @Test
     fun extendedPacketMergesBackOnNextApply() {
         val big = "B".repeat(70000)
         val foreign =
