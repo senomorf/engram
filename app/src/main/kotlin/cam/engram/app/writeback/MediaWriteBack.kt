@@ -219,6 +219,12 @@ class MediaWriteBack(
             scanner.scan(item.uri, item.isVideo, item.mime)
                 ?: return Attempt.Failed("verification could not read file back")
         if (scan.recordCount == 0) return Attempt.Failed("verification found no records after write")
+        // a structurally incomplete file (a png truncated before its terminal IEND) can still
+        // carry every record: refuse it so the pristine backup is never deleted for a broken
+        // file, the same bar recovery's writeCompleted applies (finding F2)
+        if (!scan.structurallyComplete) {
+            return Attempt.Failed("verification found a structurally incomplete file after write")
+        }
         // a count alone would let a stale record vouch for a dropped write: the exact
         // expected ids must be present, the same bar recovery's writeCompleted applies
         if (!scan.presentIds.containsAll(expected)) {

@@ -154,8 +154,8 @@ class WriteJournal(
         return target == kept
     }
 
-    // a write finished only if the target carries every expected record with a valid
-    // CRC; a legacy sidecar without ids falls back to a bare container parse
+    // a write finished only if the target carries every expected record with a valid CRC and is
+    // structurally complete (finding F2); a legacy sidecar without ids falls back to a bare parse
     private fun writeCompleted(
         uri: String,
         isVideo: Boolean,
@@ -173,6 +173,10 @@ class WriteJournal(
                 }
             }.getOrDefault(false)
         } else {
-            scanner.presentIds(uri, isVideo, mime).containsAll(expectedIds)
+            // a structurally incomplete file (a png truncated before IEND) can still carry every
+            // expected id: require completeness too, so recovery never settles, and deletes the
+            // backup for, a broken file (finding F2)
+            val scan = scanner.scan(uri, isVideo, mime) ?: return false
+            scan.structurallyComplete && scan.presentIds.containsAll(expectedIds)
         }
 }
