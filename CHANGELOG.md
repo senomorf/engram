@@ -50,6 +50,9 @@ change lands under Unreleased at merge time.
   recovery likewise restores the original instead of settling on the broken file. The write
   is also flushed to disk before it is verified, so a not-yet-saved tail cannot pass the
   check and then be lost.
+- The `verify` tool's expectation sidecar now records the id of every embedded record,
+  including a future-format record this version cannot fully read, so a later loss of such
+  a record is reported as damaged instead of intact.
 - A single record frame with a malformed writer id (invalid bytes that expand past the
   size limit when decoded) no longer throws and aborts reading every record behind it:
   the reader now surfaces such a frame as an opaque one and carries on, so verify, cache

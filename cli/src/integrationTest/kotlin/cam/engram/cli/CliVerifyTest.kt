@@ -100,6 +100,28 @@ class CliVerifyTest {
     }
 
     @Test
+    fun opaqueFrameLossIsDamaged() {
+        // a file already carries a future-version (opaque) frame the current tool cannot decode;
+        // generate must record its envelope id in the sidecar so a later strip of it is caught
+        // (finding F4), not silently reported intact
+        val src =
+            File(dir, "op.jpg").apply {
+                writeBytes(SyntheticMedia.jpegPlain() + SyntheticMedia.unknownVersionFrame())
+            }
+        val out = File(dir, "op-out.jpg")
+        run("generate", "--in", src.path, "--out", out.path, "--note", "typed note")
+        // the generated file carries the typed note plus the preserved opaque frame; strip the opaque one
+        val bytes = out.readBytes()
+        val opaque = RecordStream.scan(bytes).first { it.decoded.record == null }
+        val stripped =
+            bytes.copyOfRange(0, opaque.offset) +
+                bytes.copyOfRange(opaque.offset + opaque.decoded.byteLength, bytes.size)
+        val lossy = File(dir, "op-lossy.jpg").apply { writeBytes(stripped) }
+        val (code, output) = run("verify", "--in", lossy.path, "--expect", out.path + Expectation.SUFFIX)
+        assertEquals(EXIT_DAMAGED, code, output)
+    }
+
+    @Test
     fun carrierDamageDegradesVerdict() {
         // undecodable bytes inside the engram box: the planted note is exact, but the
         // carrier lost data it claimed to hold, so the verdict must not be intact
