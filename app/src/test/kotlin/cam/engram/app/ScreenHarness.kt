@@ -5,7 +5,12 @@ import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.audio.VoiceRecorder
 import cam.engram.app.audio.VoiceRecorderFactory
@@ -101,7 +106,20 @@ fun ComposeContentTestRule.setScreen(
     container: AppContainer,
     content: @Composable () -> Unit,
 ) = setContent {
-    CompositionLocalProvider(LocalAppContainer provides container) {
+    // give each screen its own ViewModelStore and clear it when the composition tears down, so a
+    // screen's ViewModel (its viewModelScope coroutines and WhileSubscribed flows) is cancelled
+    // between tests instead of leaking into and starving the next Compose test in the same JVM
+    val vmOwner =
+        remember {
+            object : ViewModelStoreOwner {
+                override val viewModelStore = ViewModelStore()
+            }
+        }
+    DisposableEffect(Unit) { onDispose { vmOwner.viewModelStore.clear() } }
+    CompositionLocalProvider(
+        LocalAppContainer provides container,
+        LocalViewModelStoreOwner provides vmOwner,
+    ) {
         EngramTheme { content() }
     }
 }
