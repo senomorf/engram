@@ -4,12 +4,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.AppContainer
 import cam.engram.app.FakeContentAccess
+import cam.engram.app.awaitValue
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.fakeContainer
 import cam.engram.format.testing.SyntheticMedia
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -37,8 +37,6 @@ class QueueViewModelTest {
         db.close()
     }
 
-    private suspend fun settle() = delay(500)
-
     private fun vm() = QueueViewModel(AppContainer(ApplicationProvider.getApplicationContext(), db = db))
 
     @Test
@@ -46,7 +44,7 @@ class QueueViewModelTest {
         runBlocking {
             val vm = vm()
             vm.refresh()
-            settle()
+            vm.busy.awaitValue { !it }
             // reconcile over an empty MediaStore leaves nothing stripped and the flag cleared
             assertEquals(false, vm.busy.value)
             assertEquals(0, vm.stripped.value.size)
@@ -57,7 +55,7 @@ class QueueViewModelTest {
         runBlocking {
             val vm = vm()
             vm.repairAll()
-            settle()
+            vm.stripped.awaitValue { it.isEmpty() }
             assertEquals(0, vm.stripped.value.size)
         }
 
@@ -66,7 +64,7 @@ class QueueViewModelTest {
         runBlocking {
             val vm = vm()
             vm.consentHandled()
-            settle()
+            vm.repairNeedsConsent.awaitValue { it == null }
             assertNull(vm.repairNeedsConsent.value)
         }
 
@@ -92,12 +90,12 @@ class QueueViewModelTest {
 
             val vm = QueueViewModel(app)
             vm.refresh()
-            settle()
+            vm.pendingRecovery.awaitValue { it == listOf(uri) }
             assertEquals(listOf(uri), vm.pendingRecovery.value)
 
             access.rejectRestore = false // the user granted the write consent
             vm.recoveryConsentHandled()
-            settle()
+            vm.pendingRecovery.awaitValue { it.isEmpty() }
             assertEquals(emptyList(), vm.pendingRecovery.value)
             assertContentEquals(original, access.files[uri])
         }

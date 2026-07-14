@@ -32,6 +32,9 @@ import cam.engram.format.testing.SyntheticMedia
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import org.robolectric.Shadows.shadowOf
 import java.io.File
 
@@ -198,3 +201,13 @@ fun AppContainer.seedQueue(id: Long) {
     (source as FakeMediaSource).items +=
         SourceItem(id, "content://media/$id", false, "image/jpeg", "DCIM/Camera/", id, 10, id)
 }
+
+/**
+ * Suspends until this StateFlow holds a value satisfying [predicate], failing after [timeoutMs].
+ * Replaces fixed delay() "settle" sleeps in ViewModel tests: returns the instant the awaited state
+ * lands (Room's suspend DAOs still run on their own real threads) and only fails on a genuine hang.
+ */
+suspend fun <T> StateFlow<T>.awaitValue(
+    timeoutMs: Long = 5_000,
+    predicate: (T) -> Boolean,
+): T = withTimeout(timeoutMs) { first(predicate) }
