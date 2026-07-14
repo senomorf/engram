@@ -2,20 +2,18 @@ package cam.engram.app.ui
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
+import cam.engram.app.ScreenTest
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
 import cam.engram.app.setScreen
 import cam.engram.format.testing.SyntheticMedia
 import kotlinx.coroutines.runBlocking
-import org.junit.After
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,17 +22,9 @@ import java.io.File
 
 /** Exercises the real EngramRoot gate + Navigator/MainNavigation by rendering and clicking through. */
 @RunWith(RobolectricTestRunner::class)
-class EngramRootNavigationTest {
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val app = fakeContainer()
+class EngramRootNavigationTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
-
-    @After
-    fun tearDown() {
-        app.db.close()
-    }
 
     @Test
     fun navigatesFromHomeToQueue() {

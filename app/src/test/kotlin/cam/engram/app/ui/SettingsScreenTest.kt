@@ -1,33 +1,23 @@
 package cam.engram.app.ui
 
 import android.content.Context
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
+import cam.engram.app.ScreenTest
 import cam.engram.app.fakeContainer
 import cam.engram.app.setScreen
-import org.junit.After
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class SettingsScreenTest {
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val app = fakeContainer()
+class SettingsScreenTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
-
-    @After
-    fun tearDown() {
-        app.db.close()
-    }
 
     @Test
     fun disabledNotificationsShowHintRowWithTapThrough() {
