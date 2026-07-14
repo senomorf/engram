@@ -74,6 +74,11 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // Robolectric sandboxes are per-class and JVM-isolated; fork across cores so the
+            // Robolectric classes do not run serially (forks are separate JVMs: no shared-state risk)
+            all {
+                it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+            }
         }
         // instrumented confidence layer (D22): a build-managed emulator covers the real platform
         // adapters Kover excludes. Run with `./gradlew pixelApi34DebugAndroidTest` locally or in CI.
