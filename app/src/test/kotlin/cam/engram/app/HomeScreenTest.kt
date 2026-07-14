@@ -1,6 +1,6 @@
 package cam.engram.app
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import cam.engram.app.ui.HomeScreen
 import cam.engram.app.ui.theme.EngramTheme

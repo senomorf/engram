@@ -6,7 +6,7 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -23,13 +23,10 @@ import cam.engram.app.fakeContainer
 import cam.engram.app.seedItem
 import cam.engram.app.seedMemory
 import cam.engram.app.setScreen
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -49,10 +46,8 @@ class AnnotateScreenTest {
     private val app = fakeContainer()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
 
-    // viewModelScope dispatches on Main; run those launches eagerly so save/onNext complete
     @Before
     fun setUp() {
-        Dispatchers.setMain(Dispatchers.Unconfined)
         // most tests exercise the granted-location path (the common case); the denial
         // path is covered by savingImageWithoutLocationWarnsFirstThenSaves
         shadowOf(ApplicationProvider.getApplicationContext<Application>())
@@ -61,7 +56,6 @@ class AnnotateScreenTest {
 
     @After
     fun tearDown() {
-        Dispatchers.resetMain()
         app.db.close()
     }
 

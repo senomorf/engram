@@ -1,6 +1,6 @@
 package cam.engram.app.ui
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import cam.engram.app.fakeContainer
 import cam.engram.app.setScreen
