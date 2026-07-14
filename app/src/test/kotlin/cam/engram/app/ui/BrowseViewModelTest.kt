@@ -2,12 +2,12 @@ package cam.engram.app.ui
 
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.AppContainer
+import cam.engram.app.awaitValue
 import cam.engram.app.data.db.EngramDb
 import cam.engram.app.data.db.MediaItemEntity
 import cam.engram.app.data.db.MemoryFts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -33,9 +33,6 @@ class BrowseViewModelTest {
         Dispatchers.resetMain()
         db.close()
     }
-
-    // comfortably past the 250ms search debounce plus the DB query, even under CI load
-    private suspend fun settle() = delay(700)
 
     private fun container() = AppContainer(ApplicationProvider.getApplicationContext(), db = db)
 
@@ -70,7 +67,7 @@ class BrowseViewModelTest {
             seed(2, "birthday cake candles")
             val vm = BrowseViewModel(container())
             vm.onQueryChange("sunrise")
-            settle()
+            vm.results.awaitValue { it != null }
             assertEquals(listOf(1L), vm.results.value!!.map { it.mediaId })
         }
 
@@ -80,10 +77,10 @@ class BrowseViewModelTest {
             seed(1, "sunrise")
             val vm = BrowseViewModel(container())
             vm.onQueryChange("sunrise")
-            settle()
+            vm.results.awaitValue { it != null }
             assertNotNull(vm.results.value)
             vm.onQueryChange("   ")
-            settle()
+            vm.results.awaitValue { it == null }
             assertNull(vm.results.value)
         }
 
@@ -94,7 +91,7 @@ class BrowseViewModelTest {
             val vm = BrowseViewModel(container())
             // punctuation raw FTS MATCH would choke on; sanitize must strip it
             vm.onQueryChange("sun\"rise():*^")
-            settle()
+            vm.results.awaitValue { it != null }
             assertEquals(listOf(1L), vm.results.value!!.map { it.mediaId })
         }
 }
