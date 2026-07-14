@@ -107,8 +107,9 @@ fun ComposeContentTestRule.setScreen(
     content: @Composable () -> Unit,
 ) = setContent {
     // give each screen its own ViewModelStore and clear it when the composition tears down, so a
-    // screen's ViewModel (its viewModelScope coroutines and WhileSubscribed flows) is cancelled
-    // between tests instead of leaking into and starving the next Compose test in the same JVM
+    // screen's ViewModel (its viewModelScope coroutines and stateIn WhileSubscribed flows) is
+    // cancelled between tests; a test that closes its db in teardown relies on this to unsubscribe
+    // the screen's Room-backed flows before the pool closes (see QueueScreenTest's rule ordering)
     val vmOwner =
         remember {
             object : ViewModelStoreOwner {

@@ -2,44 +2,46 @@ package cam.engram.app.ui
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
 import cam.engram.app.grantPartialMediaAccess
 import cam.engram.app.seedQueue
 import cam.engram.app.setScreen
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
-import org.junit.After
-import org.junit.Before
+import cam.engram.format.testing.SyntheticMedia
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ExternalResource
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class QueueScreenTest {
-    @get:Rule
-    val compose = createComposeRule()
-
     private val app = fakeContainer()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
 
-    @Before
-    fun setUp() = Dispatchers.setMain(Dispatchers.Unconfined)
+    @get:Rule(order = 1)
+    val compose = createComposeRule()
 
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-        app.db.close()
-    }
+    // order 0 = outermost, so this runs only after the compose rule (order 1) disposes the composition,
+    // which cancels QueueViewModel's viewModelScope and unsubscribes the queue() Flow. Under v2's queued
+    // dispatcher the reconcile-triggered re-query is otherwise still mid-flight when app.db.close() shuts
+    // the pool, throwing from the Flow observer (the race EngramDb.inMemory's inline executor prevents
+    // under v1, reintroduced by the queued clock).
+    @get:Rule(order = 0)
+    val teardown =
+        object : ExternalResource() {
+            override fun after() {
+                app.db.close()
+            }
+        }
 
     @Test
     fun showsPermissionRationaleWhenMediaAccessDenied() {
@@ -79,5 +81,36 @@ class QueueScreenTest {
             compose.onAllNodesWithText(strings.getString(R.string.queue_empty)).fetchSemanticsNodes().isEmpty()
         }
         compose.onNodeWithText(strings.getString(R.string.queue_empty)).assertDoesNotExist()
+    }
+
+    // finding C2: a write left mid-restore by a lost grant surfaces a "finish restoring" card. This was
+    // once split into its own class because under v1 it flaked ~50% when a sibling QueueScreen
+    // composition ran before it in the same JVM; v2's queued dispatcher makes the async deterministic,
+    // so it is order-independent here (issue #99).
+    @Test
+    fun showsRecoveryBannerWhenAWriteNeedsConsent() {
+        grantMediaPermissions()
+        val access = app.access as FakeContentAccess
+        val uri = "content://media/60"
+        access.files[uri] = ByteArray(3) { 0x11 } // truncated target from an interrupted save
+        val backupDir =
+            File(strings.filesDir, "writeback").apply {
+                deleteRecursively()
+                mkdirs()
+            }
+        File(backupDir, "60.bak").writeBytes(SyntheticMedia.jpegPlain())
+        File(backupDir, "60.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef")
+        access.rejectRestore = true // the restore needs a grant the app lacks
+
+        compose.setScreen(app) { QueueScreen(onAnnotate = { _, _ -> }, onBack = {}) }
+        compose.waitUntil(5_000) {
+            compose
+                .onAllNodesWithText(strings.getString(R.string.queue_recovery_restore))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText(strings.getString(R.string.queue_recovery_restore)).assertIsDisplayed()
+        // tapping requests consent (a no-op under Robolectric, where createWriteRequest is null)
+        compose.onNodeWithText(strings.getString(R.string.queue_recovery_restore)).performClick()
     }
 }
