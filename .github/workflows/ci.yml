@@ -29,11 +29,13 @@ jobs:
           key: konan-${{ runner.os }}-kotlin-2.3.21
       # build runs check -> koverVerify (per-module floors); koverVerifyAggregate defends the combined 95% (D22)
       - run: ./gradlew build koverVerifyAggregate :core-format:compileKotlinIosArm64 --console=plain
+      # coverage is gated by koverVerifyAggregate above; only spend the second Gradle run rendering
+      # the browsable HTML when something failed (e.g. a floor miss), not on every green run
       - name: coverage html reports
-        if: always()
+        if: failure()
         run: ./gradlew :core-format:koverHtmlReport :cli:koverHtmlReport :app:koverHtmlReportDebug --console=plain
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
+        if: failure()
         with:
           name: coverage-reports
           path: |
