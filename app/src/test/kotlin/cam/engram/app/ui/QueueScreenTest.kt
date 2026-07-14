@@ -2,46 +2,28 @@ package cam.engram.app.ui
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
+import cam.engram.app.ScreenTest
 import cam.engram.app.fakeContainer
 import cam.engram.app.grantMediaPermissions
 import cam.engram.app.grantPartialMediaAccess
 import cam.engram.app.seedQueue
 import cam.engram.app.setScreen
 import cam.engram.format.testing.SyntheticMedia
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.ExternalResource
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-class QueueScreenTest {
-    private val app = fakeContainer()
+class QueueScreenTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
-
-    @get:Rule(order = 1)
-    val compose = createComposeRule()
-
-    // order 0 = outermost, so this runs only after the compose rule (order 1) disposes the composition,
-    // which cancels QueueViewModel's viewModelScope and unsubscribes the queue() Flow. Under v2's queued
-    // dispatcher the reconcile-triggered re-query is otherwise still mid-flight when app.db.close() shuts
-    // the pool, throwing from the Flow observer (the race EngramDb.inMemory's inline executor prevents
-    // under v1, reintroduced by the queued clock).
-    @get:Rule(order = 0)
-    val teardown =
-        object : ExternalResource() {
-            override fun after() {
-                app.db.close()
-            }
-        }
 
     @Test
     fun showsPermissionRationaleWhenMediaAccessDenied() {

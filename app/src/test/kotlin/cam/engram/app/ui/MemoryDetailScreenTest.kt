@@ -2,13 +2,13 @@ package cam.engram.app.ui
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.FakeContentAccess
 import cam.engram.app.R
+import cam.engram.app.ScreenTest
 import cam.engram.app.fakeContainer
 import cam.engram.app.seedItem
 import cam.engram.app.seedMemory
@@ -20,23 +20,15 @@ import cam.engram.format.records.RecordKind
 import cam.engram.format.testing.SyntheticMedia
 import cam.engram.format.xmp.XmpCoreEngine
 import kotlinx.coroutines.runBlocking
-import org.junit.After
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
-class MemoryDetailScreenTest {
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val app = fakeContainer()
+class MemoryDetailScreenTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
-
-    @After
-    fun tearDown() = app.db.close()
 
     @Test
     fun showsSeededNoteAndVoiceSection() {

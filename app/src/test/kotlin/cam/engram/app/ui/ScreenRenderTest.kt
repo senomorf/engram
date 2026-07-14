@@ -1,11 +1,9 @@
 package cam.engram.app.ui
 
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
+import cam.engram.app.ScreenTest
 import cam.engram.app.fakeContainer
 import cam.engram.app.setScreen
-import org.junit.After
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -15,14 +13,8 @@ import org.robolectric.RobolectricTestRunner
  * without throwing. Depth (populated data + interactions) lives in the per-screen tests.
  */
 @RunWith(RobolectricTestRunner::class)
-class ScreenRenderTest {
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val app = fakeContainer()
-
-    @After
-    fun tearDown() = app.db.close()
+class ScreenRenderTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
 
     @Test
     fun onboardingRenders() {

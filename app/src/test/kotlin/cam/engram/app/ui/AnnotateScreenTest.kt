@@ -6,7 +6,6 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -18,6 +17,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
+import cam.engram.app.ScreenTest
 import cam.engram.app.data.db.DraftEntity
 import cam.engram.app.fakeContainer
 import cam.engram.app.seedItem
@@ -27,9 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import org.junit.After
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -39,11 +37,8 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class AnnotateScreenTest {
-    @get:Rule
-    val compose = createComposeRule()
-
-    private val app = fakeContainer()
+class AnnotateScreenTest : ScreenTest() {
+    private val app = fakeContainer().closingDb()
     private val strings = ApplicationProvider.getApplicationContext<Context>()
 
     @Before
@@ -52,11 +47,6 @@ class AnnotateScreenTest {
         // path is covered by savingImageWithoutLocationWarnsFirstThenSaves
         shadowOf(ApplicationProvider.getApplicationContext<Application>())
             .grantPermissions(Manifest.permission.ACCESS_MEDIA_LOCATION)
-    }
-
-    @After
-    fun tearDown() {
-        app.db.close()
     }
 
     @Test
@@ -228,7 +218,7 @@ class AnnotateScreenTest {
                     object : cam.engram.app.audio.VoiceRecorderFactory {
                         override fun create() = recorder
                     },
-            )
+            ).closingDb()
         runBlocking { counting.seedItem(61) }
         val show = androidx.compose.runtime.mutableStateOf(true)
         var vm: AnnotateViewModel? = null
@@ -265,14 +255,13 @@ class AnnotateScreenTest {
         show.value = true
         compose.waitForIdle()
         compose.onNodeWithText(strings.getString(R.string.annotate_play)).assertIsDisplayed()
-        counting.db.close()
     }
 
     @Test
     fun noteFieldAndRecordButtonDisabledWhileSaving() {
         // park the write on a test scheduler so the Saving state is observable
         val scheduler = TestCoroutineScheduler()
-        val slowApp = fakeContainer(io = StandardTestDispatcher(scheduler))
+        val slowApp = fakeContainer(io = StandardTestDispatcher(scheduler)).closingDb()
         runBlocking { slowApp.seedMemory(13, note = "existing") }
         var done = false
         compose.setScreen(slowApp) { AnnotateScreen(mediaIds = listOf(13), startIndex = 0, onDone = { done = true }) }
@@ -294,7 +283,6 @@ class AnnotateScreenTest {
             done
         }
         assertTrue(done)
-        slowApp.db.close()
     }
 
     @Test
