@@ -25,6 +25,10 @@ change lands under Unreleased at merge time.
   instead of a single valid flag, so a photo whose gain-map index already had a harmless
   quirk can still be annotated while any new inconsistency introduced by the save is
   refused, where before such a file's write skipped the safety comparison entirely.
+- A memory whose stored bytes are corrupt can no longer show up as real text: such a record
+  is now excluded from the caption written back into a repaired photo and from the readable
+  archive view, so the newest intact note is used instead. The byte-exact record log in an
+  archive was already unaffected.
 - The most recent memories can no longer ride Android cloud backup off the phone: the
   database's write-ahead log (where the newest notes and voice recordings sit until they are
   folded into the main file) is now excluded from cloud backup alongside the database itself,

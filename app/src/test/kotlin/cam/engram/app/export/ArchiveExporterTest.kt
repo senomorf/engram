@@ -111,6 +111,41 @@ class ArchiveExporterTest {
             assertEquals(2, RecordStream.decodeSequence(log).size)
         }
 
+    // issue #72: the readable JSON view must not present corrupt payload bytes as real note
+    // text; the byte-exact .records log already carries only crc-valid frames
+    @Test
+    fun jsonViewExcludesCrcBadRecords() =
+        runBlocking {
+            val valid = EngramRecord(RecordKind.Note, 1, "trustworthy".encodeToByteArray())
+            // a newer note whose crc no longer matches: it decodes as version 1 with intact text
+            val corrupt =
+                EngramRecord(RecordKind.Note, 9, "corrupt newer note".encodeToByteArray()).encode().copyOf().also {
+                    // flip a crc byte, not the payload: the text still reads intact, so only a
+                    // crcOk check can keep it out
+                    it[it.size - 1] = (it[it.size - 1] + 1).toByte()
+                }
+            val bytes = SyntheticMedia.jpegPlain()
+            val uri = "content://media/8"
+            access.files[uri] = bytes
+            db.media().upsert(
+                listOf(
+                    MediaItemEntity(8, uri, false, "image/jpeg", "DCIM/Camera/", 8, bytes.size.toLong(), 8, 2, 0, 0),
+                ),
+            )
+            db.recordCache().upsert(
+                RecordCacheEntity(8, 8, bytes.size.toLong(), valid.encode() + corrupt, 2, 0),
+            )
+            val written = mutableMapOf<String, ByteArray>()
+            exporter.exportTo { name, data ->
+                written[name] = data
+                true
+            }
+
+            val json = written["${EngramArchive.contentHashName(bytes)}.json"]!!.decodeToString()
+            assertTrue(json.contains("trustworthy"), "the valid note must be in the view")
+            assertFalse(json.contains("corrupt newer note"), "a crc-bad note must not appear in the view")
+        }
+
     @Test
     fun opaqueOnlyCacheEntryStillExports() =
         runBlocking {

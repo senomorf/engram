@@ -9,7 +9,10 @@ import cam.engram.app.writeback.Annotation
 import cam.engram.app.writeback.MediaWriteBack
 import cam.engram.app.writeback.StripRepair
 import cam.engram.app.writeback.WriteOutcome
+import cam.engram.format.jpeg.Iptc
+import cam.engram.format.jpeg.JpegCodec
 import cam.engram.format.jpeg.JpegEmbedder
+import cam.engram.format.jpeg.Segment
 import cam.engram.format.mp4.Mp4Caption
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordKind
@@ -278,6 +281,40 @@ class WriteBackTest {
                     .decoded.record!!
             assertEquals(originalId, restored.idHex, "repair must restore history, not invent it")
             assertEquals(0, repair.strippedItems().size)
+        }
+
+    // issue #72: a corrupt newer note in a damaged cache blob must never become the caption
+    // mirror text written into the repaired file; the valid older note wins instead
+    @Test
+    fun corruptNewerNoteNeverBecomesTheMirror() =
+        runBlocking {
+            val item = seed(9, SyntheticMedia.jpegPlain())
+            val valid = EngramRecord(RecordKind.Note, 1, "trustworthy".encodeToByteArray())
+            // a newer note whose crc no longer matches: it still decodes (version 1) and its
+            // text reads intact, so only a crcOk check can keep it out
+            val corrupt =
+                EngramRecord(RecordKind.Note, 9, "corrupt newer note".encodeToByteArray()).encode().copyOf().also {
+                    // flip a crc byte, not the payload: the text still reads intact, so only a
+                    // crcOk check can keep it out
+                    it[it.size - 1] = (it[it.size - 1] + 1).toByte()
+                }
+            val blob = valid.encode() + corrupt
+            db.recordCache().upsert(RecordCacheEntity(9, 9, 0, blob, 2, 0))
+            db.media().upsert(listOf(db.media().byId(9)!!.copy(recordCount = 0)))
+
+            assertIs<WriteOutcome.Success>(
+                StripRepair(db, writeBack, RecordScanner(access)).repair(db.media().byId(9)!!),
+            )
+
+            val caption =
+                Iptc.readCaption(
+                    JpegCodec
+                        .parse(access.files[item.uri]!!)
+                        .filterIsInstance<Segment>()
+                        .single { Iptc.isIptcApp13(it) }
+                        .payload,
+                )
+            assertEquals("trustworthy", caption, "a crc-bad note must not be mirrored into the caption")
         }
 
     @Test

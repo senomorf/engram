@@ -40,7 +40,11 @@ class Memory(
             .joinToString("\n")
 
     companion object {
-        fun from(hits: List<RecordHit>): Memory = fromRecords(hits.mapNotNull { it.decoded.record })
+        // crc-bad frames are dropped here (issue #72): decodeAt builds a typed record for any
+        // current-version frame and reports crcOk separately, so a corrupt payload would
+        // otherwise reach caption mirrors and archive views as if it were real text
+        fun from(hits: List<RecordHit>): Memory =
+            fromRecords(hits.filter { it.decoded.crcOk }.mapNotNull { it.decoded.record })
 
         fun fromRecords(records: List<EngramRecord>): Memory {
             val notes = mutableListOf<NoteVersion>()

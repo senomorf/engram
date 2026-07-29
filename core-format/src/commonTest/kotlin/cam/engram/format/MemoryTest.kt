@@ -48,6 +48,23 @@ class MemoryTest {
         assertEquals(oneWay.noteHistory.map { it.idHex }, otherWay.noteHistory.map { it.idHex })
     }
 
+    // issue #72: decodeAt builds a typed record for any current-version frame and reports
+    // crcOk separately, so the reading view must drop crc-bad frames itself; otherwise
+    // corrupt payload bytes reach caption mirrors and archive views as if they were real
+    @Test
+    fun fromHitsExcludesCrcBadFrames() {
+        val good = EngramRecord(RecordKind.Note, 1, "trustworthy".encodeToByteArray())
+        val corrupt = EngramRecord(RecordKind.Note, 9, "corrupt newer note".encodeToByteArray())
+        val hits =
+            listOf(
+                RecordHit(0, DecodedRecord(good, good.kind.code, 0, crcOk = true, idHex = good.idHex)),
+                RecordHit(1, DecodedRecord(corrupt, corrupt.kind.code, 0, crcOk = false, idHex = corrupt.idHex)),
+            )
+        val memory = Memory.from(hits)
+        assertEquals("trustworthy", memory.currentNote?.text, "a crc-bad newer note must not win")
+        assertEquals(1, memory.noteHistory.size, "crc-bad frames stay out of the history")
+    }
+
     @Test
     fun fromHitsKeepsLatestEnrichment() {
         val records =

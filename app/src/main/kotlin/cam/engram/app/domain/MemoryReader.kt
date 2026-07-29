@@ -31,6 +31,7 @@ class MemoryReader(
                         RecordStream.scan(bytes)
                     }
                 }
-            Memory.from(hits.filter { it.decoded.crcOk })
+            // Memory.from filters crc-bad frames itself
+            Memory.from(hits)
         }
 }
