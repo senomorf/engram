@@ -14,6 +14,74 @@ class MpfStrictTest {
         error("no MPF header in fixture")
     }
 
+    // review N9: regression comparison happens on stable kinds; a new kind is a worsening,
+    // the same kinds with different numbers (spans shift when the primary grows) are not
+    @Test
+    fun worsenedFlagsOnlyNewProblemKinds() {
+        val before =
+            cam.engram.format.jpeg
+                .MpfReport(
+                    true,
+                    emptyList(),
+                    listOf("NumberOfImages has wrong type"),
+                    problemKinds = listOf("count-type"),
+                )
+        val sameKindNewNumbers =
+            cam.engram.format.jpeg
+                .MpfReport(
+                    true,
+                    emptyList(),
+                    listOf("NumberOfImages has wrong type"),
+                    problemKinds = listOf("count-type"),
+                )
+        val newKind =
+            cam.engram.format.jpeg.MpfReport(
+                true,
+                emptyList(),
+                listOf("NumberOfImages has wrong type", "image 1 does not point at SOI (file offset 9)"),
+                problemKinds = listOf("count-type", "image-1-soi"),
+            )
+        assertTrue(!MpfInspector.worsened(before, sameKindNewNumbers), "same kinds must not read as a regression")
+        assertTrue(MpfInspector.worsened(before, newKind), "a new kind is a regression")
+        assertTrue(
+            MpfInspector.worsened(
+                cam.engram.format.jpeg
+                    .MpfReport(true, emptyList(), emptyList()),
+                newKind,
+            ),
+            "any problem on a previously valid MPF is a regression",
+        )
+    }
+
+    // review N9: a file whose MPF is only cosmetically invalid stays annotatable, and the
+    // write adds no new problem kind (growth before the MPF APP2 shifts the trailing images
+    // and their tiff base together, so the stored offsets keep meaning)
+    @Test
+    fun cosmeticallyInvalidMpfStaysWritableAndNoWorse() {
+        val bytes = SyntheticMedia.jpegWithMpfSecondary()
+        // B001 is the second IFD entry; its type field sits at tiff-relative 8 + 2 + 12 + 2
+        // (little-endian fixture): retype LONG -> SHORT, a cosmetic problem, offsets intact
+        val at = tiffBase(bytes) + 8 + 2 + 12 + 2
+        bytes[at] = 3
+        val before = MpfInspector.inspect(bytes)
+        assertTrue(!before.valid && before.problemKinds == listOf("count-type"), before.problems.toString())
+
+        val out =
+            cam.engram.format.jpeg
+                .JpegEmbedder(FakeXmpEngine())
+                .embed(
+                    bytes,
+                    listOf(
+                        cam.engram.format.records
+                            .EngramRecord(cam.engram.format.records.RecordKind.Note, 1, "n".encodeToByteArray()),
+                    ),
+                    "note",
+                )
+        val after = MpfInspector.inspect(out)
+        assertTrue(!MpfInspector.worsened(before, after), "the write must add no new problem kind: ${after.problems}")
+        assertTrue(after.problemKinds == listOf("count-type"), after.problems.toString())
+    }
+
     @Test
     fun numberOfImagesMismatchIsFlagged() {
         val bytes = SyntheticMedia.jpegWithMpfSecondary()
