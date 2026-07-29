@@ -64,6 +64,16 @@ class MediaWriteBack(
         withContext(io) {
             mutex.withLock {
                 backupDir.mkdirs()
+                // the identity the journal anchors on (and the record-cache key) must match the
+                // live provider, not just a possibly-stale index row (review N2): if the
+                // MediaStore id was reused since the last reconcile, writing would truncate the
+                // unrelated new photo, and the resulting journal, anchored on the old identity,
+                // would orphan its own backup instead of restoring it. A null read is a query
+                // failure or a vanished row, which the write itself surfaces, so it proceeds.
+                val live = access.readCaptureIdentity(item.uri)
+                if (live != null && live != item.takenAtMillis) {
+                    return@withLock WriteOutcome.Failed("photo changed since the last sync; it will re-sync shortly")
+                }
                 val backup = journal.backupFor(item.mediaId)
                 // a lingering pair from an earlier attempt is an unresolved transaction: the
                 // target may be damaged and this .bak its only pristine copy. Settle it first
