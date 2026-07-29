@@ -8,6 +8,13 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Granting "Allow all" photo access while a background sync is already running can no longer
+  make that sync treat its partial view of the library as complete and erase the app's index
+  and unsaved drafts: pruning now requires full access both before and after the library is
+  read.
+- Removing a photo now clears its search index and cached location context in the same
+  transaction as the removal itself, so a sync interrupted at the wrong moment can no longer
+  leave stale search results behind permanently.
 - A lapsed or partial photo permission can no longer make a background sync wipe the app's
   record of what it has seen: the library is only pruned while full "all photos" access is
   held, so an Android 14 "Select photos" grant that expires after the app is backgrounded no
