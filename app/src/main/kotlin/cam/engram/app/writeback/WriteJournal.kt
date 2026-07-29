@@ -10,6 +10,8 @@ import cam.engram.format.mp4.Mp4Channels
 import cam.engram.format.png.PngCodec
 import java.io.File
 import java.io.FileInputStream
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 
 /**
  * The durable side of the write-back transaction (design D26): the .meta sidecar
@@ -32,7 +34,7 @@ class WriteJournal(
     fun writeSidecar(
         item: MediaItemEntity,
         expectedIds: Set<String>,
-    ) {
+    ): Boolean {
         // the expected record ids let recovery tell a finished write from an interrupted one
         // (finding A); the capture identity (takenAtMillis) lets it tell a partial write of the
         // original from a reused MediaStore id now holding a different photo (finding F1)
@@ -40,12 +42,16 @@ class WriteJournal(
             "${item.uri}\n${item.isVideo}\n${item.mime}\n${expectedIds.joinToString(",")}\n${item.takenAtMillis}"
         val meta = File(backupDir, "${item.mediaId}.meta")
         val tmp = File(backupDir, "${item.mediaId}.meta.tmp")
-        // durable (fsync + rename) so the backup is never published before its sidecar exists
+        // durable (fsync + rename, then a directory fsync) so the backup is never published
+        // before its sidecar exists; a failed rename must fail the write (review N1 minor):
+        // a backup without its sidecar would be unrecoverable residue
         tmp.outputStream().use {
             it.write(content.encodeToByteArray())
             it.fd.sync()
         }
-        tmp.renameTo(meta)
+        val ok = tmp.renameTo(meta)
+        if (ok) fsyncDir() else tmp.delete()
+        return ok
     }
 
     // publish the backup atomically (copy to tmp, fsync inside copyToFile, rename) and
@@ -59,7 +65,16 @@ class WriteJournal(
             tmp.delete()
             return false
         }
+        fsyncDir()
         return true
+    }
+
+    // file fsync alone does not make the rename itself durable: sync the directory entry
+    // too, best-effort (a failure only weakens durability, never the write)
+    private fun fsyncDir() {
+        runCatching {
+            FileChannel.open(backupDir.toPath(), StandardOpenOption.READ).use { it.force(true) }
+        }
     }
 
     // the outcome of settling one lingering transaction
@@ -110,8 +125,7 @@ class WriteJournal(
         if (expectedIdentity != null) {
             val current = access.readCaptureIdentity(uri)
             if (current != null && current != expectedIdentity) {
-                orphan(mediaId)
-                return Resolution.Settled
+                return if (orphan(mediaId, expectedIdentity)) Resolution.Settled else Resolution.Unresolved
             }
         }
         return when (restore(uri, backup)) {
@@ -136,11 +150,29 @@ class WriteJournal(
 
     // a reused-target backup must not be written over the new photo, nor deleted (it is the old
     // capture's only copy): rename it out of the *.bak recovery scan and drop the sidecar so
-    // resolve stops retrying it (finding F1)
-    fun orphan(mediaId: Long) {
-        File(backupDir, "$mediaId.bak").renameTo(File(backupDir, "$mediaId.bak.orphan"))
+    // resolve stops retrying it (finding F1). The orphan name is unique per event (id, journal
+    // identity, counter) and never renamed onto an existing file: a second reuse of the same id
+    // must not destroy the first orphan, which is that capture's only copy (review N1)
+    fun orphan(
+        mediaId: Long,
+        expectedIdentity: Long,
+    ): Boolean {
+        val backup = File(backupDir, "$mediaId.bak")
+        var n = 0
+        var target = File(backupDir, "$mediaId.$expectedIdentity.$n.bak.orphan")
+        while (target.exists()) {
+            n++
+            target = File(backupDir, "$mediaId.$expectedIdentity.$n.bak.orphan")
+        }
+        if (!backup.renameTo(target)) return false
+        fsyncDir()
         File(backupDir, "$mediaId.meta").delete()
+        return true
     }
+
+    // shelved reused-id backups (finding F1 / issue #92): preserved on disk, out of the
+    // recovery scan, for a future surfacing affordance
+    fun orphanBackups(): List<File> = backupDir.listFiles { f -> f.name.endsWith(".bak.orphan") }?.toList().orEmpty()
 
     // a journal whose target still equals its backup byte for byte is residue of a
     // failure before the first write (crash mid-preparation): nothing to restore,
