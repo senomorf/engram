@@ -7,6 +7,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="database" path="engram.db" />
+        <!-- Room runs SQLite in WAL mode: the newest writes live in the -wal sibling until
+             checkpoint, and excluding only engram.db would still upload them (review N7) -->
+        <exclude domain="database" path="engram.db-wal" />
+        <exclude domain="database" path="engram.db-shm" />
         <exclude domain="file" path="writeback/" />
         <exclude domain="file" path="drafts/" />
     </cloud-backup>
