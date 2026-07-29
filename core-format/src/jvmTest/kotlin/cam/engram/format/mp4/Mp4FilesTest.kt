@@ -106,6 +106,67 @@ class Mp4FilesTest {
         assertEquals(0, Mp4Files.readRecords(plain).size)
     }
 
+    // a crafted trailing engram uuid box claiming [payloadClaim] bytes, backed by a sparse
+    // tail so the span check passes without disk cost (review N10)
+    private fun withHostileEngramTail(
+        base: ByteArray,
+        payloadClaim: Long,
+    ): File {
+        val f = tmp(base)
+        val boxLen = 32L + payloadClaim // largesize header (16) + uuid usertype (16)
+        java.io.RandomAccessFile(f, "rw").use { raf ->
+            val start = raf.length()
+            raf.seek(start)
+            raf.writeInt(1) // size32 == 1: 64-bit largesize follows the type
+            raf.write("uuid".encodeToByteArray())
+            raf.writeLong(boxLen)
+            raf.write(Mp4Codec.ENGRAM_UUID)
+            raf.setLength(start + boxLen)
+        }
+        return f
+    }
+
+    // review N10: a hostile engram-box size claim is refused up front, never buffered whole
+    @Test
+    fun oversizedEngramBoxClaimIsRefusedNotAllocated() {
+        val hostile = withHostileEngramTail(SyntheticMedia.mp4Minimal(), Mp4Channels.MAX_RECORD_BOX_BYTES + 1)
+        val e =
+            assertFailsWith<Mp4FormatException> {
+                Mp4Files.appendRecords(hostile, out(), listOf(note(1, "one", 0x11, "w")))
+            }
+        assertTrue(e.message!!.contains("too large"), e.message)
+    }
+
+    // review N10: a claim past Int range must be refused cleanly, not wrap the allocation size
+    @Test
+    fun engramBoxClaimPastIntRangeIsRefusedNotWrapped() {
+        val hostile = withHostileEngramTail(SyntheticMedia.mp4Minimal(), 3L * 1024 * 1024 * 1024)
+        val e =
+            assertFailsWith<Mp4FormatException> {
+                Mp4Files.appendRecords(hostile, out(), listOf(note(1, "one", 0x11, "w")))
+            }
+        assertTrue(e.message!!.contains("too large"), e.message)
+    }
+
+    // review N10: a moov whose claimed size is implausible skips the caption mirror
+    // (best-effort) instead of buffering the claim; the records still land
+    @Test
+    fun oversizedMoovClaimSkipsCaptionButStillAppendsRecords() {
+        val f = tmp(SyntheticMedia.mp4Minimal())
+        java.io.RandomAccessFile(f, "rw").use { raf ->
+            val start = raf.length()
+            raf.seek(start)
+            raf.writeInt(1)
+            raf.write("moov".encodeToByteArray())
+            raf.writeLong(16L + Mp4Channels.MAX_MOOV_BOX_BYTES + 1)
+            raf.setLength(start + 16L + Mp4Channels.MAX_MOOV_BOX_BYTES + 1)
+        }
+        val dst = out()
+        val outcome = Mp4Files.appendRecords(f, dst, listOf(note(7, "kept", 0x77, "w")), "ignored")
+        assertEquals(CaptionOutcome.SKIPPED_UNSAFE_LAYOUT, outcome)
+        assertEquals(1, Mp4Files.readRecords(dst).count { it.decoded.crcOk })
+    }
+
     @Test
     fun rejectsExistingEngramBoxNotAtEnd() {
         val withEngram = out()

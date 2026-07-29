@@ -28,6 +28,25 @@ class Mp4ChannelsTest {
         }
     }
 
+    // review N10: a moov claiming an implausible size must not be buffered; the reader
+    // returns null instead of allocating the claim
+    @Test
+    fun readMoovBoxRefusesOversizedClaim() {
+        val path = Files.createTempFile("engram", ".mp4")
+        path.writeBytes(SyntheticMedia.mp4Minimal())
+        java.io.RandomAccessFile(path.toFile(), "rw").use { raf ->
+            val start = raf.length()
+            raf.seek(start)
+            raf.writeInt(1) // largesize box
+            raf.write("moov".encodeToByteArray())
+            raf.writeLong(16L + Mp4Channels.MAX_MOOV_BOX_BYTES + 1)
+            raf.setLength(start + 16L + Mp4Channels.MAX_MOOV_BOX_BYTES + 1)
+        }
+        Files.newByteChannel(path).use { ch ->
+            assertEquals(null, Mp4Channels.readMoovBox(ch), "an oversized moov claim must read as absent")
+        }
+    }
+
     @Test
     fun readsRecordsAndMoovThroughChannel() {
         val withCaption = Mp4Caption.tryWrite(SyntheticMedia.mp4MoovLast(), "channel caption")!!

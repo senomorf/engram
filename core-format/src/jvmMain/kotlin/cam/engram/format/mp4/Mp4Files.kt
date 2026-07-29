@@ -46,6 +46,11 @@ object Mp4Files {
             if (Mp4Codec.isEngramBox(b) && idx != boxes.lastIndex) {
                 throw Mp4FormatException("existing engram box not at end of file, refusing to rewrite")
             }
+            // refuse a hostile claim before the copy and the whole-box buffering below
+            // (review N10): the cap also guards the Int allocation from wrapping
+            if (Mp4Codec.isEngramBox(b) && b.boxLength - b.headerLength > Mp4Channels.MAX_RECORD_BOX_BYTES) {
+                throw Mp4FormatException("engram box too large: ${b.boxLength - b.headerLength}")
+            }
         }
         val existing = boxes.lastOrNull()?.takeIf { Mp4Codec.isEngramBox(it) }
         val zeroLast = boxes.lastOrNull()?.takeIf { it.sizeFieldWasZero && !Mp4Codec.isEngramBox(it) }
@@ -88,6 +93,9 @@ object Mp4Files {
         if (moovIdx < 0) return CaptionOutcome.SKIPPED_UNSAFE_LAYOUT
         if (moovIdx != boxes.lastIndex) return CaptionOutcome.SKIPPED_UNSAFE_LAYOUT
         val moov = boxes[moovIdx]
+        // the caption mirror is best-effort: an implausible moov claim skips it rather
+        // than buffering the claim (review N10)
+        if (moov.boxLength > Mp4Channels.MAX_MOOV_BOX_BYTES) return CaptionOutcome.SKIPPED_UNSAFE_LAYOUT
         raf.seek(moov.offset)
         val moovBytes = ByteArray(moov.boxLength.toInt())
         raf.readFully(moovBytes)

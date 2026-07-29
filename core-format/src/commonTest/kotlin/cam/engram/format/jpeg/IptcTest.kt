@@ -3,7 +3,6 @@ package cam.engram.format.jpeg
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -44,11 +43,21 @@ class IptcTest {
         assertNull(Iptc.readCaption(Iptc.APP13_HEADER))
     }
 
+    // review N11: a malformed resource block degrades exactly like malformed IIM (keep
+    // APP13 untouched, skip the mirror) instead of refusing the whole annotation
     @Test
-    fun malformedResourceBlockThrows() {
-        assertFailsWith<JpegFormatException> {
-            Iptc.readCaption(Iptc.APP13_HEADER + byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8))
-        }
+    fun malformedResourceBlockSkipsMirrorAndReadsNull() {
+        val malformed = Iptc.APP13_HEADER + byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8)
+        assertNull(Iptc.readCaption(malformed))
+        assertContentEquals(malformed, Iptc.upsertCaption(malformed, "new caption"))
+    }
+
+    // review N11: a resource header cut off mid-field must degrade, not crash on the read
+    @Test
+    fun truncatedResourceHeaderDegradesWithoutCrashing() {
+        val truncated = Iptc.APP13_HEADER + byteArrayOf(0x38, 0x42, 0x49, 0x4D, 0x04)
+        assertNull(Iptc.readCaption(truncated))
+        assertContentEquals(truncated, Iptc.upsertCaption(truncated, "new caption"))
     }
 
     @Test
