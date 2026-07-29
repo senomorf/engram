@@ -19,3 +19,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # init and analyze must bump in lockstep: mixed majors fail the analyze job
+      codeql-action:
+        patterns: ["github/codeql-action*"]
