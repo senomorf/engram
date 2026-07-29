@@ -252,6 +252,79 @@ class ReconcilerTest {
             assertEquals(1, db.media().all().size, "the index survives a partial or lost grant")
         }
 
+    // review N4: the full-access gate must cover the snapshot itself. A grant that upgrades
+    // while the query is in flight must not bless the partial snapshot as full and prune
+    // (dropping drafts, which have no rebuild path) everything the subset missed.
+    @Test
+    fun grantUpgradeMidSnapshotDoesNotPruneTheIndex() =
+        runBlocking {
+            addPhoto(1, SyntheticMedia.jpegPlain())
+            reconciler.reconcile()
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "unsaved", null, 0),
+            )
+
+            var fullAccess = false
+            val flippingSource =
+                object : MediaSource {
+                    override suspend fun snapshot(includeScreenshots: Boolean): List<SourceItem> {
+                        // the user taps "Allow all" while the partial-grant query is running
+                        fullAccess = true
+                        return emptyList()
+                    }
+                }
+            val guarded =
+                Reconciler(
+                    db = db,
+                    source = flippingSource,
+                    scanner = RecordScanner(access),
+                    includeScreenshots = { true },
+                    io = Dispatchers.Unconfined,
+                    hasFullMediaAccess = { fullAccess },
+                    clock = { 1000L },
+                )
+            val stats = guarded.reconcile()
+            assertEquals(0, stats.removed, "a snapshot taken under partial access must never prune")
+            assertEquals(1, db.media().all().size, "the index survives")
+            assertEquals("unsaved", db.drafts().byId(1)!!.text, "the draft survives")
+        }
+
+    // review N13: the removed-id search/enrichment eviction must commit with the media row
+    // deletes. A reconcile that dies later (here: a poisoned cache insert in the scan loop)
+    // must not leak rows for ids whose media rows are already gone; those ids never reappear
+    // in the existing set, so a later pass would never re-delete them.
+    @Test
+    fun removedIdCleanupCommitsWithTheRowDeletes() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val a = EngramRecord(RecordKind.Note, 1, "a".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(a), "a"))
+            reconciler.reconcile()
+            db.enrichmentCache().upsert(
+                cam.engram.app.data.db
+                    .EnrichmentCacheEntity(1, "e".encodeToByteArray(), 0),
+            )
+
+            // photo 1 vanishes while a new photo 2 arrives whose cache insert dies mid-scan
+            snapshot.clear()
+            val b = EngramRecord(RecordKind.Note, 2, "b".encodeToByteArray())
+            addPhoto(2, embedder.embed(SyntheticMedia.jpegWithFillBytes(), listOf(b), "b"))
+            db.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_cache BEFORE INSERT ON record_cache BEGIN SELECT RAISE(ABORT, 'injected'); END",
+            )
+            runCatching { reconciler.reconcile() }
+
+            assertNull(db.media().byId(1), "the removal itself committed")
+            assertNull(db.enrichmentCache().byId(1), "the removed id's enrichment goes with its row")
+            db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM memory_fts WHERE rowid = 1").use { c ->
+                c.moveToFirst()
+                assertEquals(0, c.getInt(0), "the removed id's search row goes with its row")
+            }
+        }
+
     // finding H1: a media id reused in place (no reconcile ever seeing it absent) must not
     // scan the new capture under the old one's identity and graft the old private records
     @Test
