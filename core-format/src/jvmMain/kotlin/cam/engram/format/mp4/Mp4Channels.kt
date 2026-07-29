@@ -35,6 +35,10 @@ object Mp4Channels {
     // engram payloads are bounded by the ~10MB product soft cap, this is slack
     const val MAX_RECORD_BOX_BYTES = 128L * 1024 * 1024
 
+    // moov is buffered whole for the caption mirror; real moov boxes top out in the tens
+    // of MB, so a larger claim is hostile or corrupt and must not be allocated (review N10)
+    const val MAX_MOOV_BOX_BYTES = 64L * 1024 * 1024
+
     fun readRecords(ch: SeekableByteChannel): List<RecordHit> {
         val engram = topLevel(ch).lastOrNull { Mp4Codec.isEngramBox(it) } ?: return emptyList()
         val payloadLen = engram.boxLength - engram.headerLength
@@ -69,6 +73,7 @@ object Mp4Channels {
 
     fun readMoovBox(ch: SeekableByteChannel): ByteArray? {
         val moov = topLevel(ch).lastOrNull { it.type == "moov" } ?: return null
+        if (moov.boxLength > MAX_MOOV_BOX_BYTES) return null
         val buf = ByteBuffer.allocate(moov.boxLength.toInt())
         ch.position(moov.offset)
         while (buf.hasRemaining() && ch.read(buf) > 0) {

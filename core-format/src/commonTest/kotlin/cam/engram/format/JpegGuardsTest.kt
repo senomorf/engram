@@ -20,6 +20,32 @@ import kotlin.test.assertTrue
 class JpegGuardsTest {
     private val record = listOf(EngramRecord(RecordKind.Note, 1, "n".encodeToByteArray()))
 
+    // review N11: an APP13 whose resource structure cannot be parsed must not block the
+    // annotation; the records land, the mirror is skipped, and APP13 stays byte-exact
+    @Test
+    fun malformedApp13IsKeptByteExactWhileRecordsStillLand() {
+        val malformed = Segment.of(Iptc.APP13_MARKER, Iptc.APP13_HEADER + byteArrayOf(9, 9, 9))
+        val parts = JpegCodec.parse(SyntheticMedia.jpegPlain()).toMutableList()
+        parts.add(1, malformed)
+        val source = JpegCodec.serialize(parts)
+
+        val out = JpegEmbedder(FakeXmpEngine()).embed(source, record, "caption")
+
+        val app13 =
+            JpegCodec
+                .parse(out)
+                .filterIsInstance<Segment>()
+                .single { Iptc.isIptcApp13(it) }
+        assertContentEquals(malformed.raw, app13.raw, "the unparseable APP13 must be preserved byte-exact")
+        assertEquals(
+            1,
+            cam.engram.format.records.RecordStream
+                .scan(out)
+                .count { it.decoded.crcOk },
+            "the annotation itself must still land",
+        )
+    }
+
     @Test
     fun motionPhotoWriteRefused() {
         val src = SyntheticMedia.jpegWithXmp("camera=1\nGCamera MotionPhoto present")

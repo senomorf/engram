@@ -38,10 +38,14 @@ object Iptc {
             appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, ByteArray(0)))
             return b.toByteArray()
         }
+        // a resource structure that cannot be safely parsed degrades the same way as
+        // malformed IIM: keep APP13 untouched, skip the mirror, let the write proceed
+        // (review N11); refusing the whole annotation over a caption mirror is wrong
+        val resources = parseResources(existingPayload) ?: return existingPayload
         val b = ByteArrayBuilder()
         b.append(APP13_HEADER)
         var replaced = false
-        for ((id, raw) in parseResources(existingPayload)) {
+        for ((id, raw) in resources) {
             if (id == IPTC_RESOURCE_ID) {
                 val carried = resourceData(raw)?.let { carriedDatasets(it) } ?: return existingPayload
                 appendResource(b, IPTC_RESOURCE_ID, iimCaption(caption, carried))
@@ -55,7 +59,7 @@ object Iptc {
     }
 
     fun readCaption(payload: ByteArray): String? {
-        val iptc = parseResources(payload).firstOrNull { it.first == IPTC_RESOURCE_ID } ?: return null
+        val iptc = parseResources(payload)?.firstOrNull { it.first == IPTC_RESOURCE_ID } ?: return null
         // second element holds the raw resource; extract its data section
         val data = resourceData(iptc.second) ?: return null
         var i = 0
@@ -69,14 +73,15 @@ object Iptc {
         return null
     }
 
-    // pairs of (resourceId, full raw resource bytes)
-    private fun parseResources(payload: ByteArray): List<Pair<Int, ByteArray>> {
+    // pairs of (resourceId, full raw resource bytes), or null when the structure cannot be
+    // safely parsed (bad signature, truncated header or data): callers degrade rather than
+    // rewrite what they do not understand (review N11)
+    private fun parseResources(payload: ByteArray): List<Pair<Int, ByteArray>>? {
         val out = mutableListOf<Pair<Int, ByteArray>>()
         var i = APP13_HEADER.size
         while (i < payload.size) {
-            if (!payload.startsWith(RESOURCE_SIGNATURE, i)) {
-                throw JpegFormatException("malformed photoshop resource block at $i, refusing to rewrite APP13")
-            }
+            // signature (4) + resource id (2) + pascal name length (1) before any read
+            if (i + 7 > payload.size || !payload.startsWith(RESOURCE_SIGNATURE, i)) return null
             val start = i
             i += 4
             val id = payload.u16be(i)
@@ -84,10 +89,10 @@ object Iptc {
             val nameLen = payload.u8(i)
             i += 1 + nameLen
             if ((nameLen + 1) % 2 != 0) i++
-            if (i + 4 > payload.size) throw JpegFormatException("truncated photoshop resource at $start")
+            if (i + 4 > payload.size) return null
             val dataLen = payload.u32be(i)
             i += 4
-            if (i + dataLen > payload.size) throw JpegFormatException("photoshop resource overruns APP13 at $start")
+            if (i + dataLen > payload.size) return null
             i += dataLen.toInt()
             if (dataLen % 2 != 0L) i++
             out += id to payload.copyOfRange(start, minOf(i, payload.size))
