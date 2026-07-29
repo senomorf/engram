@@ -8,6 +8,10 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Saving a memory now confirms the photo is still the one the app indexed: if Android
+  reassigned that photo's internal id to a different picture since the last sync, the save
+  is refused with a "will re-sync shortly" message instead of writing into the unrelated new
+  photo and shelving its only pristine copy out of reach.
 - When Android hands a photo's internal id to a different picture more than once, each
   interrupted save's preserved backup now gets its own shelf file instead of silently
   overwriting the previously shelved one, so no shelved photo copy can be destroyed by a

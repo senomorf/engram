@@ -438,6 +438,38 @@ class WriteBackSafetyTest {
             assertTrue(!File(backupDir, "40.meta").exists(), "the journal is cleared so resolve stops retrying")
         }
 
+    // review N2: the journal's capture identity must come from the live provider, not the
+    // possibly-stale db row. A save on a stale row whose id was reused since the last
+    // reconcile must refuse up front: writing would truncate the new photo, and the
+    // resulting journal (anchored on the old identity) would orphan its own backup instead
+    // of restoring, leaving that new photo damaged with its pristine copy shelved away.
+    @Test
+    fun writeRefusesWhenCaptureIdentityDivergedFromTheRow() =
+        runBlocking {
+            val bytes = SyntheticMedia.jpegPlain()
+            val item = seed(70, bytes, takenAt = 100)
+            access.captureIdentity[item.uri] = 555L // the id now holds a different capture
+
+            val outcome = writeBack.write(item, Annotation("note", null))
+
+            assertIs<WriteOutcome.Failed>(outcome)
+            assertContentEquals(bytes, access.files[item.uri], "the new photo must be untouched")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "no journal may linger for a refused write")
+            assertEquals(null, db.recordCache().byKey(70, 100), "no cache row may be written under a stale identity")
+        }
+
+    // review N2: with the identity confirmed live, the sidecar and the record cache both
+    // key on the verified value
+    @Test
+    fun freshIdentityIsPersistedToSidecarAndCache() =
+        runBlocking {
+            val item = seed(71, SyntheticMedia.jpegPlain(), takenAt = 100)
+            access.captureIdentity[item.uri] = 100L // matches the row: the save proceeds
+
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("note", null)))
+            assertTrue(db.recordCache().byKey(71, 100) != null, "the cache row keys on the verified identity")
+        }
+
     // review N1: a second reuse event for the same media id must not rename its backup onto
     // the first orphan and destroy it; every orphan event gets its own file
     @Test
