@@ -88,7 +88,9 @@ class JpegEmbedder(
             }
         }
         val after = MpfInspector.inspect(out)
-        if (before.valid && !after.valid) {
+        // compare problem kinds, not the valid flag: a file whose MPF was already invalid
+        // (cosmetically or worse) must not absorb NEW breakage unnoticed (review N9)
+        if (MpfInspector.worsened(before, after)) {
             throw JpegFormatException("writer broke MPF offsets: ${after.problems}")
         }
         return out

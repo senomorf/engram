@@ -17,6 +17,10 @@ change lands under Unreleased at merge time.
   journal cannot be recorded now fails up front instead of proceeding without crash
   protection, the journal files are flushed so they survive sudden power loss, and stranded
   temporary files from interrupted video saves are cleaned up.
+- The Ultra HDR safety net after every JPEG save now compares metadata problems by kind
+  instead of a single valid flag, so a photo whose gain-map index already had a harmless
+  quirk can still be annotated while any new inconsistency introduced by the save is
+  refused, where before such a file's write skipped the safety comparison entirely.
 - The most recent memories can no longer ride Android cloud backup off the phone: the
   database's write-ahead log (where the newest notes and voice recordings sit until they are
   folded into the main file) is now excluded from cloud backup alongside the database itself,
