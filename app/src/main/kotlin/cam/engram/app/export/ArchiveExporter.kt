@@ -151,7 +151,13 @@ class ArchiveExporter(
         }
         val name = group.firstOrNull { it.hasLiveMedia }?.name ?: head.name
         val rawFrames = FrameLog.crcOkFrames(blob)
-        val records = RecordStream.decodeSequence(blob).mapNotNull { it.decoded.record }
+        // crc-bad frames stay out of the readable JSON view (issue #72); the byte-exact
+        // .records log above already carries only crc-valid frames
+        val records =
+            RecordStream
+                .decodeSequence(blob)
+                .filter { it.decoded.crcOk }
+                .mapNotNull { it.decoded.record }
         val rendered =
             EngramArchive.render(
                 EngramArchive.Item(head.hash, name, records, rawFrames, group.all { it.sourceHashKnown }),

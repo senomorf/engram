@@ -56,9 +56,11 @@ class StripRepair(
                 .toSet()
         val missing = cachedFrames.filter { it.frameKey() !in liveKeys }
         if (missing.isEmpty()) return WriteOutcome.Failed("nothing to repair, every cached record is present")
+        // Memory.from drops crc-bad frames, so a corrupt newer note in a damaged cache blob
+        // can never become the caption text written into the repaired file (issue #72)
         val mirror =
             Memory
-                .fromRecords(RecordStream.decodeSequence(cache.recordsBlob).mapNotNull { it.decoded.record })
+                .from(RecordStream.decodeSequence(cache.recordsBlob))
                 .currentNote
                 ?.text
         return writeBack.writeRecords(item, emptyList(), mirror, missing)
