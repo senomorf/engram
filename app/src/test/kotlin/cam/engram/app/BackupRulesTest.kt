@@ -32,6 +32,10 @@ class BackupRulesTest {
             event = parser.next()
         }
         assertTrue("engram.db" in cloudExcludes, "the record cache DB must be excluded from cloud backup")
+        // Room runs SQLite in WAL mode, so the newest record-cache writes live in the -wal
+        // sibling until checkpoint; excluding only engram.db would still leak them (review N7)
+        assertTrue("engram.db-wal" in cloudExcludes, "the DB write-ahead log must be excluded from cloud backup")
+        assertTrue("engram.db-shm" in cloudExcludes, "the DB shared-memory file must be excluded from cloud backup")
         assertTrue("writeback/" in cloudExcludes, "the write-back backups must be excluded from cloud backup")
         assertTrue("drafts/" in cloudExcludes, "voice drafts must be excluded from cloud backup")
     }

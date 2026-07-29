@@ -8,6 +8,10 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- The most recent memories can no longer ride Android cloud backup off the phone: the
+  database's write-ahead log (where the newest notes and voice recordings sit until they are
+  folded into the main file) is now excluded from cloud backup alongside the database itself,
+  keeping the no-cloud promise complete.
 - Granting "Allow all" photo access while a background sync is already running can no longer
   make that sync treat its partial view of the library as complete and erase the app's index
   and unsaved drafts: pruning now requires full access both before and after the library is
