@@ -431,8 +431,83 @@ class WriteBackSafetyTest {
 
             assertContentEquals(captureB, access.files[uri], "the unrelated reused photo must not be overwritten")
             assertTrue(!File(backupDir, "40.bak").exists(), "the backup is renamed out of the recovery scan")
-            assertTrue(File(backupDir, "40.bak.orphan").exists(), "A's backup is preserved as an orphan, not deleted")
+            val orphans = backupDir.listFiles { f -> f.name.endsWith(".bak.orphan") }!!
+            assertEquals(1, orphans.size, "A's backup is preserved as an orphan, not deleted")
+            assertTrue(orphans.single().name.startsWith("40.100."), "the orphan is named by id and identity")
+            assertContentEquals(backupA, orphans.single().readBytes())
             assertTrue(!File(backupDir, "40.meta").exists(), "the journal is cleared so resolve stops retrying")
+        }
+
+    // review N1: a second reuse event for the same media id must not rename its backup onto
+    // the first orphan and destroy it; every orphan event gets its own file
+    @Test
+    fun secondOrphanForSameMediaIdKeepsBothBackups() =
+        runBlocking {
+            val uri = "content://media/45"
+            access.files[uri] = SyntheticMedia.jpegWithFillBytes()
+            access.captureIdentity[uri] = 200L
+            val backupA = SyntheticMedia.jpegPlain()
+            File(backupDir, "45.bak").writeBytes(backupA)
+            File(backupDir, "45.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef\n100")
+            writeBack.recoverPending()
+
+            // the id is reused again: a later save's journal lingers with yet another identity
+            val backupB = SyntheticMedia.jpegWithFillBytes() + ByteArray(4) { 7 }
+            File(backupDir, "45.bak").writeBytes(backupB)
+            File(backupDir, "45.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef\n300")
+            writeBack.recoverPending()
+
+            val orphans = backupDir.listFiles { f -> f.name.endsWith(".bak.orphan") }!!.sortedBy { it.name }
+            assertEquals(2, orphans.size, "both orphan events must keep their backup")
+            assertContentEquals(backupA, orphans.first { it.name.startsWith("45.100.") }.readBytes())
+            assertContentEquals(backupB, orphans.first { it.name.startsWith("45.300.") }.readBytes())
+        }
+
+    // review N6: one journal whose resolution throws must not abort the recovery pass and
+    // starve every journal after it; the good journal is restored, the bad one is kept
+    @Test
+    fun aThrowingResolveDoesNotStarveOtherJournals() =
+        runBlocking {
+            // a corrupt journal: the backup is a directory, so restoring it throws
+            File(backupDir, "60.bak").mkdirs()
+            File(backupDir, "60.meta").writeText("content://media/60\nfalse\nimage/jpeg")
+
+            // a healthy journal: a truncated target with its pristine backup
+            val original = SyntheticMedia.jpegPlain()
+            access.files["content://media/61"] = ByteArray(3) { 0x11 }
+            File(backupDir, "61.bak").writeBytes(original)
+            File(backupDir, "61.meta").writeText("content://media/61\nfalse\nimage/jpeg\ndeadbeef")
+
+            writeBack.recoverPending()
+
+            assertContentEquals(original, access.files["content://media/61"], "the healthy journal is restored")
+            assertTrue(File(backupDir, "60.bak").exists(), "the corrupt journal is kept for a later pass")
+        }
+
+    // review N1 minor: a sidecar that cannot be published must fail the write before any
+    // backup exists; a backup without its sidecar would be unrecoverable residue
+    @Test
+    fun sidecarRenameFailureFailsTheWriteBeforeBackup() =
+        runBlocking {
+            val bytes = SyntheticMedia.jpegPlain()
+            val item = seed(62, bytes)
+            // a directory squatting on the sidecar name makes the tmp rename fail
+            File(backupDir, "62.meta").mkdirs()
+
+            val outcome = writeBack.write(item, Annotation("note", null))
+
+            assertIs<WriteOutcome.Failed>(outcome)
+            assertTrue(!File(backupDir, "62.bak").exists(), "no backup may be published without its sidecar")
+            assertContentEquals(bytes, access.files[item.uri], "the target is untouched")
+        }
+
+    // review N6 minor: a video temp stranded by a crashed prepare is residue; recovery sweeps it
+    @Test
+    fun staleVideoTempIsSweptOnRecovery() =
+        runBlocking {
+            File(backupDir, "9.new.mp4").writeBytes(ByteArray(8) { 1 })
+            writeBack.recoverPending()
+            assertTrue(!File(backupDir, "9.new.mp4").exists(), "stale prepare temps are swept")
         }
 
     // finding F1: the same id still points at capture A (a partial write truncated it), so the

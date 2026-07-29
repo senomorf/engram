@@ -96,7 +96,10 @@ class MediaWriteBack(
                 }
                 val recordsToWrite = records.filterNot { it.idHex in present }
                 val framesToWrite = carryFrames.filterNot { it.copyOfRange(8, 24).toHex() in present }
-                journal.writeSidecar(item, expectedIds)
+                if (!journal.writeSidecar(item, expectedIds)) {
+                    // a backup without its sidecar would be unrecoverable residue (review N1 minor)
+                    return@withLock WriteOutcome.Failed("cannot record the write journal")
+                }
                 if (!journal.publishBackup(item)) {
                     return@withLock WriteOutcome.Failed("cannot back up original")
                 }
@@ -314,9 +317,22 @@ class MediaWriteBack(
     suspend fun recoverPending(): List<String> =
         withContext(io) {
             mutex.withLock {
+                sweepStaleTemps()
                 journal.pendingBackups().mapNotNull { backup ->
-                    (journal.resolve(backup) as? WriteJournal.Resolution.NeedsConsent)?.uri
+                    // one corrupt journal must not abort the pass and starve every journal
+                    // after it (review N6): a throwing resolve counts as unresolved and is
+                    // retried on a later pass
+                    val resolution =
+                        runCatching { journal.resolve(backup) }
+                            .getOrDefault(WriteJournal.Resolution.Unresolved)
+                    (resolution as? WriteJournal.Resolution.NeedsConsent)?.uri
                 }
             }
         }
+
+    // a crashed prepare strands its video temp; any *.new.mp4 here is residue, because the
+    // live one only exists inside a writeRecords call this mutex excludes (review N6 minor)
+    private fun sweepStaleTemps() {
+        backupDir.listFiles { f -> f.name.endsWith(".new.mp4") }?.forEach { it.delete() }
+    }
 }

@@ -8,6 +8,15 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- When Android hands a photo's internal id to a different picture more than once, each
+  interrupted save's preserved backup now gets its own shelf file instead of silently
+  overwriting the previously shelved one, so no shelved photo copy can be destroyed by a
+  later event.
+- Crash recovery now settles each interrupted save independently: one unreadable recovery
+  record can no longer block every other photo's recovery behind it. A save whose recovery
+  journal cannot be recorded now fails up front instead of proceeding without crash
+  protection, the journal files are flushed so they survive sudden power loss, and stranded
+  temporary files from interrupted video saves are cleaned up.
 - The most recent memories can no longer ride Android cloud backup off the phone: the
   database's write-ahead log (where the newest notes and voice recordings sit until they are
   folded into the main file) is now excluded from cloud backup alongside the database itself,
