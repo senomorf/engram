@@ -47,19 +47,20 @@ class SafShelvedSinkInstrumentedTest {
     }
 
     @Test
-    fun reopeningTheSameNameOverwritesRatherThanAppends() {
+    fun asecondSaveNeverOverwritesTheFirstRescuedCopy() {
         val sink = SafShelvedSink(context, DocumentFile.fromFile(dir))
+        val first = ByteArray(64) { 1 }
 
-        sink.open("engram-recovered-40.100.0.jpg", "image/jpeg")?.use { it.write(ByteArray(64) { 1 }) }
-        sink.open("engram-recovered-40.100.0.jpg", "image/jpeg")?.use { it.write(byteArrayOf(2, 2)) }
+        sink.open("engram-recovered-40.100.0.jpg", "image/jpeg")?.use { it.write(first) }
+        sink.open("engram-recovered-41.200.0.jpg", "image/jpeg")?.use { it.write(byteArrayOf(2, 2)) }
 
-        // "wt" truncates: a retry must not leave the first attempt's tail behind
+        // each rescued copy is irreplaceable, so saving a second must not disturb the first
         val landed = dir.listFiles().orEmpty().filter { it.isFile }
         assertTrue(
-            landed.size == 1,
-            "the retry reuses the file rather than creating a second: ${landed.map { it.name }}",
+            landed.any { it.readBytes().contentEquals(first) },
+            "the first rescued copy must survive a later save: ${landed.map { it.name }}",
         )
-        assertTrue(landed.single().readBytes().contentEquals(byteArrayOf(2, 2)), "the retry replaces the contents")
+        assertTrue(landed.any { it.readBytes().contentEquals(byteArrayOf(2, 2)) }, "the second copy lands too")
     }
 
     @Test
