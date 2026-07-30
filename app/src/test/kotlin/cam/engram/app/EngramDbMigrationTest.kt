@@ -154,4 +154,43 @@ class EngramDbMigrationTest {
             )
         }
     }
+
+    // review N3: drafts gain the stamp their record ids derive from. Unsaved notes are not
+    // rebuildable from files, so the column is added in place, never by recreating the table.
+    @Test
+    fun migration5To6AddsDraftStampPreservingDrafts() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val config =
+            SupportSQLiteOpenHelper.Configuration
+                .builder(context)
+                .name(null) // in-memory
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(1) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL(
+                                "CREATE TABLE drafts (" +
+                                    "mediaId INTEGER PRIMARY KEY NOT NULL, " +
+                                    "text TEXT, audioPath TEXT, " +
+                                    "updatedMillis INTEGER NOT NULL DEFAULT 0)",
+                            )
+                        }
+
+                        override fun onUpgrade(
+                            db: SupportSQLiteDatabase,
+                            oldVersion: Int,
+                            newVersion: Int,
+                        ) = Unit
+                    },
+                ).build()
+        val db = FrameworkSQLiteOpenHelperFactory().create(config).writableDatabase
+        db.use {
+            it.execSQL("INSERT INTO drafts (mediaId, text, updatedMillis) VALUES (7, 'unsaved note', 5)")
+            EngramDb.MIGRATION_5_6.migrate(it)
+            it.query("SELECT text, createdAtMillis FROM drafts WHERE mediaId = 7").use { c ->
+                check(c.moveToFirst()) { "the unsaved draft must survive the migration" }
+                check(c.getString(0) == "unsaved note")
+                check(c.getLong(1) == 0L) { "a legacy draft is unstamped until its next persist" }
+            }
+        }
+    }
 }

@@ -33,6 +33,10 @@ data class Annotation(
     val noteText: String?,
     val audioFile: java.io.File?,
     val audioMime: String = "audio/ogg",
+    // the draft this annotation came from, stamped once when the draft began. It enters the
+    // record id derivation (review N3) so re-saving text the file already carries appends a
+    // new version instead of colliding with the existing record's id. 0 means unstamped.
+    val createdAtMillis: Long = 0,
 )
 
 /**

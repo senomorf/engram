@@ -33,7 +33,7 @@ All integers big-endian. One record:
 | 4 | 1 | wire version = 1 |
 | 5 | 1 | kind code |
 | 6 | 2 | flags, reserved, must be 0 |
-| 8 | 16 | record id (random) |
+| 8 | 16 | record id (writer-chosen, unique per record) |
 | 24 | 8 | timestamp, unix millis |
 | 32 | 1 | writer length W (bytes) |
 | 33 | W | writer id, UTF-8 |
@@ -43,6 +43,13 @@ All integers big-endian. One record:
 
 Records are self-delimiting: a carver scanning for `EGRM` and validating CRC
 can recover records from damaged files without any container index.
+
+How a writer derives the id is its own choice; readers treat it as opaque. It
+must be unique per record, since rewriters use it to tell an already-embedded
+record from a new one. The Android app derives it from the capture, the draft
+that produced the annotation, the kind, and the payload, so retrying an
+interrupted save re-derives the same id (no duplicate) while a later edit,
+even one repeating earlier text, derives a new one.
 
 Payloads:
 
