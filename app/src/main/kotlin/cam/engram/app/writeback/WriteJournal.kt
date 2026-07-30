@@ -5,9 +5,6 @@ import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
 import cam.engram.format.Digests
-import cam.engram.format.jpeg.JpegCodec
-import cam.engram.format.mp4.Mp4Channels
-import cam.engram.format.png.PngCodec
 import java.io.File
 import java.io.FileInputStream
 import java.nio.channels.FileChannel
@@ -27,6 +24,12 @@ class WriteJournal(
     private val access: ContentAccess,
     private val scanner: RecordScanner,
 ) {
+    /** The exact bytes a write means to land: what verify and recovery hold the target to. */
+    class PreparedOutput(
+        val digestHex: String,
+        val sizeBytes: Long,
+    )
+
     fun backupFor(mediaId: Long): File = File(backupDir, "$mediaId.bak")
 
     fun pendingBackups(): List<File> = backupDir.listFiles { f -> f.extension == "bak" }?.toList().orEmpty()
@@ -34,12 +37,19 @@ class WriteJournal(
     fun writeSidecar(
         item: MediaItemEntity,
         expectedIds: Set<String>,
+        prepared: PreparedOutput? = null,
     ): Boolean {
         // the expected record ids let recovery tell a finished write from an interrupted one
         // (finding A); the capture identity (takenAtMillis) lets it tell a partial write of the
-        // original from a reused MediaStore id now holding a different photo (finding F1)
+        // original from a reused MediaStore id now holding a different photo (finding F1); the
+        // prepared output's digest and size, amended once the output exists, let both recovery
+        // and verify demand the exact bytes the write meant to land (issue #97)
         val content =
-            "${item.uri}\n${item.isVideo}\n${item.mime}\n${expectedIds.joinToString(",")}\n${item.takenAtMillis}"
+            buildString {
+                append("${item.uri}\n${item.isVideo}\n${item.mime}\n")
+                append("${expectedIds.joinToString(",")}\n${item.takenAtMillis}")
+                if (prepared != null) append("\n${prepared.digestHex}\n${prepared.sizeBytes}")
+            }
         val meta = File(backupDir, "${item.mediaId}.meta")
         val tmp = File(backupDir, "${item.mediaId}.meta.tmp")
         // durable (fsync + rename, then a directory fsync) so the backup is never published
@@ -114,7 +124,11 @@ class WriteJournal(
                 ?.toSet()
                 .orEmpty()
         val expectedIdentity = meta.getOrNull(4)?.toLongOrNull()
-        if (writeCompleted(uri, isVideo, mime, expectedIds) || targetMatchesBackup(uri, backup)) {
+        val prepared =
+            meta.getOrNull(5)?.takeIf { it.isNotBlank() }?.let { digest ->
+                meta.getOrNull(6)?.toLongOrNull()?.let { size -> PreparedOutput(digest, size) }
+            }
+        if (writeCompleted(uri, isVideo, mime, expectedIds, prepared) || targetMatchesBackup(uri, backup)) {
             cleanup(mediaId)
             return Resolution.Settled
         }
@@ -129,10 +143,16 @@ class WriteJournal(
             }
         }
         return when (restore(uri, backup)) {
-            WriteResult.Ok -> {
-                cleanup(mediaId)
-                Resolution.Settled
-            }
+            // an Ok restore is only trusted once the target's bytes equal the backup: a provider
+            // that reports success while writing something else must not cost the only pristine
+            // copy (issue #97). A mismatch keeps the journal for a later attempt.
+            WriteResult.Ok ->
+                if (targetMatchesBackup(uri, backup)) {
+                    cleanup(mediaId)
+                    Resolution.Settled
+                } else {
+                    Resolution.Unresolved
+                }
             WriteResult.NotOpened -> Resolution.NeedsConsent(uri)
             WriteResult.OpenedUncertain -> Resolution.Unresolved
         }
@@ -186,29 +206,38 @@ class WriteJournal(
         return target == kept
     }
 
-    // a write finished only if the target carries every expected record with a valid CRC and is
-    // structurally complete (finding F2); a legacy sidecar without ids falls back to a bare parse
+    /**
+     * Did the write land? Three bars, strongest first:
+     *  - the sidecar carries the prepared output's digest and size (issue #97): the target must
+     *    equal those bytes exactly. This is the only bar that also catches a provider that wrote
+     *    something transformed but record-complete.
+     *  - ids only (a pre-digest sidecar): every expected record present, CRC-valid, in a
+     *    structurally complete container (finding F2).
+     *  - neither (a legacy sidecar): never provable. Parseability was accepted here before
+     *    (issue #96), but a signature-only PNG parses and an empty MP4 yields a non-null box
+     *    list, so a crash-truncated target settled and its pristine backup was deleted. Such a
+     *    journal now falls through to the digest compare against the backup, else a restore.
+     */
     private fun writeCompleted(
         uri: String,
         isVideo: Boolean,
         mime: String,
         expectedIds: Set<String>,
-    ): Boolean =
-        if (expectedIds.isEmpty()) {
-            runCatching {
-                if (isVideo) {
-                    access.withChannel(uri) { Mp4Channels.topLevel(it) } != null
-                } else {
-                    val bytes = access.readBytes(uri) ?: return false
-                    if (mime == "image/png") PngCodec.parse(bytes) else JpegCodec.parse(bytes)
-                    true
-                }
-            }.getOrDefault(false)
-        } else {
-            // a structurally incomplete file (a png truncated before IEND) can still carry every
-            // expected id: require completeness too, so recovery never settles, and deletes the
-            // backup for, a broken file (finding F2)
-            val scan = scanner.scan(uri, isVideo, mime) ?: return false
-            scan.structurallyComplete && scan.presentIds.containsAll(expectedIds)
-        }
+        prepared: PreparedOutput?,
+    ): Boolean {
+        if (prepared != null) return targetMatchesPrepared(uri, prepared)
+        if (expectedIds.isEmpty()) return false
+        val scan = scanner.scan(uri, isVideo, mime) ?: return false
+        return scan.structurallyComplete && scan.presentIds.containsAll(expectedIds)
+    }
+
+    // the target is byte-for-byte the output the write prepared
+    private fun targetMatchesPrepared(
+        uri: String,
+        prepared: PreparedOutput,
+    ): Boolean {
+        val size = access.withChannel(uri) { it.size() } ?: return false
+        if (size != prepared.sizeBytes) return false
+        return access.withChannel(uri) { Digests.sha256Hex(it) } == prepared.digestHex
+    }
 }
