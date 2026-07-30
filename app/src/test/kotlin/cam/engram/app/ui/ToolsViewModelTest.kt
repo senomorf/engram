@@ -81,6 +81,56 @@ class ToolsViewModelTest {
             app.db.close()
         }
 
+    // issue #92: shelved backups (a reused media id kept the displaced photo's only copy)
+    // are listed, can be streamed out to a user-chosen location, and can be discarded
+    @Test
+    fun shelvedBackupsAreListedSavedAndDiscarded() =
+        runBlocking {
+            val app = fakeContainer(context = ApplicationProvider.getApplicationContext())
+            val backupDir =
+                java.io.File(
+                    ApplicationProvider.getApplicationContext<android.content.Context>().filesDir,
+                    "writeback",
+                )
+            backupDir.deleteRecursively()
+            backupDir.mkdirs()
+            val payload = ByteArray(16) { it.toByte() }
+            java.io.File(backupDir, "40.100.0.bak.orphan").writeBytes(payload)
+            val vm = ToolsViewModel(app)
+
+            vm.refreshShelved()
+            awaitShelved(vm) { it.backups.size == 1 }
+            assertEquals(
+                payload.size.toLong(),
+                vm.shelvedState.value.backups
+                    .single()
+                    .sizeBytes,
+            )
+
+            // the sink hands back a stream per name; capture what the copy writes into it
+            vm.saveShelved { name -> java.io.ByteArrayOutputStream().also { savedStreams[name] = it } }
+            awaitShelved(vm) { it.savedCount == 1 }
+            assertEquals(payload.toList(), savedStreams.getValue("40.100.0.bak.orphan").toByteArray().toList())
+
+            vm.discardShelved()
+            awaitShelved(vm) { it.backups.isEmpty() }
+            assertEquals(false, java.io.File(backupDir, "40.100.0.bak.orphan").exists())
+            app.db.close()
+        }
+
+    private val savedStreams = mutableMapOf<String, java.io.ByteArrayOutputStream>()
+
+    private suspend fun awaitShelved(
+        vm: ToolsViewModel,
+        predicate: (ShelvedState) -> Boolean,
+    ) {
+        repeat(50) {
+            if (predicate(vm.shelvedState.value)) return
+            delay(50)
+        }
+        error("shelved state never satisfied the predicate: ${vm.shelvedState.value}")
+    }
+
     @Test
     fun nullSinkFailsWithoutRunning() {
         val app = fakeContainer(context = ApplicationProvider.getApplicationContext())
