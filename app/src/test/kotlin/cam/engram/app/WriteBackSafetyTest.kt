@@ -67,15 +67,92 @@ class WriteBackSafetyTest {
             assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("kept", null)))
             val written = access.files[item.uri]!!.copyOf()
             assertEquals(1, RecordStream.scan(written).count { it.decoded.crcOk })
+            val ids = RecordScanner(access).presentIds(item.uri, false, "image/jpeg")
 
-            // simulate a crash after verify but before cleanup: a stale backup lingers
+            // simulate a crash after verify but before cleanup: a stale backup lingers. The
+            // sidecar names the records the write landed, which is how recovery proves it
+            // finished (a bare parse never could: issue #96)
             File(backupDir, "1.bak").writeBytes(SyntheticMedia.jpegPlain())
-            File(backupDir, "1.meta").writeText("${item.uri}\nfalse\nimage/jpeg")
+            File(backupDir, "1.meta").writeText("${item.uri}\nfalse\nimage/jpeg\n${ids.joinToString(",")}")
 
             writeBack.recoverPending()
-            // the annotated file parses, so recovery must not roll it back
+            // the target carries every expected record, so recovery must not roll it back
             assertContentEquals(written, access.files[item.uri])
             assertTrue(backupDir.listFiles()!!.isEmpty(), "stale backup should be cleared")
+        }
+
+    // issue #96: a legacy sidecar (no ids, no digest) can never prove a write finished.
+    // Parseability used to stand in for proof, so a crash-truncated target settled and its
+    // pristine backup was deleted; such a journal must restore instead.
+    @Test
+    fun legacyIdlessJournalWithDivergedTargetRestoresTheBackup() =
+        runBlocking {
+            val pristine = SyntheticMedia.jpegPlain()
+            val uri = "content://media/80"
+            // the target still parses as a JPEG but is not the pre-write original
+            access.files[uri] = SyntheticMedia.jpegWithFillBytes()
+            File(backupDir, "80.bak").writeBytes(pristine)
+            File(backupDir, "80.meta").writeText("$uri\nfalse\nimage/jpeg")
+
+            writeBack.recoverPending()
+
+            assertContentEquals(pristine, access.files[uri], "an unprovable legacy journal must restore")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "the journal clears once the restore is verified")
+        }
+
+    // issue #97: a provider that keeps the appended records while writing a transformed image
+    // passes every record check; only comparing the target against the bytes the write prepared
+    // catches it, and the pristine backup must not be deleted for such a file
+    @Test
+    fun silentlyTransformedWriteIsRolledBack() =
+        runBlocking {
+            val original = SyntheticMedia.jpegPlain()
+            val item = seed(81, original)
+            access.transformWrites = true
+
+            val outcome = writeBack.write(item, Annotation("note", null))
+
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("different bytes"), outcome.toString())
+            assertContentEquals(original, access.files[item.uri], "the transformed write is rolled back")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared only after the verified restore")
+        }
+
+    // issue #97: a restore that reports success but does not land the backup's bytes must keep
+    // the journal, never clear the only pristine copy
+    @Test
+    fun corruptRestoreKeepsTheJournal() =
+        runBlocking {
+            val uri = "content://media/82"
+            access.files[uri] = ByteArray(3) { 0x11 }
+            File(backupDir, "82.bak").writeBytes(SyntheticMedia.jpegPlain())
+            File(backupDir, "82.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef")
+            access.corruptRestore = true
+
+            writeBack.recoverPending()
+
+            assertTrue(File(backupDir, "82.bak").exists(), "an unverified restore must keep the backup")
+            assertTrue(File(backupDir, "82.meta").exists(), "the journal stays for a later attempt")
+        }
+
+    // issue #97: a crash after the write landed leaves a journal whose target already equals the
+    // prepared output; that settles on the digest alone, needing no write grant
+    @Test
+    fun digestJournalSettlesGrantFreeWhenTargetMatchesPrepared() =
+        runBlocking {
+            val uri = "content://media/83"
+            val landed = SyntheticMedia.jpegWithFillBytes()
+            access.files[uri] = landed
+            File(backupDir, "83.bak").writeBytes(SyntheticMedia.jpegPlain())
+            val digest =
+                cam.engram.format.archive.EngramArchive
+                    .contentHashName(landed)
+            File(backupDir, "83.meta").writeText("$uri\nfalse\nimage/jpeg\ndeadbeef\n83\n$digest\n${landed.size}")
+            access.rejectWrites = true // no write grant available
+
+            assertTrue(writeBack.recoverPending().isEmpty(), "a completed write is not consent-needed")
+
+            assertContentEquals(landed, access.files[uri], "the landed write is kept")
+            assertTrue(backupDir.listFiles()!!.isEmpty(), "the journal settles without a grant")
         }
 
     // reviewer D: a save that committed the write but died before the draft delete is retried with
@@ -598,14 +675,17 @@ class WriteBackSafetyTest {
 
     // finding F2: a png write that lands but is cut off before its terminal IEND is structurally
     // incomplete even though every record chunk is present; verify must reject it and roll back to
-    // the pristine original rather than "succeed" and delete the backup for a broken file
+    // the pristine original rather than "succeed" and delete the backup for a broken file. Since
+    // issue #97 the byte comparison against the prepared output catches this first (a truncated
+    // file cannot equal what was prepared), which is the stronger bar; the structural check
+    // remains for a target that matches nothing prepared, such as a legacy journal.
     @Test
     fun verifyRejectsAStructurallyTruncatedPngAndRollsBack() =
         runBlocking {
             val item = seed(50, SyntheticMedia.png1x1(), mime = "image/png")
             access.truncateWrites = true // the png write lands but loses its terminal IEND
             val outcome = writeBack.write(item, Annotation("note", null))
-            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("structurally"), outcome.reason)
+            assertTrue(assertIs<WriteOutcome.Failed>(outcome).reason.contains("verification"), outcome.reason)
             assertContentEquals(SyntheticMedia.png1x1(), access.files[item.uri], "the truncated write is rolled back")
             assertTrue(backupDir.listFiles()!!.isEmpty(), "backup cleared only after the restore")
         }

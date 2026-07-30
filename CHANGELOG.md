@@ -42,6 +42,16 @@ change lands under Unreleased at merge time.
   recovery scan now works to a bounded budget, and a file that exhausts it is treated as
   damaged rather than clean, so a save is never blessed and a backup is never dropped on
   the strength of an incomplete read.
+- A save is now confirmed by comparing the saved file against exactly the bytes the app
+  prepared, so a storage provider that silently alters or shortens what it stores can no
+  longer pass as a clean save (and have the safety backup deleted): such a save is rolled
+  back to the original. Restores are verified the same way, and a restore that does not
+  land the backup's bytes keeps the backup for another attempt.
+- Finishing a save that was interrupted by an older version of the app (one that recorded no
+  record ids) no longer settles just because the photo still opens: a file that merely parses
+  is no longer treated as proof the save completed, since a photo cut short can still open.
+  Such an interrupted save now restores the original. Note this trades a pending note for the
+  photo in that narrow upgrade case, which is the documented priority (design D26).
 - The most recent memories can no longer ride Android cloud backup off the phone: the
   database's write-ahead log (where the newest notes and voice recordings sit until they are
   folded into the main file) is now excluded from cloud backup alongside the database itself,

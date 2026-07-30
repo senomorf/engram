@@ -39,6 +39,15 @@ class FakeContentAccess : ContentAccess {
     // terminal IEND chunk, a structurally incomplete file the verify must reject (finding F2)
     var truncateWrites = false
 
+    // writeBytes keeps the appended records but rewrites the image body: models a provider that
+    // silently transforms what it stores. Every record check passes, so only a byte-for-byte
+    // comparison against the prepared output catches it (issue #97)
+    var transformWrites = false
+
+    // writeFromFile reports Ok but lands different bytes: models a restore that claims success
+    // without landing the backup, which must never clear the journal (issue #97)
+    var corruptRestore = false
+
     // counts backup copies so a test can prove a retry reused the committed backup
     var copyToFileCount = 0
 
@@ -74,6 +83,11 @@ class FakeContentAccess : ContentAccess {
             files[uri] = bytes.copyOfRange(0, maxOf(0, bytes.size - 12)) // cut before the terminal chunk
             return WriteResult.Ok
         }
+        if (transformWrites) {
+            // flip a byte inside the image body, leaving the appended record frames intact
+            files[uri] = bytes.copyOf().also { it[8] = (it[8] + 1).toByte() }
+            return WriteResult.Ok
+        }
         files[uri] = if (corruptWrites) ByteArray(4) { 0x11 } else bytes
         return WriteResult.Ok
     }
@@ -100,6 +114,10 @@ class FakeContentAccess : ContentAccess {
         // can still be rolled back; rejectRestore is the knob for a failing restore
         if (rejectWrites || rejectRestore) return WriteResult.NotOpened
         if (uncertainRestore) return WriteResult.OpenedUncertain
+        if (corruptRestore) {
+            files[uri] = source.readBytes().copyOf().also { it[0] = (it[0] + 1).toByte() }
+            return WriteResult.Ok
+        }
         files[uri] = source.readBytes()
         return WriteResult.Ok
     }

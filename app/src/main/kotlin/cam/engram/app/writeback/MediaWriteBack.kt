@@ -10,6 +10,8 @@ import cam.engram.app.data.media.ContentAccess
 import cam.engram.app.data.media.WriteResult
 import cam.engram.app.data.scan.RecordScanner
 import cam.engram.app.data.scan.ScanOutcome
+import cam.engram.format.Digests
+import cam.engram.format.archive.EngramArchive
 import cam.engram.format.jpeg.JpegEmbedder
 import cam.engram.format.mp4.Mp4Files
 import cam.engram.format.png.PngEmbedder
@@ -21,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
 
 /**
  * Transactional write-back (design sec 8): backup, write, verify the records
@@ -122,8 +125,12 @@ class MediaWriteBack(
                             journal.cleanup(item.mediaId)
                             return@withLock WriteOutcome.Failed(e.message ?: "write preparation failed")
                         }
+                // the exact bytes this write means to land; recorded in the journal before the
+                // target is opened so recovery holds a crashed write to the same bar (issue #97)
+                val expected = digestOf(prepared)
+                journal.writeSidecar(item, expectedIds, expected)
                 val attempt =
-                    runCatching { commit(item, prepared, expectedIds) }
+                    runCatching { commit(item, prepared, expectedIds, expected) }
                         .getOrElse { e ->
                             // an exception mid-write may have left a partial file: restore
                             return@withLock rollback(item, backup, e.message ?: "write failed")
@@ -213,10 +220,27 @@ class MediaWriteBack(
             )
         }
 
+    // the digest and size of the fully prepared output, computed before the target is opened
+    private fun digestOf(prepared: Prepared): WriteJournal.PreparedOutput =
+        when (prepared) {
+            is Prepared.Photo ->
+                WriteJournal.PreparedOutput(
+                    EngramArchive.contentHashName(prepared.bytes),
+                    prepared.bytes.size.toLong(),
+                )
+            // stream the temp file: a large video must not be loaded whole to hash it
+            is Prepared.Video ->
+                WriteJournal.PreparedOutput(
+                    FileInputStream(prepared.temp).channel.use { Digests.sha256Hex(it) },
+                    prepared.temp.length(),
+                )
+        }
+
     private fun commit(
         item: MediaItemEntity,
         prepared: Prepared,
         expectedIds: Set<String>,
+        expected: WriteJournal.PreparedOutput,
     ): Attempt {
         val result =
             when (prepared) {
@@ -232,7 +256,7 @@ class MediaWriteBack(
             WriteResult.NotOpened -> Attempt.Rejected
             // the target was truncated but the write did not finish: restore from backup
             WriteResult.OpenedUncertain -> Attempt.Failed("write did not complete")
-            WriteResult.Ok -> verify(item, expectedIds)
+            WriteResult.Ok -> verify(item, expectedIds, expected)
         }
     }
 
@@ -241,11 +265,20 @@ class MediaWriteBack(
     private fun verify(
         item: MediaItemEntity,
         expected: Set<String>,
+        preparedOutput: WriteJournal.PreparedOutput,
     ): Attempt {
         val scan =
             scanner.scan(item.uri, item.isVideo, item.mime)
                 ?: return Attempt.Failed("verification could not read file back")
         if (scan.recordCount == 0) return Attempt.Failed("verification found no records after write")
+        // the strongest bar: the target must be byte-for-byte the output we prepared. Record
+        // checks alone cannot see a provider that wrote a transformed image while preserving
+        // the appended records, and structural completeness is only a real check for png
+        // (issue #97). The scan already hashed the read-back bytes, so this costs nothing.
+        val size = access.withChannel(item.uri) { it.size() }
+        if (size != preparedOutput.sizeBytes || scan.contentHash != preparedOutput.digestHex) {
+            return Attempt.Failed("verification found different bytes than the write prepared")
+        }
         // a structurally incomplete file (a png truncated before its terminal IEND) can still
         // carry every record: refuse it so the pristine backup is never deleted for a broken
         // file, the same bar recovery's writeCompleted applies (finding F2)
