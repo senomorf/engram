@@ -292,9 +292,11 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   Identity hashing is sha-256, a pure-Kotlin streaming digest, so
   videos hash without being loaded whole; md5 remains only where the ExtendedXMP
   spec mandates it. Cache rows hashed before the switch refresh on their next scan.
-  Entries are named by that hash plus the photo's MediaStore DISPLAY_NAME (captured
-  at reconcile into media_items.displayName), and every export writes into a fresh
-  directory, so a manifest is always authoritative for exactly the files beside it.
+  Entry files are named by that hash alone; the photo's MediaStore DISPLAY_NAME
+  (captured at reconcile into media_items.displayName) rides inside the JSON view as
+  originalName, so a name that collides, changes, or carries path separators can never
+  shape a file name. Every export writes into a fresh directory, so a manifest is
+  always authoritative for exactly the files beside it.
   The validator holds it to that: for v3 the inventory must cover the directory in
   both directions, the archive marker must read engram, and duplicate or
   path-escaping names are refused (a name guard, not a filesystem probe, decides
