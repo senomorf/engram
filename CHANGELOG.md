@@ -8,6 +8,9 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- A photo copy recovered from Tools now arrives named and typed as the photo it is, so it
+  opens in a gallery, instead of landing as an unidentified file the phone does not know how
+  to show.
 - Editing a photo's date in a gallery app no longer looks like Android reassigning that
   photo's id to a different picture: the app now checks whether the file itself actually
   changed, so a re-dated photo keeps its unsaved draft and cached location and carries its
