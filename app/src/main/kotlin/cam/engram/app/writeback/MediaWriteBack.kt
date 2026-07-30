@@ -126,7 +126,11 @@ class MediaWriteBack(
                             return@withLock WriteOutcome.Failed(e.message ?: "write preparation failed")
                         }
                 // the exact bytes this write means to land; recorded in the journal before the
-                // target is opened so recovery holds a crashed write to the same bar (issue #97)
+                // target is opened so recovery holds a crashed write to the same bar (issue #97).
+                // Unlike the first sidecar write this one may fail without failing the save: the
+                // amendment raises recovery's bar, it is not a prerequisite for it. A failed
+                // rename leaves the ids-only sidecar in place, so recovery falls back to the id
+                // bar rather than losing the journal, and the photo stays protected either way.
                 val expected = digestOf(prepared)
                 journal.writeSidecar(item, expectedIds, expected)
                 val attempt =
