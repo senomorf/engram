@@ -49,9 +49,17 @@ data class ShelvedBackup(
     val sizeBytes: Long,
 )
 
-/** Opens a stream to write a shelved backup out to; null when it cannot be created. */
+/**
+ * Opens a stream to write a shelved backup out to; null when it cannot be created. The
+ * [mimeType] travels with the name because SAF derives the saved file's extension from it:
+ * without a real one the recovered photo lands as a .bin the gallery cannot open, which
+ * would defeat the point of handing it back (issue #92).
+ */
 fun interface ShelvedSink {
-    fun open(name: String): java.io.OutputStream?
+    fun open(
+        name: String,
+        mimeType: String,
+    ): java.io.OutputStream?
 }
 
 /**

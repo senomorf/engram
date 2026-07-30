@@ -94,7 +94,8 @@ class ToolsViewModelTest {
                 )
             backupDir.deleteRecursively()
             backupDir.mkdirs()
-            val payload = ByteArray(16) { it.toByte() }
+            // a real JPEG head so the copy is recognized and named as a photo
+            val payload = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) + ByteArray(16) { it.toByte() }
             java.io.File(backupDir, "40.100.0.bak.orphan").writeBytes(payload)
             val vm = ToolsViewModel(app)
 
@@ -108,9 +109,15 @@ class ToolsViewModelTest {
             )
 
             // the sink hands back a stream per name; capture what the copy writes into it
-            vm.saveShelved { name -> java.io.ByteArrayOutputStream().also { savedStreams[name] = it } }
+            vm.saveShelved { name, mime ->
+                savedMimes[name] = mime
+                java.io.ByteArrayOutputStream().also { savedStreams[name] = it }
+            }
             awaitShelved(vm) { it.savedCount == 1 }
-            assertEquals(payload.toList(), savedStreams.getValue("40.100.0.bak.orphan").toByteArray().toList())
+            // named and typed by what it is, so the user can open the recovered photo (#92)
+            val saved = "engram-recovered-40.100.0.jpg"
+            assertEquals(payload.toList(), savedStreams.getValue(saved).toByteArray().toList())
+            assertEquals("image/jpeg", savedMimes[saved])
 
             vm.discardShelved()
             awaitShelved(vm) { it.backups.isEmpty() }
@@ -119,6 +126,7 @@ class ToolsViewModelTest {
         }
 
     private val savedStreams = mutableMapOf<String, java.io.ByteArrayOutputStream>()
+    private val savedMimes = mutableMapOf<String, String>()
 
     private suspend fun awaitShelved(
         vm: ToolsViewModel,

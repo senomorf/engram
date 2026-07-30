@@ -15,11 +15,14 @@ class SafShelvedSink internal constructor(
     private val context: Context,
     private val dir: DocumentFile,
 ) : ShelvedSink {
-    override fun open(name: String): OutputStream? =
+    override fun open(
+        name: String,
+        mimeType: String,
+    ): OutputStream? =
         runCatching {
             val file =
                 dir.findFile(name)?.takeIf { it.isFile }
-                    ?: dir.createFile("application/octet-stream", name)
+                    ?: dir.createFile(mimeType, name)
                     ?: return null
             context.contentResolver.openOutputStream(file.uri, "wt")
         }.getOrNull()
