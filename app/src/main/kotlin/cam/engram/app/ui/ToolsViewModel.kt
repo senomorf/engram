@@ -66,22 +66,22 @@ class ToolsViewModel(
 
     internal fun refreshShelved() {
         viewModelScope.launch {
-            shelvedFlow.value = shelvedFlow.value.copy(backups = container.writeBack.shelvedBackups())
+            shelvedFlow.value = shelvedFlow.value.copy(backups = container.writeBack.shelved.list())
         }
     }
 
     internal fun saveShelved(sink: ShelvedSink?) {
         if (sink == null) return
         viewModelScope.launch {
-            val saved = container.writeBack.copyShelvedBackups(sink)
-            shelvedFlow.value = ShelvedState(container.writeBack.shelvedBackups(), savedCount = saved)
+            val saved = container.writeBack.shelved.copyTo(sink)
+            shelvedFlow.value = ShelvedState(container.writeBack.shelved.list(), savedCount = saved)
         }
     }
 
     internal fun discardShelved() {
         viewModelScope.launch {
-            container.writeBack.discardShelvedBackups()
-            shelvedFlow.value = ShelvedState(container.writeBack.shelvedBackups())
+            container.writeBack.shelved.discard()
+            shelvedFlow.value = ShelvedState(container.writeBack.shelved.list())
         }
     }
 
