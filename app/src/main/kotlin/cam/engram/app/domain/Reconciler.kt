@@ -51,6 +51,7 @@ class Reconciler(
 
             val upserts = mutableListOf<MediaItemEntity>()
             val identityChanged = mutableListOf<Long>()
+            val reDated = mutableListOf<ReDated>()
             var added = 0
             for (item in snapshot) {
                 val known = existing[item.mediaId]
@@ -59,14 +60,22 @@ class Reconciler(
                         added++
                         upserts += item.toEntity()
                     }
-                    // the media id now points at a different capture (a reused id): replace the
-                    // whole row so identity, uri, mime and name track the new photo. The old
-                    // record-cache row survives as an orphan under its own identity (composite
-                    // key); the id-keyed enrichment and draft are evicted below so the new capture
-                    // cannot inherit the previous one's private content (finding H1)
+                    // the capture identity changed. Either the media id now points at a different
+                    // capture (a reused id) or the user re-dated this same photo, which DATE_TAKEN
+                    // cannot distinguish on its own because it is editable metadata (D29, review
+                    // N5). Both replace the row so identity, uri, mime and name track what is
+                    // there now, but only a genuine reuse may evict the id-keyed enrichment and
+                    // draft: doing that on a re-date silently destroys an unsaved note.
                     item.takenAtMillis != known.takenAtMillis -> {
                         upserts += item.toEntity()
-                        identityChanged += item.mediaId
+                        if (sameCaptureReDated(known, item)) {
+                            reDated += ReDated(item.mediaId, known.takenAtMillis, item.takenAtMillis)
+                        } else {
+                            // the old record-cache row survives as an orphan under its own identity
+                            // (composite key); enrichment and draft are evicted below so the new
+                            // capture cannot inherit the previous one's private content (finding H1)
+                            identityChanged += item.mediaId
+                        }
                     }
                     known.sizeBytes != item.sizeBytes || known.dateModified != item.dateModified -> {
                         // file changed on disk (size or mtime): rescan (review F11)
@@ -106,6 +115,16 @@ class Reconciler(
                     db.enrichmentCache().delete(it)
                     db.drafts().delete(it)
                 }
+                // a re-dated capture keeps its memories: move the cache row onto the new identity
+                // rather than leaving it orphaned under the old one. Merged as a superset so a row
+                // already standing at the new identity is never shrunk, and committed here so the
+                // re-key cannot be separated from the media row it belongs to.
+                reDated.forEach { r ->
+                    db.recordCache().byKey(r.mediaId, r.from)?.let { row ->
+                        db.recordCache().upsertSuperset(row.copy(identityTakenAt = r.to))
+                        db.recordCache().delete(row)
+                    }
+                }
             }
 
             // pre-hash cache rows (migrated with an empty contentHash) backfill through
@@ -139,6 +158,43 @@ class Reconciler(
             prefetchEnrichment()
             ReconcileStats(added, removedIds.size, scanned)
         }
+
+    /** One media id whose capture was re-dated in place, with the identities to move between. */
+    private class ReDated(
+        val mediaId: Long,
+        val from: Long,
+        val to: Long,
+    )
+
+    /**
+     * Is this the same capture with an edited date rather than a reused media id (review N5)?
+     * DATE_TAKEN is user-editable, so it cannot answer this alone; the file's bytes can.
+     *
+     * Cheap signal first: an unchanged size and mtime mean the file itself was never rewritten,
+     * so only the MediaStore date column moved. When the file was touched, fall back to the
+     * content hash the cache recorded for the old identity, which proves sameness even though
+     * the mtime moved. With neither available the answer is unknowable, and the conservative
+     * reading is reuse: evicting a draft costs an unsaved note, while keeping one on a genuinely
+     * different photo leaks private content onto it (finding H1).
+     */
+    private suspend fun sameCaptureReDated(
+        known: MediaItemEntity,
+        fresh: SourceItem,
+    ): Boolean {
+        if (known.sizeBytes == fresh.sizeBytes && known.dateModified == fresh.dateModified) return true
+        val cached =
+            db
+                .recordCache()
+                .byKey(known.mediaId, known.takenAtMillis)
+                ?.contentHash
+                ?.takeIf { it.isNotEmpty() } ?: return false
+        val live =
+            scanner
+                .scan(fresh.uri, fresh.isVideo, fresh.mime)
+                ?.contentHash
+                ?.takeIf { it.isNotEmpty() } ?: return false
+        return cached == live
+    }
 
     private suspend fun prefetchEnrichment() {
         val cached = db.enrichmentCache().cachedIds().toSet()

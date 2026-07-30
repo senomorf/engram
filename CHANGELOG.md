@@ -8,6 +8,11 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Editing a photo's date in a gallery app no longer looks like Android reassigning that
+  photo's id to a different picture: the app now checks whether the file itself actually
+  changed, so a re-dated photo keeps its unsaved draft and cached location and carries its
+  memories onto the new date instead of leaving them attached to the old one. A genuinely
+  different photo taking over an id is still treated as before.
 - Writing a note whose exact text you used on the same photo before is saved as a new
   version again, instead of being silently swallowed as a duplicate of the earlier one: a
   save now identifies its records by the note-taking session as well as the text. Retrying a
