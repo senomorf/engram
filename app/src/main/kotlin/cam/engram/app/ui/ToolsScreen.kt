@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -24,6 +27,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import cam.engram.app.R
 import cam.engram.app.export.SafArchiveSink
+import cam.engram.app.export.SafShelvedSink
 import cam.engram.format.read.Survival
 
 @Composable
@@ -35,6 +39,8 @@ fun ToolsScreen(onBack: () -> Unit) {
         viewModel(factory = viewModelFactory { initializer { ToolsViewModel(container) } })
     val export by vm.exportState.collectAsState()
     val verify by vm.verifyState.collectAsState()
+    val shelved by vm.shelvedState.collectAsState()
+    LaunchedEffect(Unit) { vm.refreshShelved() }
 
     val exportLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -54,9 +60,25 @@ fun ToolsScreen(onBack: () -> Unit) {
             if (uri != null) vm.verify(uri.toString())
         }
 
+    val shelvedLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+                vm.saveShelved(SafShelvedSink.open(context, uri))
+            }
+        }
+
     EngramScaffold(title = stringResource(R.string.open_tools), onBack = onBack) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            // scrollable: with the shelved-backups section the content can exceed a short screen
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(stringResource(R.string.tools_export_title), style = MaterialTheme.typography.titleMedium)
@@ -74,6 +96,24 @@ fun ToolsScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.tools_verify_button))
             }
             VerifyStatus(verify)
+
+            // only shown when a reused media id actually shelved a copy: rare, and silent
+            // accumulation was the gap (issue #92)
+            if (shelved.backups.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Text(stringResource(R.string.tools_shelved_title), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.tools_shelved_hint, shelved.backups.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Button(onClick = { shelvedLauncher.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.tools_shelved_save))
+                }
+                Button(onClick = { vm.discardShelved() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.tools_shelved_discard))
+                }
+            }
+            shelved.savedCount?.let { Text(stringResource(R.string.tools_shelved_saved, it)) }
         }
     }
 }

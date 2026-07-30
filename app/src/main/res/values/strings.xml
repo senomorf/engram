@@ -69,6 +69,11 @@
     <string name="tools_verify_title">Verify a backup</string>
     <string name="tools_verify_hint">Pick a photo you downloaded back from a cloud or a chat. Engram tells you what survived.</string>
     <string name="tools_verify_button">Pick a file to check</string>
+    <string name="tools_shelved_title">Photo copies kept aside</string>
+    <string name="tools_shelved_hint">Android reused a photo id for a different picture, so %1$d kept copy or copies of the earlier photo were set aside instead of being written over the new one. Save them somewhere safe, or discard them.</string>
+    <string name="tools_shelved_save">Save copies to a folder</string>
+    <string name="tools_shelved_discard">Discard kept copies</string>
+    <string name="tools_shelved_saved">Saved %1$d copy or copies.</string>
     <string name="tools_verifying">Checking…</string>
     <string name="tools_survival_full">Notes and %1$d voice clip(s) are inside, and all read back intact.</string>
     <string name="tools_survival_incomplete">Some memories are missing: fewer records survived than were saved, though what remains reads back intact.</string>
