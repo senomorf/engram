@@ -68,6 +68,11 @@
     <string name="tools_verify_title">Проверить бэкап</string>
     <string name="tools_verify_hint">Выберите фото, скачанное из облака или чата. Engram покажет, что сохранилось.</string>
     <string name="tools_verify_button">Выбрать файл для проверки</string>
+    <string name="tools_shelved_title">Отложенные копии фото</string>
+    <string name="tools_shelved_hint">Android переиспользовал внутренний идентификатор фото, поэтому сохранённые копии прежнего снимка (%1$d) отложены, а не записаны поверх нового. Сохраните их в надёжное место или удалите.</string>
+    <string name="tools_shelved_save">Сохранить копии в папку</string>
+    <string name="tools_shelved_discard">Удалить отложенные копии</string>
+    <string name="tools_shelved_saved">Сохранено копий: %1$d.</string>
     <string name="tools_verifying">Проверка…</string>
     <string name="tools_survival_full">Заметки и голосовые (%1$d) внутри, все читаются без повреждений.</string>
     <string name="tools_survival_incomplete">Часть воспоминаний отсутствует: сохранилось меньше записей, чем было записано, но уцелевшие читаются без повреждений.</string>

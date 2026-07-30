@@ -12,6 +12,10 @@ change lands under Unreleased at merge time.
   version again, instead of being silently swallowed as a duplicate of the earlier one: a
   save now identifies its records by the note-taking session as well as the text. Retrying a
   save interrupted by a crash still adds nothing twice.
+- When Android reuses a photo's internal id and the app keeps the earlier photo's copy aside,
+  Tools now shows those kept copies with a way to save them to a folder of your choice or
+  discard them, instead of leaving them invisible on the phone forever. The Tools screen also
+  scrolls now that it can hold more.
 - Saving a memory now confirms the photo is still the one the app indexed: if Android
   reassigned that photo's internal id to a different picture since the last sync, the save
   is refused with a "will re-sync shortly" message instead of writing into the unrelated new

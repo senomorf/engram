@@ -2,7 +2,10 @@ package cam.engram.app.ui
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import cam.engram.app.R
 import cam.engram.app.ScreenTest
@@ -11,6 +14,7 @@ import cam.engram.app.setScreen
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class ToolsScreenTest : ScreenTest() {
@@ -22,6 +26,31 @@ class ToolsScreenTest : ScreenTest() {
         compose.setScreen(app) { ToolsScreen(onBack = {}) }
         compose.onNodeWithText(strings.getString(R.string.tools_export_button)).assertIsDisplayed()
         compose.onNodeWithText(strings.getString(R.string.tools_verify_button)).assertIsDisplayed()
+    }
+
+    // issue #92: a backup shelved by a reused media id used to accumulate invisibly. It is the
+    // displaced photo's only copy, so Tools surfaces it with a way to save or discard it.
+    @Test
+    fun shelvedBackupIsSurfacedAndCanBeDiscarded() {
+        val dir = File(strings.filesDir, "writeback").apply { mkdirs() }
+        val shelved = File(dir, "40.100.0.bak.orphan").apply { writeBytes(ByteArray(8) { 1 }) }
+        val title = strings.getString(R.string.tools_shelved_title)
+
+        compose.setScreen(app) { ToolsScreen(onBack = {}) }
+        // the listing is loaded off the main thread, so wait for it rather than racing it
+        compose.waitUntil { compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(strings.getString(R.string.tools_shelved_save)).performScrollTo().assertIsDisplayed()
+
+        compose.onNodeWithText(strings.getString(R.string.tools_shelved_discard)).performScrollTo().performClick()
+
+        compose.waitUntil { !shelved.exists() }
+    }
+
+    @Test
+    fun noShelvedSectionWhenNothingWasSetAside() {
+        File(strings.filesDir, "writeback").deleteRecursively()
+        compose.setScreen(app) { ToolsScreen(onBack = {}) }
+        compose.onNodeWithText(strings.getString(R.string.tools_shelved_title)).assertDoesNotExist()
     }
 
     @Test

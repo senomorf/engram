@@ -178,6 +178,7 @@ kover {
                     "cam.engram.app.audio.MediaVoiceRecorder",
                     "cam.engram.app.ui.SpeechInputKt*",
                     "cam.engram.app.export.SafArchiveSink*",
+                    "cam.engram.app.export.SafShelvedSink*",
                     "cam.engram.app.enrich.GeocoderPlaceProvider*",
                     "cam.engram.app.enrich.OpenMeteoWeatherProvider*",
                     "cam.engram.app.work.MediaObserverService*",
@@ -185,6 +186,7 @@ kover {
                     // SAF export/verify result callbacks: fire only on a real document-picker result
                     "*exportLauncher*",
                     "*verifyLauncher*",
+                    "*shelvedLauncher*",
                 )
                 // device-only code (MediaPlayer playback, SpeechRecognizer dictation) that cannot
                 // run on the JVM; checked manually via docs/device-qa.md (design D22)

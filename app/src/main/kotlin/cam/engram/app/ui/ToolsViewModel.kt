@@ -6,6 +6,8 @@ import cam.engram.app.AppContainer
 import cam.engram.app.export.ArchiveSink
 import cam.engram.app.export.ExportResult
 import cam.engram.app.verify.BackupVerifier
+import cam.engram.app.writeback.ShelvedBackup
+import cam.engram.app.writeback.ShelvedSink
 import cam.engram.format.read.Survival
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,12 @@ internal sealed interface ExportState {
         val message: String?,
     ) : ExportState
 }
+
+/** Shelved backups (issue #92) and the outcome of the last save-or-discard action. */
+internal data class ShelvedState(
+    val backups: List<ShelvedBackup> = emptyList(),
+    val savedCount: Int? = null,
+)
 
 internal sealed interface VerifyState {
     data object Idle : VerifyState
@@ -53,6 +61,29 @@ class ToolsViewModel(
     internal val exportState: StateFlow<ExportState> = exportFlow
     private val verifyFlow = MutableStateFlow<VerifyState>(VerifyState.Idle)
     internal val verifyState: StateFlow<VerifyState> = verifyFlow
+    private val shelvedFlow = MutableStateFlow(ShelvedState())
+    internal val shelvedState: StateFlow<ShelvedState> = shelvedFlow
+
+    internal fun refreshShelved() {
+        viewModelScope.launch {
+            shelvedFlow.value = shelvedFlow.value.copy(backups = container.writeBack.shelvedBackups())
+        }
+    }
+
+    internal fun saveShelved(sink: ShelvedSink?) {
+        if (sink == null) return
+        viewModelScope.launch {
+            val saved = container.writeBack.copyShelvedBackups(sink)
+            shelvedFlow.value = ShelvedState(container.writeBack.shelvedBackups(), savedCount = saved)
+        }
+    }
+
+    internal fun discardShelved() {
+        viewModelScope.launch {
+            container.writeBack.discardShelvedBackups()
+            shelvedFlow.value = ShelvedState(container.writeBack.shelvedBackups())
+        }
+    }
 
     internal fun export(sink: ArchiveSink?) {
         if (exportFlow.value is ExportState.Running) return

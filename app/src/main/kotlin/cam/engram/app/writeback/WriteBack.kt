@@ -40,6 +40,21 @@ data class Annotation(
 )
 
 /**
+ * A backup kept aside because its media id was reused for a different capture (finding F1):
+ * the displaced photo's only remaining copy. Surfaced so it can be saved or discarded
+ * instead of accumulating invisibly (issue #92).
+ */
+data class ShelvedBackup(
+    val name: String,
+    val sizeBytes: Long,
+)
+
+/** Opens a stream to write a shelved backup out to; null when it cannot be created. */
+fun interface ShelvedSink {
+    fun open(name: String): java.io.OutputStream?
+}
+
+/**
  * MediaStore write consent (Android 11+): modifying media the app does not own
  * needs a user-approved IntentSender, batched per save session.
  */
