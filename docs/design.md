@@ -179,7 +179,13 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   runtimeClasspath), so build-classpath libraries are no longer reported.
 
 - D24 Release pipeline (satisfies D17). Releases are tag-driven: pushing `vX.Y.Z` runs
-  `.github/workflows/release.yml`, which builds and signs a single universal APK (pure
+  `.github/workflows/release.yml`, four jobs whose split is a security boundary (issue #98):
+  verify gates, build compiles the tagged commit with no secrets present, release signs the
+  resulting artifact in the protected `release` environment without checking out any tagged
+  code, and publish smoke-tests and publishes. Signing secrets therefore never share an
+  environment with a build script the tag can change, which also closes the rc-tag path (an
+  rc skips the ancestry and evidence gates but still cannot run code next to the key). It
+  builds and signs a single universal APK (pure
   JVM/ART bytecode, no ABI splits; no AAB until Play, deferred) and publishes it to
   GitHub Releases. Signing keys live only in CI secrets (ENGRAM_KEYSTORE_BASE64,
   ENGRAM_KEYSTORE_PASSWORD, ENGRAM_KEY_ALIAS, ENGRAM_KEY_PASSWORD); app/build.gradle.kts
