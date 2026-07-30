@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import cam.engram.app.AppContainer
 import cam.engram.app.data.EngramSettings
 import cam.engram.app.work.DigestWorker
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -39,7 +40,9 @@ class SettingsViewModel(
 
     fun setDynamicColor(value: Boolean) = update { container.settings.setDynamicColor(value) }
 
-    private fun update(block: suspend () -> Unit) {
-        viewModelScope.launch { block() }
-    }
+    // returns the Job so a caller that must know the write landed can await it. The UI never
+    // does (a toggle is fire-and-forget), but a test can join instead of polling on a wall
+    // clock: the settings store writes through DataStore, whose own scope no test dispatcher
+    // can drain, so joining the job is the only deterministic way to observe completion.
+    private fun update(block: suspend () -> Unit): Job = viewModelScope.launch { block() }
 }
