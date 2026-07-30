@@ -20,10 +20,12 @@ class SafShelvedSink internal constructor(
         mimeType: String,
     ): OutputStream? =
         runCatching {
-            val file =
-                dir.findFile(name)?.takeIf { it.isFile }
-                    ?: dir.createFile(mimeType, name)
-                    ?: return null
+            // never write into a document that already exists: whether "wt" truncates is
+            // provider-dependent (a raw file-backed tree was observed not to), and a short
+            // write over a longer file would leave the previous tail behind, handing the user
+            // a corrupt photo. Always create, and let the provider uniquify a clashing name so
+            // an earlier rescued copy in the same folder is never overwritten either.
+            val file = dir.createFile(mimeType, name) ?: return null
             context.contentResolver.openOutputStream(file.uri, "wt")
         }.getOrNull()
 
