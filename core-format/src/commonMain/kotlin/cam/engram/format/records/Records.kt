@@ -79,6 +79,7 @@ class EngramRecord(
             bytes: ByteArray,
             at: Int,
             limit: Int = bytes.size,
+            budget: ScanBudget? = null,
         ): DecodedRecord? {
             val end = minOf(limit, bytes.size)
             if (!bytes.startsWith(MAGIC, at)) return null
@@ -97,6 +98,9 @@ class EngramRecord(
             val payloadEndLong = writerEnd + 4 + payloadLen
             if (payloadEndLong + 4 > end) return null
             val payloadEnd = payloadEndLong.toInt()
+            // charge the span before hashing it: a carve over hostile magic bytes must not
+            // spend unbounded CRC work (review N8)
+            if (budget != null && !budget.charge(payloadEnd - at)) return null
             val crcOk = bytes.u32be(payloadEnd) == Crc32.of(bytes, at, payloadEnd)
             val record =
                 if (version == WIRE_VERSION) {
@@ -142,6 +146,32 @@ class RecordHit(
     val decoded: DecodedRecord,
 )
 
+/**
+ * Bounds the CRC work a byte-wise carve may spend (review N8). The carve validates a full
+ * claimed span per `EGRM` candidate and resyncs one byte on failure, so a crafted region
+ * dense in magic bytes costs O(n^2) CRC work: minutes to hours of background CPU on a file
+ * a camera app could receive. A caller that scans untrusted media passes a budget; when it
+ * is exhausted the scan stops early and [exhausted] is set, which callers must treat as
+ * damage (never as a clean read). Not shared between scans.
+ */
+class ScanBudget(
+    private val maxBytes: Long,
+) {
+    var spentBytes: Long = 0L
+        private set
+
+    var exhausted: Boolean = false
+        private set
+
+    /** Charges [bytes] of CRC work; false once the budget is spent. */
+    fun charge(bytes: Int): Boolean {
+        if (exhausted) return false
+        spentBytes += bytes
+        if (spentBytes > maxBytes) exhausted = true
+        return !exhausted
+    }
+}
+
 object RecordStream {
     fun encode(records: List<EngramRecord>): ByteArray {
         val b = ByteArrayBuilder()
@@ -160,6 +190,7 @@ object RecordStream {
         bytes: ByteArray,
         from: Int = 0,
         until: Int = bytes.size,
+        budget: ScanBudget? = null,
     ): List<RecordHit> {
         val hits = mutableListOf<RecordHit>()
         var i = from
@@ -168,12 +199,12 @@ object RecordStream {
             if (d == null) {
                 // an undecodable header has no span authority either; there is no
                 // hit to surface, so carve from here for whatever survived
-                hits += scan(bytes, i, until)
+                hits += scan(bytes, i, until, budget)
                 return hits
             }
             hits += RecordHit(i, d)
             if (!d.crcOk) {
-                hits += scan(bytes, i + 1, until)
+                hits += scan(bytes, i + 1, until, budget)
                 return hits
             }
             i += d.byteLength
@@ -181,17 +212,24 @@ object RecordStream {
         return hits
     }
 
-    /** Carve: tolerates foreign bytes between records (other vendors' trailers etc). */
+    /**
+     * Carve: tolerates foreign bytes between records (other vendors' trailers etc).
+     * A [budget] bounds the CRC work spent on magic-byte candidates (review N8); when it
+     * runs out the carve stops early with the budget flagged, and the caller must read that
+     * as damage. Omitting it keeps the exhaustive behavior (cli verify, embedders).
+     */
     fun scan(
         bytes: ByteArray,
         from: Int = 0,
         until: Int = bytes.size,
+        budget: ScanBudget? = null,
     ): List<RecordHit> {
         val hits = mutableListOf<RecordHit>()
         var i = from
         while (i + EngramRecord.HEADER_LEN <= until) {
             if (bytes.startsWith(EngramRecord.MAGIC, i)) {
-                val d = EngramRecord.decodeAt(bytes, i, until)
+                val d = EngramRecord.decodeAt(bytes, i, until, budget)
+                if (budget?.exhausted == true) return hits
                 if (d != null && d.crcOk) {
                     hits += RecordHit(i, d)
                     i += d.byteLength

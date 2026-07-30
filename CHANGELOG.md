@@ -29,6 +29,11 @@ change lands under Unreleased at merge time.
   is now excluded from the caption written back into a repaired photo and from the readable
   archive view, so the newest intact note is used instead. The byte-exact record log in an
   archive was already unaffected.
+- A photo or video crafted (or corrupted) so that its trailing bytes look like thousands of
+  overlapping memory records can no longer pin the phone's CPU during a background scan: the
+  recovery scan now works to a bounded budget, and a file that exhausts it is treated as
+  damaged rather than clean, so a save is never blessed and a backup is never dropped on
+  the strength of an incomplete read.
 - The most recent memories can no longer ride Android cloud backup off the phone: the
   database's write-ahead log (where the newest notes and voice recordings sit until they are
   folded into the main file) is now excluded from cloud backup alongside the database itself,

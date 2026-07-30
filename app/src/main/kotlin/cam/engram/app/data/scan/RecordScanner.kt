@@ -9,6 +9,7 @@ import cam.engram.format.png.PngCodec
 import cam.engram.format.read.Memory
 import cam.engram.format.records.EngramRecord
 import cam.engram.format.records.RecordStream
+import cam.engram.format.records.ScanBudget
 import cam.engram.format.toHex
 
 class ScanOutcome(
@@ -108,19 +109,28 @@ class RecordScanner(
             }.getOrElse { emptyList<ByteArray>() to false }
         } else {
             // jpeg records sit after EOI, so a truncation that drops them also drops EOI; a
-            // records-present carve is structurally sound (any unknown image container likewise)
+            // records-present carve is structurally sound (any unknown image container likewise).
+            // The carve is budgeted (review N8): media arrives from outside the app, and a region
+            // dense in `EGRM` bytes would otherwise cost quadratic CRC work in a background scan.
+            // An exhausted budget means the read is incomplete, so it reports as not structurally
+            // complete: verify must not bless it and recovery must not settle on it.
+            val budget = ScanBudget(carveBudgetBytes(bytes.size))
             val frames =
                 RecordStream
-                    .scan(bytes)
+                    .scan(bytes, budget = budget)
                     .filter { it.decoded.crcOk }
                     .map { bytes.copyOfRange(it.offset, it.offset + it.decoded.byteLength) }
-            frames to true
+            frames to !budget.exhausted
         }
 
     private fun videoFrames(uri: String): List<ByteArray>? =
         access.withChannel(uri) { ch ->
             runCatching { Mp4Channels.readRawFrames(ch) }.getOrElse { emptyList() }
         }
+
+    // a legitimate carve CRCs roughly the payload once, so 16x the file (floored generously)
+    // is far above any honest read and still bounds a hostile one to a single linear pass
+    private fun carveBudgetBytes(size: Int): Long = maxOf(MIN_CARVE_BUDGET_BYTES, size.toLong() * CARVE_BUDGET_FACTOR)
 
     private fun outcome(
         frames: List<ByteArray>,
@@ -137,5 +147,10 @@ class RecordScanner(
         val text = Memory.fromRecords(frames.mapNotNull { EngramRecord.decodeAt(it, 0)?.record }).searchableText()
         val ids = frames.map { it.copyOfRange(8, 24).toHex() }.toSet()
         return ScanOutcome(frames.size, payload, blob.toByteArray(), text, contentHash, ids, structurallyComplete)
+    }
+
+    private companion object {
+        const val CARVE_BUDGET_FACTOR = 16L
+        const val MIN_CARVE_BUDGET_BYTES = 64L * 1024 * 1024
     }
 }
