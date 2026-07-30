@@ -131,7 +131,7 @@ class MediaWriteBack(
                 // amendment raises recovery's bar, it is not a prerequisite for it. A failed
                 // rename leaves the ids-only sidecar in place, so recovery falls back to the id
                 // bar rather than losing the journal, and the photo stays protected either way.
-                val expected = digestOf(prepared)
+                val expected = prepared.digest
                 journal.writeSidecar(item, expectedIds, expected)
                 val attempt =
                     runCatching { commit(item, prepared, expectedIds, expected) }
@@ -187,13 +187,27 @@ class MediaWriteBack(
 
     // the outputs a write needs, fully built from the backup before the target is opened
     private sealed interface Prepared {
+        /** The exact bytes this output will land, so verify and recovery can demand them. */
+        val digest: WriteJournal.PreparedOutput
+
         class Photo(
             val bytes: ByteArray,
-        ) : Prepared
+        ) : Prepared {
+            override val digest
+                get() = WriteJournal.PreparedOutput(EngramArchive.contentHashName(bytes), bytes.size.toLong())
+        }
 
         class Video(
             val temp: File,
-        ) : Prepared
+        ) : Prepared {
+            // streamed: a large video must not be loaded whole just to hash it
+            override val digest
+                get() =
+                    WriteJournal.PreparedOutput(
+                        FileInputStream(temp).channel.use { Digests.sha256Hex(it) },
+                        temp.length(),
+                    )
+        }
     }
 
     // reads only: the backup and a temp file. Every guard that can refuse a write
@@ -222,22 +236,6 @@ class MediaWriteBack(
                     JpegEmbedder(engine).embed(source, records, mirrorText, carryFrames)
                 },
             )
-        }
-
-    // the digest and size of the fully prepared output, computed before the target is opened
-    private fun digestOf(prepared: Prepared): WriteJournal.PreparedOutput =
-        when (prepared) {
-            is Prepared.Photo ->
-                WriteJournal.PreparedOutput(
-                    EngramArchive.contentHashName(prepared.bytes),
-                    prepared.bytes.size.toLong(),
-                )
-            // stream the temp file: a large video must not be loaded whole to hash it
-            is Prepared.Video ->
-                WriteJournal.PreparedOutput(
-                    FileInputStream(prepared.temp).channel.use { Digests.sha256Hex(it) },
-                    prepared.temp.length(),
-                )
         }
 
     private fun commit(
