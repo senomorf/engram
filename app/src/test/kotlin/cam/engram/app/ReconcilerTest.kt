@@ -325,6 +325,111 @@ class ReconcilerTest {
             }
         }
 
+    // review N5: DATE_TAKEN is user-editable, so a gallery "edit date" changes the capture
+    // identity of the SAME photo. That must not be read as a reused id, which would evict the
+    // unsaved draft and strand the memories under the old identity. Cheap signal: the file
+    // itself was never rewritten (same size and mtime).
+    @Test
+    fun dateEditWithUnchangedBytesKeepsDraftAndMigratesTheCache() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val note = EngramRecord(RecordKind.Note, 1, "same photo".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(note), "same photo"), takenAt = 100)
+            reconciler.reconcile()
+            db.enrichmentCache().upsert(
+                cam.engram.app.data.db
+                    .EnrichmentCacheEntity(1, "context".encodeToByteArray(), 0),
+            )
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "unsaved note", null, 0),
+            )
+
+            // the user edits the photo's date: identity moves, the file does not
+            snapshot[0] = snapshot[0].copy(takenAtMillis = 900)
+            reconciler.reconcile()
+
+            assertEquals(900, db.media().byId(1)!!.takenAtMillis, "the row tracks the new date")
+            assertEquals("unsaved note", db.drafts().byId(1)?.text, "a re-date must not destroy the draft")
+            assertTrue(db.enrichmentCache().byId(1) != null, "a re-date must not drop the cached context")
+            assertEquals(
+                listOf(900L),
+                db
+                    .recordCache()
+                    .all()
+                    .map { it.identityTakenAt },
+                "the memories move onto the new identity instead of being orphaned",
+            )
+            assertEquals(1, db.recordCache().byKey(1, 900)!!.recordCount, "the cached memory survives the move")
+        }
+
+    // review N5: when the file was touched (mtime moved) the size/mtime signal cannot answer,
+    // so the cached content hash decides: identical bytes mean the same capture, re-dated
+    @Test
+    fun dateEditDetectedByContentHashWhenTheFileWasTouched() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val note = EngramRecord(RecordKind.Note, 1, "same bytes".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(note), "same bytes"), takenAt = 100)
+            reconciler.reconcile()
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "unsaved note", null, 0),
+            )
+
+            // identity and mtime both move, but the bytes are untouched
+            snapshot[0] = snapshot[0].copy(takenAtMillis = 900, dateModified = 777)
+            reconciler.reconcile()
+
+            assertEquals("unsaved note", db.drafts().byId(1)?.text, "identical bytes prove the same capture")
+            assertEquals(
+                listOf(900L),
+                db
+                    .recordCache()
+                    .all()
+                    .map { it.identityTakenAt },
+            )
+        }
+
+    // review N5: the guard must stay conservative. Different bytes under a changed identity is
+    // a genuinely reused id, so the H1 eviction still applies.
+    @Test
+    fun differentBytesUnderAChangedIdentityStillEvicts() =
+        runBlocking {
+            val embedder =
+                cam.engram.format.jpeg
+                    .JpegEmbedder(FakeXmp())
+            val a = EngramRecord(RecordKind.Note, 1, "photo A".encodeToByteArray())
+            addPhoto(1, embedder.embed(SyntheticMedia.jpegPlain(), listOf(a), "photo A"), takenAt = 100)
+            reconciler.reconcile()
+            db.drafts().upsert(
+                cam.engram.app.data.db
+                    .DraftEntity(1, "A's unsaved note", null, 0),
+            )
+
+            // a different capture takes the id: different bytes, size and mtime
+            val b = EngramRecord(RecordKind.Note, 2, "photo B".encodeToByteArray())
+            val bBytes = embedder.embed(SyntheticMedia.jpegWithFillBytes(), listOf(b), "photo B")
+            files["content://media/images/1"] = bBytes
+            snapshot[0] = snapshot[0].copy(takenAtMillis = 200, sizeBytes = bBytes.size.toLong(), dateModified = 2)
+            reconciler.reconcile()
+
+            assertNull(db.drafts().byId(1), "a genuine reuse must still evict the old private draft")
+            assertEquals(
+                listOf(100L, 200L),
+                db
+                    .recordCache()
+                    .all()
+                    .map { it.identityTakenAt }
+                    .sorted(),
+                "A's memories stay orphaned under their own identity",
+            )
+        }
+
     // finding H1: a media id reused in place (no reconcile ever seeing it absent) must not
     // scan the new capture under the old one's identity and graft the old private records
     @Test

@@ -332,7 +332,20 @@ Sharing that must carry context uses explicit bake-out (roadmap) or send-as-file
   (finding H1). The row replacement and that eviction commit in one Room transaction,
   so a crash or failed delete between them cannot strand the old draft or enrichment on
   the new row, where a later reconcile (identity now matching) would never re-evict it
-  (finding F3).
+  (finding F3). Amended (review N5): DATE_TAKEN is user-editable, so an identity change is
+  ambiguous between a reused id and the same photo re-dated in a gallery, and reading a
+  re-date as reuse silently destroys an unsaved draft. The file's bytes break the tie,
+  cheapest signal first (Reconciler.sameCaptureReDated): an unchanged size and mtime prove
+  the file was never rewritten, so only the MediaStore date column moved; when the file was
+  touched, the content hash the cache recorded for the old identity proves sameness anyway.
+  A proven re-date keeps the draft and enrichment and moves the cache row onto the new
+  identity, superset-merged inside the same transaction as the row replacement, instead of
+  orphaning it. With neither signal available the answer is unknowable and the reading stays
+  conservative, because the two errors are not symmetric: evicting on a re-date costs an
+  unsaved note, while keeping private content on a genuinely different photo is the H1 leak.
+  Recovery keeps its own conservative rule unchanged, since a .bak matches the cached hash
+  under both readings and so cannot disambiguate there; a wrongly shelved backup stays
+  user-recoverable from Tools (issue #92).
 - D30 Notification permission flow. API 33+ never grants POST_NOTIFICATIONS
   silently and the evening digest defaults on (D12), so without a request every
   fresh install got a silently dead digest. The permission is requested once when
