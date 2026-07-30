@@ -139,6 +139,38 @@ class AnnotateSaveTest {
             assertEquals(null, db.drafts().byId(7))
         }
 
+    // review N3, end to end: the draft's stamp is minted once and cleared when a save consumes
+    // the draft, so writing the same text again is a new draft and appends a second version
+    // rather than deriving the id already in the file (which the write would skip).
+    @Test
+    fun reAnnotatingWithTheSameTextAppendsASecondVersion() =
+        runBlocking {
+            seed(70)
+            val vm = AnnotateViewModel(container(), mediaId = 70, draftsDir = draftsDir)
+            settle()
+            vm.onTextChange("beach")
+            settle()
+            vm.save()
+            settle()
+            assertIs<SaveUi.Saved>(vm.ui.value.save)
+            assertEquals(0L, vm.ui.value.draftCreatedAt, "a consumed draft leaves no stamp behind")
+
+            vm.consumeSaved()
+            vm.onTextChange("beach")
+            settle()
+            vm.save()
+            settle()
+
+            assertIs<SaveUi.Saved>(vm.ui.value.save)
+            val records =
+                RecordStream
+                    .scan(access.files["content://media/70"]!!)
+                    .filter { it.decoded.crcOk }
+                    .mapNotNull { it.decoded.record }
+            assertEquals(2, records.size, "the repeated note must append as a new version")
+            assertEquals(2, records.map { it.idHex }.toSet().size, "the two versions carry distinct ids")
+        }
+
     @Test
     fun saveWithNoContentShortCircuitsToSaved() =
         runBlocking {

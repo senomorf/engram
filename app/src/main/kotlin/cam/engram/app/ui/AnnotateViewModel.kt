@@ -37,6 +37,9 @@ data class AnnotateState(
     val audioPath: String? = null,
     val recording: Boolean = false,
     val save: SaveUi = SaveUi.Idle,
+    // when the current draft began; enters the record id derivation (review N3). 0 until the
+    // draft is first persisted, and back to 0 once a save consumes it.
+    val draftCreatedAt: Long = 0,
 )
 
 class AnnotateViewModel(
@@ -59,6 +62,7 @@ class AnnotateViewModel(
                     item = item,
                     text = draft?.text.orEmpty(),
                     audioPath = draft?.audioPath?.takeIf { File(it).exists() },
+                    draftCreatedAt = draft?.createdAtMillis ?: 0L,
                 )
         }
     }
@@ -127,6 +131,8 @@ class AnnotateViewModel(
                     Annotation(
                         noteText = s.text.takeIf { it.isNotBlank() },
                         audioFile = s.audioPath?.let { File(it) },
+                        // persistDraft stamped the draft, so a retry re-derives the same ids
+                        createdAtMillis = state.value.draftCreatedAt,
                     ),
                 )
             state.value =
@@ -134,7 +140,9 @@ class AnnotateViewModel(
                     is WriteOutcome.Success -> {
                         container.db.drafts().delete(mediaId)
                         s.audioPath?.let { File(it).delete() }
-                        state.value.copy(save = SaveUi.Saved(overSoftCap = outcome.overSoftCap))
+                        // the draft is gone, so anything typed next is a new draft and must
+                        // derive fresh record ids even if its text repeats (review N3)
+                        state.value.copy(save = SaveUi.Saved(overSoftCap = outcome.overSoftCap), draftCreatedAt = 0L)
                     }
                     WriteOutcome.NotOpened -> state.value.copy(save = SaveUi.Rejected)
                     is WriteOutcome.Failed -> state.value.copy(save = SaveUi.Error(outcome.reason))
@@ -150,16 +158,22 @@ class AnnotateViewModel(
         val s = state.value
         if (s.text.isBlank() && s.audioPath == null) {
             container.db.drafts().delete(mediaId)
-        } else {
-            container.db.drafts().upsert(
-                DraftEntity(
-                    mediaId = mediaId,
-                    text = s.text.takeIf { it.isNotBlank() },
-                    audioPath = s.audioPath,
-                    updatedMillis = System.currentTimeMillis(),
-                ),
-            )
+            state.value = state.value.copy(draftCreatedAt = 0L)
+            return
         }
+        // stamped once per draft and never bumped by later edits: a retry of this draft must
+        // re-derive the ids write-back already landed, while a later draft gets its own (N3)
+        val createdAt = s.draftCreatedAt.takeIf { it != 0L } ?: System.currentTimeMillis()
+        if (createdAt != s.draftCreatedAt) state.value = state.value.copy(draftCreatedAt = createdAt)
+        container.db.drafts().upsert(
+            DraftEntity(
+                mediaId = mediaId,
+                text = s.text.takeIf { it.isNotBlank() },
+                audioPath = s.audioPath,
+                updatedMillis = System.currentTimeMillis(),
+                createdAtMillis = createdAt,
+            ),
+        )
     }
 
     override fun onCleared() {

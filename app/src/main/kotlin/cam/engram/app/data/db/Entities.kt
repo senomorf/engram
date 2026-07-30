@@ -66,6 +66,11 @@ data class DraftEntity(
     val text: String?,
     val audioPath: String?,
     val updatedMillis: Long,
+    // when this draft began, stamped once and never bumped by later edits. Record ids are
+    // derived from it (review N3), so a retry of the same draft re-derives the ids already
+    // written (idempotent) while a fresh draft with previously used text derives new ones
+    // and appends as a new version instead of being silently swallowed as a duplicate.
+    val createdAtMillis: Long = 0,
 )
 
 data class Counts(

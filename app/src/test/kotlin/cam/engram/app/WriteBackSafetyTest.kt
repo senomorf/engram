@@ -95,6 +95,42 @@ class WriteBackSafetyTest {
             assertEquals(afterFirst, afterSecond, "a repeated identical write must not duplicate records")
         }
 
+    // review N3: re-annotating with text the file already carries must append a new version.
+    // Ids derive from the draft's stamp as well as the payload, so a later draft with repeated
+    // text derives a different id instead of colliding with the record already present (which
+    // the write would skip, silently dropping the newest note).
+    @Test
+    fun reusingEarlierNoteTextAppendsANewVersion() =
+        runBlocking {
+            val item = seed(90, SyntheticMedia.jpegPlain())
+            // three separate drafts, the third repeating the first's text
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("beach", null, createdAtMillis = 1)))
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("sunset", null, createdAtMillis = 2)))
+            assertIs<WriteOutcome.Success>(writeBack.write(item, Annotation("beach", null, createdAtMillis = 3)))
+
+            val notes =
+                RecordStream
+                    .scan(access.files[item.uri]!!)
+                    .filter { it.decoded.crcOk }
+                    .mapNotNull { it.decoded.record }
+            assertEquals(3, notes.size, "each draft appends its own version")
+            assertEquals(3, notes.map { it.idHex }.toSet().size, "repeated text must not collide on ids")
+            assertEquals("beach", notes.last().payload.decodeToString())
+        }
+
+    // review N3: the idempotency guarantee still holds within one draft, which is what a
+    // crash retry replays: the same stamp re-derives the ids already landed
+    @Test
+    fun retryOfTheSameDraftStillDoesNotDuplicate() =
+        runBlocking {
+            val item = seed(91, SyntheticMedia.jpegPlain())
+            val annotation = Annotation("remember", null, createdAtMillis = 42)
+            assertIs<WriteOutcome.Success>(writeBack.write(item, annotation))
+            assertIs<WriteOutcome.Success>(writeBack.write(item, annotation))
+
+            assertEquals(1, RecordStream.scan(access.files[item.uri]!!).count { it.decoded.crcOk })
+        }
+
     // reviewer D, partial retry: an enrichment cached between the crash and the retry must be the
     // only record appended on the retry, never a second copy of the note already in the file.
     @Test

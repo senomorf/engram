@@ -8,6 +8,10 @@ change lands under Unreleased at merge time.
 
 ### Fixed
 
+- Writing a note whose exact text you used on the same photo before is saved as a new
+  version again, instead of being silently swallowed as a duplicate of the earlier one: a
+  save now identifies its records by the note-taking session as well as the text. Retrying a
+  save interrupted by a crash still adds nothing twice.
 - Saving a memory now confirms the photo is still the one the app indexed: if Android
   reassigned that photo's internal id to a different picture since the last sync, the save
   is refused with a "will re-sync shortly" message instead of writing into the unrelated new
