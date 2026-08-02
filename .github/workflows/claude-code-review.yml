@@ -32,6 +32,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Require the review credential
+        # Without this the action exits 0 with its internal steps skipped, so a missing
+        # secret shows up as a green "review passed" that never looked at anything.
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN is not set. Mint one with 'claude setup-token'"
+            echo "::error::then 'gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo ${{ github.repository }}'."
+            exit 1
+          fi
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
@@ -60,3 +72,25 @@ jobs:
               }
             }
 
+      - name: Confirm the review actually ran
+        # claude-code-action exits 0 with its internal steps skipped when it bails, so the
+        # check goes green having reviewed nothing. Two known causes: a missing token (the
+        # step above catches that), and a PR that edits this workflow, which the action
+        # refuses because otherwise a PR could rewrite it to steal the token.
+        # `execution_file` is populated only on a real run, so it is the honest signal.
+        if: always() && steps.claude-review.conclusion != 'skipped'
+        env:
+          EXEC: ${{ steps.claude-review.outputs.execution_file }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$EXEC" ]; then
+            echo "Review ran: $EXEC"
+            exit 0
+          fi
+          if ! git diff --quiet "$BASE"...HEAD -- .github/workflows/claude-code-review.yml; then
+            echo "::warning::No review ran. This PR edits claude-code-review.yml, and the action requires that file to match the base branch. It will review normally once this is merged."
+            exit 0
+          fi
+          echo "::error::The review did not run, and this PR does not modify its workflow."
+          echo "::error::Check the token and the 'Run Claude Code Review' step log. A green check here would have been a lie."
+          exit 1
