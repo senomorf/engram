@@ -41,6 +41,9 @@ jobs:
           additional_permissions: |
             actions: read
 
+          # 'opus' is an alias for the latest Opus, so this never needs a version bump
+          claude_args: '--model opus'
+
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           # prompt: 'Update the pull request description to include a summary of changes.'
 
